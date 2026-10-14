@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import matplotlib
-matplotlib.use("Agg")  # backend sin ventana; debe ir antes de importar pyplot
+matplotlib.use("Agg")  
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -59,7 +59,7 @@ def get_burndown_series(
 def generate_all_charts(
     log_csv: str = str(ROOT / "docs" / "sprint_log.csv"),
     out_dir: str = str(ROOT / "reports" / "figures"),
-    total_blocks: int | None = None,
+    total_blocks: int | None = 4,
 ) -> None:
     """Generates one Burndown chart per sprint and the Velocity comparison chart."""
     df = pd.read_csv(log_csv)
