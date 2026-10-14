@@ -1,18 +1,18 @@
-# Bitácora de Daily Scrums — PCM Analytics (FinBank Predict360)
+# Daily Scrum Log — PCM Analytics (FinBank Predict360)
 
-Registro de sincronización de los Sprints 1 y 2.
+Synchronization record across Sprints 1 and 2.
 
 ## Sprint 1
-### Daily 1 — [Fecha / Hora]
-- **Cristian Vega:**
-  - *Qué hice:* 
-  - *Qué haré:* 
-  - *Impedimentos:* 
-- **Paula Gacha:**
-  - *Qué hice:* 
-  - *Qué haré:* 
-  - *Impedimentos:* 
-- **Marco Jimenez:**
-  - *Qué hice:* 
-  - *Qué haré:* 
-  - *Impedimentos:*
+### Daily 1 — [Date / Time]
+- **Cristian Vega (Project Leader):**
+  - *What I did:* 
+  - *What I will do:* 
+  - *Impediments:* 
+- **Paula Gacha (Business Analyst):**
+  - *What I did:* 
+  - *What I will do:* 
+  - *Impediments:* 
+- **Marco Jimenez (Scrum Facilitator):**
+  - *What I did:* 
+  - *What I will do:* 
+  - *Impediments:*
