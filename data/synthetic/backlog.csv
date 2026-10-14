@@ -1,0 +1,12 @@
+story_id,title,domain,exposure_type,exposure_cop_m,sp,sprint
+US-01,Governance framework (RACI & cadence),Enabling,enabling,0.0,2,1
+US-02,Exposure-based backlog prioritization,Enabling,enabling,0.0,3,1
+US-03-P1,Data readiness: source inventory & quality thresholds,Delinquency_Churn,umbrella,77000.0,5,1
+US-06,Evidence-based sprint closure mechanism,Enabling,enabling,0.0,5,1
+US-03-P2,Data readiness: Ley 1581 compliance & gap report,Delinquency_Churn,umbrella,77000.0,3,2
+US-04-P1,EarlyRisk: delinquency baseline & early-warning requirements,Delinquency,direct,58800.0,5,2
+US-07,Risk and impediment visibility,Enabling,enabling,0.0,5,2
+US-04-P2,EarlyRisk: delinquency model roadmap & validation plan,Delinquency,umbrella,58800.0,3,3
+US-05,StayBank: churn roadmap and validation plan,Churn,direct,18200.0,8,4
+US-08,Sprint checkpoint and business validation review,Enabling,enabling,0.0,5,5
+US-09,"Operational roadmap, handover and reusable framework",Enabling,enabling,0.0,8,6
