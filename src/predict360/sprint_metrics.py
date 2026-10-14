@@ -1,7 +1,20 @@
 from pathlib import Path
+
+import matplotlib
+matplotlib.use("Agg")  # backend sin ventana; debe ir antes de importar pyplot
 import matplotlib.pyplot as plt
 import pandas as pd
-matplotlib.use("Agg")
+
+ROOT = Path(__file__).resolve().parents[2]
+
+from pathlib import Path
+
+import matplotlib
+matplotlib.use("Agg")  # backend sin ventana; debe ir antes de importar pyplot
+import matplotlib.pyplot as plt
+import pandas as pd
+
+ROOT = Path(__file__).resolve().parents[2]
 
 ROOT = Path(__file__).resolve().parents[2]
 
