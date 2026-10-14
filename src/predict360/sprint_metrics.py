@@ -101,4 +101,4 @@ def generate_all_charts(
 
 
 if __name__ == "__main__":
-    generate_all_charts()
+    generate_all_charts() 

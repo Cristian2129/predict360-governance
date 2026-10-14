@@ -31,4 +31,4 @@ def test_synthetic_churn_reconciles_and_injects_r01_missing_rate(tmp_path: Path)
 
     assert abs(churn_df["exposure_cop_m"].sum() - 18200.0) < 1e-6
     assert churn_df["tenure_months"].isna().mean() == 0.12
-    assert (tmp_path / "churn_sample.csv").exists()
+    assert (tmp_path / "churn_sample.csv").exists() 
