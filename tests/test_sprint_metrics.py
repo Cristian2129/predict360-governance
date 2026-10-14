@@ -1,4 +1,6 @@
 import pandas as pd
+import pytest
+
 from src.predict360.sprint_metrics import calculate_velocity, get_burndown_series
 
 
@@ -24,3 +26,12 @@ def test_zero_planned_sp_gives_zero_rate():
         {"sprint": 1, "block": 0, "story_id": "NONE", "story_points": 0, "status": "Planned", "ideal_remaining": 0.0, "actual_remaining": 0},
     ])
     assert calculate_velocity(log).iloc[0]["completion_rate_pct"] == 0.0
+
+
+def test_burndown_series_is_ordered_by_block():
+    log = pd.DataFrame([
+        {"sprint": 1, "block": 2, "timestamp_label": "B", "ideal_remaining": 5.0, "actual_remaining": 8},
+        {"sprint": 1, "block": 0, "timestamp_label": "A", "ideal_remaining": 10.0, "actual_remaining": 10},
+    ])
+    series = get_burndown_series(log, 1)
+    assert list(series["block"]) == [0, 2]
