@@ -34,5 +34,3 @@ def test_burndown_series_uses_closed_block():
     assert list(series["block"]) == [0, 1, 2]
     assert list(series["actual_remaining"]) == [8, 3, 3]
     assert list(series["ideal_remaining"]) == [8.0, 4.0, 0.0]
-
-    
