@@ -1,0 +1,7 @@
+risk_id,type,category,description,probability,impact,owner,control,status
+R-01,Risk,Data quality,Records may be incomplete or fragmented for forecasting use,High,High,Paula Gacha,Early data validation with defined quality thresholds in Sprint 1 (quality.py),Mitigating
+R-02,Risk,Schedule,Analytical and validation work may extend beyond planned effort,High,High,Marco Jimenez,Six two-week sprint checkpoints cap undetected drift at 14 days,Open
+R-03,Risk,Scope,Requests for model development or system integration,Low,High,Cristian Vega,Written scope boundary validated by the sponsor in Week 2,Open
+R-04,Risk,Compliance,Data of 125000 clients falls under Ley 1581 de 2012 (Habeas Data),Low,High,Paula Gacha,Compliance checklist applied from Sprint 1 (US-03 P2 gap report),Mitigating
+R-05,Risk,Business adoption,Low uptake by the Risk and Analytics function,Low,Low,Cristian Vega,Sponsor validation at every sprint checkpoint,Open
+I-01,Impediment,Schedule,Sponsor sign-off delayed stories at closure in the Cut 1 simulation,High,Medium,Marco Jimenez,Sponsor feedback recorded in Sprint Review minutes (Option B),Mitigating
