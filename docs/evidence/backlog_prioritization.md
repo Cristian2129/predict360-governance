@@ -1,7 +1,7 @@
 # FinBank Predict360 — Prioritized Backlog by Financial Exposure (US-02)
 
 - **Total Reconciled Direct Exposure:** COP 77,000.0M (EarlyRisk: 58,800.0M + StayBank: 18,200.0M)
-- **Governance Value Added:** Separates `direct`, `umbrella`, and `enabling` exposure to prevent double-counting (COP 231,000M raw sum vs. COP 77,000M net portfolio) and ranks stories by **Exposure Efficiency (`COP M / SP`)**.
+- **Governance Value Added:** Separates `direct`, `umbrella`, and `enabling` exposure to prevent double-counting (COP 289,800.0M raw sum vs. COP 77,000.0M net portfolio) and ranks stories by exposure, breaking ties with **Exposure Efficiency (`COP M / SP`)**.
 
 | Rank | Story ID | Title | Type | Exposure (COP M) | Share (%) | Efficiency (COP M / SP) | Tier | SP | Sprint |
 | :---: | :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
