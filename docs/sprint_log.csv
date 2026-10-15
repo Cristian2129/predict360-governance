@@ -5,4 +5,4 @@ sprint,story_id,story_points,status,closed_block
 1,US-01,2,Done,1
 2,US-03-P2,3,Done,1
 2,US-04-P1,5,Done,2
-2,US-07,5,In_Progress,
+2,US-07,5,Done,4

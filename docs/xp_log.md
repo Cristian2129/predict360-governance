@@ -8,7 +8,7 @@ Traceability record of the 4 *Extreme Programming (XP)* engineering practices ex
 | 1 | Sprint 1 | `sprint_metrics.py` (US-06) | Marco Jimenez | Cristian Vega | *[screenshot in `docs/pairing/Screenshot 2026-10-14 122517.png`]* |
 | 2 | Sprint 1 | `quality.py` (US-03 P1) | Paula Gacha | Marco Jimenez | *[screenshot in `docs/pairing/us04_pairing_teams.png`]* |
 | 3 | Sprint 2 | `reconcile.py` (US-04 P1) | Paula Gacha | Marco Jimenez | `docs/pairing/us04_pairing_teams.png` (recorded in `c4ff7cc`); co-authored commits `e7939ea65a4bdacc43a51e0ff7300f9921122cd5`|
-| 4 | Sprint 2 | Refactor `exposure.py` (US-02 / XP-04) | Cristian Vega | *[Navigator]* | *[screenshot in `docs/pairing/`]* |
+| 4 | Sprint 2 | Refactor `exposure.py` (US-02 / XP-04) | Cristian Vega | Marco Jimenez | *[screenshot in `docs/pairing/pairingrefactor.png`]* |
 
 > Requirement: at least **two** documented sessions with a photo/screenshot or `Co-authored-by:` commits. Session 3 is complete. Add a screenshot for one more session, and delete any row that did not take place.
 
@@ -33,7 +33,7 @@ Traceability record of the 4 *Extreme Programming (XP)* engineering practices ex
 | #3 | `feature/us-03-data-quality` | US-03 P1 | Paula Gacha | Marco Jimenez | *merged* |
 | #4 | `feature/us-04-reconcile-baseline` | US-04 P1 | Paula Gacha | Cristian Vega | *merged* |
 | #5 | `refactor/quality-simple-design` | US-03 / XP-04 | Paula Gacha | Cristian Vega | *merged*|
-
+| #6 | `refactor/quality-simple-design` | US-07| Marco Jimenez | Cristian Vega | *merged*|
 > Reviewer and CI columns come from each PR page on GitHub (Approved review and green check). No author approves their own PR.
 
 ## 4. Simple Design & Refactoring (Before vs. After)

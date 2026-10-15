@@ -66,3 +66,34 @@ def test_export_creates_markdown_file_with_table(tmp_path):
 def test_missing_columns_raise_value_error():
     with pytest.raises(ValueError):
         prioritize_backlog(pd.DataFrame([{"story_id": "US-01"}]))
+
+
+# --- Refactor (XP-04): nuevas pruebas escritas antes del cambio (TDD) ---
+
+def test_exposure_type_is_derived_when_column_is_absent():
+    """Without exposure_type, positive exposure -> direct and zero exposure -> enabling."""
+    sample = pd.DataFrame([
+        {"story_id": "US-01", "exposure_cop_m": 0.0, "sp": 2},
+        {"story_id": "US-04-P1", "exposure_cop_m": 58800.0, "sp": 5},
+    ])
+    ordered = prioritize_backlog(sample).set_index("story_id")
+    assert ordered.loc["US-04-P1", "exposure_type"] == "direct"
+    assert ordered.loc["US-01", "exposure_type"] == "enabling"
+    assert ordered.loc["US-04-P1", "priority_tier"] == "Risk-Bearing"
+
+
+def test_export_reports_raw_sum_computed_from_data(tmp_path):
+    """The raw (double-counted) total must come from the data, not be hardcoded."""
+    csv_path = tmp_path / "backlog.csv"
+    md_path = tmp_path / "backlog_prioritization.md"
+    pd.DataFrame([
+        {"story_id": "US-03-P1", "title": "Data gate", "domain": "Data", "exposure_type": "umbrella", "exposure_cop_m": 77000.0, "sp": 5, "sprint": 1},
+        {"story_id": "US-04-P1", "title": "EarlyRisk", "domain": "Credit", "exposure_type": "direct", "exposure_cop_m": 58800.0, "sp": 5, "sprint": 2},
+        {"story_id": "US-05", "title": "StayBank", "domain": "Churn", "exposure_type": "direct", "exposure_cop_m": 18200.0, "sp": 8, "sprint": 3},
+    ]).to_csv(csv_path, index=False)
+
+    export_prioritized_backlog(backlog_csv=csv_path, out_md=md_path)
+
+    content = md_path.read_text(encoding="utf-8")
+    assert "COP 154,000.0M raw sum" in content
+    assert "231,000" not in content
