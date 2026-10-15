@@ -7,7 +7,7 @@ Traceability record of the 4 *Extreme Programming (XP)* engineering practices ex
 | :---: | :---: | :--- | :--- | :--- | :--- | :--- |
 | 1 | Sprint 1 | `sprint_metrics.py` (US-06) | Marco Jimenez | Cristian Vega | *Pending* |  |
 | 2 | Sprint 1 | `quality.py` (US-03 P1) | Paula Gacha | Cristian Vega | *Pending* | |
-| 3 | Sprint 2 | `reconcile.py` (US-04 P1) | Paula Gacha | Marco Jimenez | *Pending* |  |
+| 3 | Sprint 2 | `reconcile.py` (US-04 P1) | Paula Gacha | Marco Jimenez |1bf81a6c2a4b7d1d82df921024f3c18038508e0e| docs/pairing/us04_pairing_teams.png |
 | 4 | Sprint 2 | Refactor `quality.py` | Paula Gacha | Cristian Vega | *Pending* | |
 
 ## 2. Test-Driven Development (TDD)
