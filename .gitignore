@@ -14,3 +14,9 @@ env/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Real FinBank data never leaves the bank
+data/real/
+
+# Defective demo variants (regenerate with make_synthetic --defect)
+data/synthetic/defects/
