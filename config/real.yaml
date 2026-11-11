@@ -1,0 +1,24 @@
+# Run configuration for FinBank REAL data. Runs only inside the bank.
+# Same structure as synthetic.yaml; FinBank fills in the values marked TODO.
+synthetic: false
+seed: 42                             # only used for bootstrap intervals
+snapshot_date: 2026-03-31            # TODO(FinBank): cut-off date T of the extract
+
+paths:
+  input_dir: data/real               # git-ignored; never leaves the bank
+  output_dir: data/real
+  runs_dir: runs
+
+hmac:
+  key_env: PREDICT360_HMAC_KEY       # FinBank's key, set as an environment variable only
+
+reconciliation:
+  delinquency_expected_cop_m: 58800.0
+  churn_expected_cop_m: 18200.0
+  tolerance_cop_m: 0.01
+
+horizons_days: [30, 60, 90]
+
+retention_days:                      # TODO(FinBank): RAW retention period (Ley 1581 policy); we do not set it
+
+generator: null                      # real data comes from FinBank extracts, not from make_synthetic
