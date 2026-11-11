@@ -1,0 +1,29 @@
+# Contract for the model card JSON (technical spec, section 6). Admission is Gate 2 (model_card.py).
+name: model_card_v1
+version: v1
+table: model_card
+description: Identity, traceability, temporal split and status of a model submitted for evaluation.
+allowed_status: [candidate, shadow, pilot, approved, retired]
+allowed_target: [delinquency, churn]
+fields:
+  model_id:             {type: string, required: true}
+  created_at:           {type: datetime, required: true}
+  run_by:               {type: string, required: true}
+  target:               {type: string, required: true, allowed: [delinquency, churn]}
+  spec_version:         {type: string, required: true}
+  dataset_hash:         {type: string, required: true, format: sha256_hex}
+  snapshot_date:        {type: date, required: true}
+  train_end_date:       {type: date, required: true, before: eval_start_date}
+  eval_start_date:      {type: date, required: true}
+  preprocessing_fit_on: {type: string, required: true, allowed: [train_only]}
+  commit:               {type: string, required: true}
+  libs:                 {type: object, required: true}
+  seed:                 {type: integer, required: true}
+  algorithm:            {type: string, required: true}
+  hyperparameters:      {type: object, required: true}
+  features:             {type: list, required: true}
+  ranking_policy:       {type: string, required: true}
+  baselines_compared:   {type: list, required: true}
+  intervention_handling: {type: string, required: true}
+  status:               {type: string, required: true, allowed: [candidate, shadow, pilot, approved, retired]}
+  approved_by:          {type: string, required: false}

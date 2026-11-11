@@ -1,0 +1,86 @@
+# Project assumptions (technical spec, section 12). Changing them does not change the code.
+# type: business (validated by the FinBank sponsor before real use),
+#       design (proposed by PCM Analytics),
+#       simulation (used only for the example and declared illustrative).
+# value: dotted key -> value; config.load_assumptions merges them into a nested dict.
+version: v1
+assumptions:
+  - id: A01
+    name: Days past due that count as delinquency
+    value: {delinquency.dpd_threshold_days: 30}
+    type: business
+    rationale: First delinquency bucket; an early warning makes sense before 60 or 90 days.
+
+  - id: A02
+    name: Delinquency alert horizons
+    value: {delinquency.horizons_days: [30, 60]}
+    type: business
+    rationale: Stated verbatim in the client brief.
+
+  - id: A03
+    name: Churn definition
+    value:
+      churn.definition: voluntary_early_cancellation
+      churn.horizon_days: 90
+    type: business
+    rationale: The client asks for 3 months' lead time; a natural maturity is not a decision that can be retained.
+
+  - id: A04
+    name: Preferred segment
+    value: {churn.preferred_segment: top_10pct_by_exposure}
+    type: business
+    rationale: >-
+      Top 10% of clients by exposure (12,500 clients), matching the synthetic churn data
+      (200 rows x 62.5). Tenure is not usable as the criterion because 12% of tenure_months is missing.
+
+  - id: A05
+    name: Feature history window
+    value: {features.history_window_months: 12}
+    type: design
+    rationale: Covers a full annual cycle and its seasonality.
+
+  - id: A06
+    name: No-intervention control group
+    value: {intervention.control_group_share: 0.05}
+    type: design
+    rationale: Measures the effect of the action without leaving many clients unmanaged.
+
+  - id: A07
+    name: Share of exposure lost if the event occurs
+    value: {value.loss_given_event: 1.0}
+    type: simulation
+    rationale: Upper-bound scenario; 58,800M and 18,200M are exposure, not loss. The simulator allows lowering it.
+
+  - id: A08
+    name: Alert frequency and capacity K
+    value:
+      intervention.alert_frequency: weekly
+      value.default_capacity_share: 0.10
+    type: design
+    rationale: Collections working rhythm; K moves in the simulator and K* comes from the calculation.
+
+  - id: A09
+    name: Action effectiveness and cost per contact
+    value:
+      value.action_effectiveness: 0.40
+      value.cost_per_contact_cop: 20000
+    type: simulation
+    rationale: Test-case values with no source; declared illustrative.
+
+  - id: A10
+    name: Reconciliation tolerance
+    value: {reconciliation.tolerance_cop_m: 0.01}
+    type: design
+    rationale: Rounding of the published figure; already used in reconcile.py.
+
+  - id: A11
+    name: Condition to beat the baseline
+    value: {promotion.beat_baseline_rule: higher_net_value_at_K}
+    type: design
+    rationale: The criterion is measured in COP, not only in classification metrics.
+
+  - id: A12
+    name: RAW retention period
+    value: {retention.raw_retention_days: null}
+    type: business
+    rationale: Depends on FinBank's data policy (Ley 1581); we do not set it because we do not give legal advice.

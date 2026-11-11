@@ -1,0 +1,49 @@
+# Data contract: preferred clients active at T (technical spec, section 6). Enforced by Gate 1.
+name: churn_v1
+version: v1
+table: churn
+description: One row per sampled preferred client (top 10% by exposure) at cut-off date T.
+columns:
+  client_id:
+    type: string
+    format: sha256_hex
+    required: true
+    unique: true
+    critical: true
+  snapshot_date:
+    type: date
+    required: true
+    critical: true
+  exposure_cop_m:
+    type: decimal
+    required: true
+    min: 0
+    min_exclusive: true
+    critical: true
+  weight:
+    type: decimal
+    required: true
+    min: 0
+    min_exclusive: true
+    critical: true
+  tenure_months:
+    type: integer
+    required: false
+    min: 0
+    max_null_pct: 0.05      # synthetic data has 12% on purpose (R-01): passes only with a waiver
+    critical: false
+  products_active:
+    type: integer
+    required: false
+    min: 1
+    critical: false
+  cancellation_date:
+    type: date
+    required: false
+    after: snapshot_date
+    critical: false
+  observation_end_date:
+    type: date
+    required: true
+    after: snapshot_date
+    critical: true
