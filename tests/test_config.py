@@ -15,7 +15,7 @@ from src.predict360.config import (
 
 DATA_TYPES = {"string", "date", "decimal", "integer", "binary"}
 CARD_TYPES = DATA_TYPES | {"datetime", "list", "object"}
-CONTRACTS = ["delinquency_v1", "churn_v1", "scores_v1", "model_card_v1"]
+CONTRACTS = ["delinquency_v1", "churn_v1", "scores_v1", "model_card_v1", "hours_log_v1"]
 
 
 # --- synthetic.yaml / real.yaml -------------------------------------------
@@ -177,10 +177,10 @@ def test_unknown_contract_raises():
 
 # --- assumptions ----------------------------------------------------------
 
-def test_assumptions_has_twelve_typed_entries():
+def test_assumptions_has_fifteen_typed_entries():
     data = load_assumptions(CONFIG_DIR / "assumptions.yaml")
     items = data["items"]
-    assert len(items) == 12
+    assert len(items) == 15
     for item in items:
         assert {"id", "name", "value", "type", "rationale"} <= set(item)
         assert item["type"] in {"business", "design", "simulation"}
@@ -207,3 +207,34 @@ def test_assumption_values_match_team_decisions():
     assert values["value"]["default_capacity_share"] == 0.10
     assert values["reconciliation"]["tolerance_cop_m"] == 0.01
     assert values["retention"]["raw_retention_days"] is None
+
+
+def test_budget_assumptions_follow_the_charter():
+    values = load_assumptions(CONFIG_DIR / "assumptions.yaml")["values"]
+    assert values["budget"] == {
+        "ceiling_cop_m": 180,
+        "contingency_cop_m": 20,
+        "planned_consultant_hours": 1620,
+        "k_scale": 7.5,
+        "sprints": 6,
+        "change_requests": [{"id": "CR-01", "sprint": 3, "approved_cop_m": 8.333333}],
+    }
+
+
+def test_management_section_exists_only_for_pcm_runs():
+    synthetic = load_config(CONFIG_DIR / "synthetic.yaml")
+    assert synthetic["management"] == {"hours_log": "docs/hours_log.csv", "sprint_log": "docs/sprint_log.csv"}
+    assert load_config(CONFIG_DIR / "real.yaml")["management"] is None  # FinBank has no PCM hours log
+
+
+def test_hours_log_v1_rules():
+    contract = load_contract("hours_log_v1")
+    cols = contract["columns"]
+    assert contract_columns("hours_log_v1") == [
+        "date", "person", "sprint", "story_id", "hours", "estimated", "note",
+    ]
+    assert cols["person"]["allowed"] == ["Cristian Vega", "Paula Gacha", "Marco Jimenez"]
+    assert cols["hours"]["max"] == 24
+    assert str(cols["estimated"]["only_before"]["date"]) == "2026-11-11"
+    (daily,) = contract["table_rules"]
+    assert daily["group_by"] == ["person", "date"] and daily["max"] == 12

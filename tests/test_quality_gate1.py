@@ -8,6 +8,7 @@ from datetime import date
 
 import pandas as pd
 import pytest
+import yaml
 
 from src.predict360 import quality
 from src.predict360.config import CONFIG_DIR, ROOT, load_config
@@ -25,7 +26,17 @@ def _hex(i):
 
 @pytest.fixture(scope="module")
 def cfg():
-    return load_config(CONFIG)
+    # Isolated from the team's real hours log: those rules have their own tests below
+    return {**load_config(CONFIG), "management": None}
+
+
+@pytest.fixture(scope="module")
+def isolated_config(tmp_path_factory):
+    raw = yaml.safe_load(CONFIG.read_text(encoding="utf-8"))
+    raw["management"] = None
+    path = tmp_path_factory.mktemp("config") / "synthetic.yaml"
+    path.write_text(yaml.safe_dump(raw), encoding="utf-8")
+    return path
 
 
 @pytest.fixture(scope="module")
@@ -318,17 +329,17 @@ def test_report_has_only_counts_never_row_values(cfg, tmp_path, monkeypatch):
 
 # --- CLI ----------------------------------------------------------------------------
 
-def _cli(*args):
+def _cli(config, *args):
     env = {k: v for k, v in os.environ.items() if k != "PREDICT360_HMAC_KEY"}
     env["PYTHONPATH"] = str(ROOT)
-    return subprocess.run([sys.executable, "-m", "src.predict360.quality", "--config", str(CONFIG),
+    return subprocess.run([sys.executable, "-m", "src.predict360.quality", "--config", str(config),
                            "--as-of", AS_OF.isoformat(), *args],
                           cwd=ROOT, env=env, capture_output=True, text=True)
 
 
-def test_cli_writes_to_output_dir_and_exits_zero_on_pass(clean_dir, tmp_path):
+def test_cli_writes_to_output_dir_and_exits_zero_on_pass(isolated_config, clean_dir, tmp_path):
     out, evidence = tmp_path / "adhoc", tmp_path / "evidence"
-    proc = _cli("--data-dir", str(clean_dir), "--output-dir", str(out), "--evidence-dir", str(evidence))
+    proc = _cli(isolated_config, "--data-dir", str(clean_dir), "--output-dir", str(out), "--evidence-dir", str(evidence))
     assert proc.returncode == 0, proc.stderr
     report = json.loads((out / "gate1_report.json").read_text(encoding="utf-8"))
     assert report["status"] == "PASS_WITH_WAIVERS"
@@ -336,20 +347,80 @@ def test_cli_writes_to_output_dir_and_exits_zero_on_pass(clean_dir, tmp_path):
     assert not evidence.exists()  # only copied with --evidence
 
 
-def test_cli_copies_to_evidence_only_when_asked(clean_dir, tmp_path):
+def test_cli_copies_to_evidence_only_when_asked(isolated_config, clean_dir, tmp_path):
     out, evidence = tmp_path / "adhoc", tmp_path / "evidence"
-    proc = _cli("--data-dir", str(clean_dir), "--output-dir", str(out),
+    proc = _cli(isolated_config, "--data-dir", str(clean_dir), "--output-dir", str(out),
                 "--evidence", "--evidence-dir", str(evidence))
     assert proc.returncode == 0, proc.stderr
     assert (evidence / "gate1_report.json").exists() and (evidence / "gate1_report.md").exists()
 
 
-def test_cli_exits_non_zero_when_gate_fails(tmp_path, monkeypatch):
+def test_cli_exits_non_zero_when_gate_fails(isolated_config, tmp_path, monkeypatch):
     data = _defect_dir(tmp_path / "data", monkeypatch, "duplicate_ids")
-    proc = _cli("--data-dir", str(data), "--output-dir", str(tmp_path / "adhoc"))
+    proc = _cli(isolated_config, "--data-dir", str(data), "--output-dir", str(tmp_path / "adhoc"))
     assert proc.returncode != 0
     assert "FAIL" in proc.stdout
 
 
 def test_cli_default_output_is_runs_adhoc():
     assert quality.DEFAULT_OUTPUT_DIR == ROOT / "runs" / "adhoc"
+
+
+# --- hours log (PCM project control, management section) ---------------------------
+
+def _hours_df(rows=None):
+    rows = rows or [
+        ("2026-10-15", "Cristian Vega", 1, "US-01", 12.0, 1),
+        ("2026-11-11", "Paula Gacha", 3, "US-04-P2", 4.0, 0),
+        ("2026-11-11", "Marco Jimenez", 3, "MGMT", 2.5, 0),
+    ]
+    df = pd.DataFrame(rows, columns=["date", "person", "sprint", "story_id", "hours", "estimated"])
+    df["note"] = None
+    return df
+
+
+def test_valid_hours_log_passes():
+    assert validate_table(_hours_df(), "hours_log_v1", T)["status"] == "PASS"
+
+
+def test_more_than_12_hours_per_person_and_day_fails():
+    # Three 5 h rows: each row is under 24, but the day adds up to 15
+    rows = [("2026-11-12", "Paula Gacha", 3, story, 5.0, 0) for story in ("US-04-P2", "US-05", "MGMT")]
+    result = validate_table(_hours_df(rows), "hours_log_v1", T)
+    rule = _rule(result, "expect_column_sum_per_group_to_be_at_most", "hours")
+    assert rule["success"] is False and rule["unexpected_count"] == 1   # one person-day
+    assert rule["kwargs"] == {"group_by": ["person", "date"], "max_value": 12}
+    assert result["status"] == "FAIL"
+
+
+def test_estimated_hours_only_before_daily_logging_started():
+    ok = _hours_df([("2026-11-10", "Cristian Vega", 3, "US-05", 3.0, 1)])
+    assert validate_table(ok, "hours_log_v1", T)["status"] == "PASS"
+    late = _hours_df([("2026-11-11", "Cristian Vega", 3, "US-05", 3.0, 1)])
+    result = validate_table(late, "hours_log_v1", T)
+    rule = _rule(result, "expect_column_values_to_be_zero_from_date", "estimated")
+    assert rule["unexpected_count"] == 1
+    assert rule["kwargs"] == {"date_column": "date", "date": "2026-11-11"}
+    assert result["status"] == "FAIL"
+
+
+def test_unknown_person_fails():
+    df = _hours_df([("2026-11-11", "Someone Else", 3, "US-05", 3.0, 0)])
+    result = validate_table(df, "hours_log_v1", T)
+    assert _rule(result, "expect_column_values_to_be_in_set", "person")["success"] is False
+
+
+def test_gate1_validates_the_hours_log_when_management_is_configured(cfg, clean_dir, tmp_path):
+    hours = tmp_path / "hours_log.csv"
+    _hours_df().to_csv(hours, index=False)
+    managed = {**cfg, "management": {"hours_log": str(hours), "sprint_log": "docs/sprint_log.csv"}}
+    report = run_gate1(managed, data_dir=clean_dir, as_of=AS_OF)
+    assert report["tables"]["hours_log"]["status"] == "PASS"
+    assert report["contract_versions"]["hours_log"] == "v1"
+    assert report["status"] == "PASS_WITH_WAIVERS"
+    _hours_df([("2026-11-12", "Paula Gacha", 3, "MGMT", 13.0, 0)]).to_csv(hours, index=False)
+    assert run_gate1(managed, data_dir=clean_dir, as_of=AS_OF)["status"] == "FAIL"
+
+
+def test_gate1_skips_the_hours_log_without_management(clean_report):
+    assert "hours_log" not in clean_report["tables"]
