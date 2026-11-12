@@ -57,6 +57,29 @@ def test_missing_required_key_raises_value_error(tmp_path):
         load_config(path)
 
 
+def test_gate2_settings_are_declared_in_both_configs():
+    for name in ("synthetic.yaml", "real.yaml"):
+        gate2 = load_config(CONFIG_DIR / name)["gate2"]
+        assert gate2["strict_rules"] == []
+        assert gate2["baseline_models"] == ["baseline_rule"]
+
+
+@pytest.mark.parametrize("gate2,match", [
+    ({"strict_rules": ["intervention_declard"], "baseline_models": []}, "intervention_declard"),
+    ({"strict_rules": ["temporal_split"], "baseline_models": []}, "temporal_split"),
+    ({"strict_rules": "baselines_compared", "baseline_models": []}, "strict_rules"),
+    ({"strict_rules": []}, "baseline_models"),
+])
+def test_invalid_gate2_settings_fail_on_load(tmp_path, gate2, match):
+    # A typo must not silently leave the rule as a WARNING
+    cfg = yaml.safe_load((CONFIG_DIR / "synthetic.yaml").read_text(encoding="utf-8"))
+    cfg["gate2"] = gate2
+    path = tmp_path / "typo.yaml"
+    path.write_text(yaml.safe_dump(cfg), encoding="utf-8")
+    with pytest.raises(ValueError, match=match):
+        load_config(path)
+
+
 def test_synthetic_demo_key_is_named_as_public():
     cfg = load_config(CONFIG_DIR / "synthetic.yaml")
     assert set(cfg["hmac"]) == {"key_env", "demo_key_public_not_secret"}
