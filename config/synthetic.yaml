@@ -27,6 +27,26 @@ horizons_days: [30, 60, 90]
 
 retention_days: null                 # RAW retention is FinBank policy; irrelevant for synthetic data
 
+sources:                             # file names inside paths.input_dir, validated by Gate 1
+  delinquency: delinquency_sample.csv   # contract delinquency_v1
+  churn: churn_sample.csv               # contract churn_v1
+  scores: scores_sample.csv             # contract scores_v1
+
+# Gate 1 waivers: a non-critical finding continues only with a written, unexpired waiver.
+# Critical columns can never be waived. lineage.py copies these into the run manifest.
+waivers:
+  - id: W-01
+    table: churn
+    column: tenure_months
+    rule: expect_column_values_to_not_be_null
+    risk: R-01
+    reason: >-
+      12% of tenure_months is missing on purpose against a 5% threshold. It is not
+      imputed: it is flagged and evaluated as its own slice.
+    approved_by: Cristian Vega (Project Leader)
+    date: 2026-11-11
+    expires: 2026-12-31
+
 generator:
   created_at: "2026-11-10T00:00:00Z" # fixed so that outputs are byte-identical across runs
   immature_pct: 0.05                 # rows whose observation ends before T + H

@@ -5,8 +5,9 @@ table: scores
 description: Long format lets the system evaluate any number of models without changing the contract.
 columns:
   client_id:
+    # RAW carries FinBank's original identifier: Gate 1 checks only presence.
+    # TODO(station 3, Curate): the sha256_hex format rule belongs to the CURATED contract.
     type: string
-    format: sha256_hex
     required: true
     must_exist_in: labeled_table
     critical: true

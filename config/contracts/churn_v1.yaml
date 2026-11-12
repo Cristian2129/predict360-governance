@@ -5,8 +5,9 @@ table: churn
 description: One row per sampled preferred client (top 10% by exposure) at cut-off date T.
 columns:
   client_id:
+    # RAW carries FinBank's original identifier: Gate 1 checks only presence and uniqueness.
+    # TODO(station 3, Curate): the sha256_hex format rule belongs to the CURATED contract.
     type: string
-    format: sha256_hex
     required: true
     unique: true
     critical: true
