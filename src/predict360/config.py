@@ -28,8 +28,12 @@ REQUIRED_CONFIG_KEYS = (
     "retention_days",
     "sources",
     "waivers",
+    "gate2",
     "generator",
 )
+
+# Gate 2 rules that warn by default and that a run config may make blocking.
+GATE2_CONFIGURABLE_RULES = ("intervention_declared", "baselines_compared")
 
 
 def _read_yaml(path: str | Path) -> Any:
@@ -61,7 +65,21 @@ def load_config(path: str | Path) -> dict:
         raise ValueError(f"{path}: hmac.{DEMO_KEY_FIELD} is only allowed when synthetic is true")
     if cfg["synthetic"] and not isinstance(cfg["generator"], dict):
         raise ValueError(f"{path}: a synthetic config needs a 'generator' section")
+    _check_gate2(path, cfg["gate2"])
     return cfg
+
+
+def _check_gate2(path, gate2) -> None:
+    """A typo in a rule name must fail here, not silently leave the rule as a WARNING."""
+    if not isinstance(gate2, dict):
+        raise ValueError(f"{path}: gate2 must be a mapping")
+    for key in ("strict_rules", "baseline_models"):
+        if not isinstance(gate2.get(key), list):
+            raise ValueError(f"{path}: gate2.{key} must be a list")
+    unknown = [rule for rule in gate2["strict_rules"] if rule not in GATE2_CONFIGURABLE_RULES]
+    if unknown:
+        raise ValueError(f"{path}: unknown gate2.strict_rules {', '.join(map(str, unknown))}; "
+                         f"allowed: {', '.join(GATE2_CONFIGURABLE_RULES)}")
 
 
 def load_assumptions(path: str | Path = CONFIG_DIR / "assumptions.yaml") -> dict:
