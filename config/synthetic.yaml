@@ -47,6 +47,13 @@ waivers:
     date: 2026-11-11
     expires: 2026-12-31
 
+# Gate 2 (model card admission). strict_rules turns these WARNINGs into rejections:
+# intervention_declared, baselines_compared. baseline_models are the heuristic
+# baselines themselves: they only need to be compared against random.
+gate2:
+  strict_rules: []
+  baseline_models: [baseline_rule]
+
 generator:
   created_at: "2026-11-10T00:00:00Z" # fixed so that outputs are byte-identical across runs
   immature_pct: 0.05                 # rows whose observation ends before T + H

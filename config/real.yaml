@@ -30,4 +30,10 @@ sources:                             # TODO(FinBank): names of the extract files
 # Same fields as in synthetic.yaml: id, table, column, rule, risk, reason, approved_by, date, expires.
 waivers: []
 
+# Gate 2 (model card admission). FinBank may make these rules blocking:
+# intervention_declared, baselines_compared. An unknown rule name fails on load.
+gate2:
+  strict_rules: []                   # TODO(FinBank): rules that must reject instead of warn
+  baseline_models: [baseline_rule]   # TODO(FinBank): model_id of FinBank's current heuristic rule
+
 generator: null                      # real data comes from FinBank extracts, not from make_synthetic
