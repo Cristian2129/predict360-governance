@@ -113,9 +113,9 @@ def _event_days(rng, latent: np.ndarray, target_rate: float, obs_days: np.ndarra
 
 
 def _offset_dates(t: pd.Timestamp, days: np.ndarray) -> pd.Series:
-    """ISO date strings T + days (empty for NaN)."""
-    out = pd.Series(t + pd.to_timedelta(days, unit="D"))
-    return out.dt.strftime("%Y-%m-%d")
+    """ISO date strings T + days; None for NaN, which never reaches the date arithmetic."""
+    return pd.Series([None if np.isnan(d) else (t + pd.Timedelta(days=d)).strftime("%Y-%m-%d")
+                      for d in days], dtype=object)
 
 
 def _sha256(path: Path) -> str:

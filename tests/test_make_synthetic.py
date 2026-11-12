@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 from src.predict360.config import CONFIG_DIR, contract_columns, load_config
-from src.predict360.make_synthetic import DEFECTS, generate_synthetic_data
+from src.predict360.make_synthetic import DEFECTS, _offset_dates, generate_synthetic_data
 from src.predict360.reconcile import reconcile_exposure
 
 CONFIG = CONFIG_DIR / "synthetic.yaml"
@@ -160,6 +160,19 @@ def test_events_fall_inside_the_observation_window(clean, cfg):
         assert len(ev) > 0
         assert (ev[col] > t).all()
         assert (ev[col] <= ev["observation_end_date"]).all()
+
+
+@pytest.mark.filterwarnings("error::RuntimeWarning")
+def test_offset_dates_leaves_missing_days_empty_without_date_arithmetic():
+    out = _offset_dates(pd.Timestamp("2026-03-31"), np.array([1.0, np.nan, -31.0]))
+    assert out.tolist() == ["2026-04-01", None, "2026-02-28"]
+
+
+@pytest.mark.filterwarnings("error::RuntimeWarning")
+def test_generation_emits_no_runtime_warnings(tmp_path, monkeypatch):
+    # NaN event days (no event) used to reach the date arithmetic and overflow
+    monkeypatch.delenv("PREDICT360_HMAC_KEY", raising=False)
+    generate_synthetic_data(config=CONFIG, output_dir=tmp_path)
 
 
 @pytest.mark.parametrize("table,horizon", [("dlq", 30), ("dlq", 60), ("churn", 90)])
