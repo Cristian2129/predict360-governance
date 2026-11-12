@@ -18,7 +18,9 @@ l share of exposure lost, c cost per contact), all assumptions from ``config/ass
 - Amounts are in COP millions; the cost per contact is in COP in the assumptions and is
   converted in one place (``_contact_cost_cop_m``).
 - Only aggregates leave this module. The published capture curve has points at least
-  ``MIN_PUBLISHED_CLIENTS`` clients apart, so no point reveals a slice under 30 clients.
+  ``MIN_PUBLISHED_CLIENTS`` clients apart, so no point reveals a slice under 30 clients,
+  and the published K* is the best point of that grid (``k_star`` on the full curve is
+  kept for analysis inside the bank).
 
 Ranking metrics, calibration and promotion (B8b) and slices and intervened clients (B8c)
 are built on top of this core.
@@ -54,11 +56,13 @@ def capture_curve(df: pd.DataFrame, values: dict, keep_order: bool = False) -> p
     """
     ranked = df.sort_values(["score", "client_id"], ascending=[False, True], kind="mergesort")
     event_exposure = ranked["exposure_cop_m"] * ranked["y"]
-    total = float(event_exposure.sum())
     curve = pd.DataFrame({
         "k": ranked["weight"].cumsum().to_numpy(),
         "captured_cop_m": event_exposure.cumsum().to_numpy(),
     })
+    # The total is the last cumulative value, not a separate sum: both round differently,
+    # and a non-decreasing cumsum then keeps every capture <= 1 and the last one exactly 1
+    total = float(curve["captured_cop_m"].iloc[-1]) if len(curve) else 0.0
     if keep_order:
         curve["client_id"] = ranked["client_id"].to_numpy()
     start = pd.DataFrame({"k": [0.0], "captured_cop_m": [0.0]})
@@ -125,6 +129,13 @@ def _published_curve(curve: pd.DataFrame) -> list[dict]:
     return points
 
 
+def _published(curve: pd.DataFrame) -> dict:
+    """What leaves the module: the grid curve and K* chosen on that same grid
+    (dashboard_data_v1: k_star must be a point of the published curve)."""
+    points = _published_curve(curve)
+    return {"k_star": max(points, key=lambda p: p["net_value_cop_m"]), "curve": points}
+
+
 def _admitted(gate2_report: dict) -> list[tuple[str, str]]:
     return sorted({(c["target"], c["model_id"]) for c in gate2_report["cards"] if c["decision"] == "ADMITTED"})
 
@@ -183,8 +194,7 @@ def evaluate_models(labeled: dict, scores: pd.DataFrame, gate2_report: dict, val
                 at_k={k: v for k, v in at_k.items() if k != "k_requested"},
                 random_at_k={k: v for k, v in random_baseline(df, k_requested, values).items()
                              if k not in ("k_requested", "k_applied")},
-                k_star=k_star(curve),
-                curve=_published_curve(curve),
+                **_published(curve),
             )
             evaluations.append(entry)
 

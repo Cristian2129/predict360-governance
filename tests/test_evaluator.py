@@ -230,3 +230,19 @@ def test_report_is_aggregates_only(synthetic, assumptions):
     for e in report["evaluations"]:
         steps = pd.Series([p["k"] for p in e["curve"]]).diff().dropna()
         assert (steps >= MIN_PUBLISHED_CLIENTS).all(), e["label"]  # no point reveals < 30 clients
+
+
+# --- published values (dashboard_data_v1 contract) ------------------------------------
+
+def test_capture_never_exceeds_one_despite_float_sums(synthetic, assumptions):
+    report = evaluate_models(*synthetic, assumptions)
+    for e in report["evaluations"]:
+        assert all(p["capture"] <= 1.0 for p in e["curve"]), (e["model_id"], e["label"])
+        assert e["curve"][-1]["capture"] == 1.0
+
+
+def test_published_k_star_is_a_point_of_the_published_curve(synthetic, assumptions):
+    report = evaluate_models(*synthetic, assumptions)
+    for e in report["evaluations"]:
+        assert e["k_star"] in e["curve"], (e["model_id"], e["label"])
+        assert e["k_star"]["net_value_cop_m"] == max(p["net_value_cop_m"] for p in e["curve"])
