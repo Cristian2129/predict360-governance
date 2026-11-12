@@ -318,7 +318,28 @@ def _column_rules(df: pd.DataFrame, column: str, spec: dict, snapshot: date) -> 
         bad = valid.map(lambda v: _to_date(v) != snapshot)
         results.append(_result("expect_column_values_to_equal_run_snapshot", column, critical,
                                int(bad.sum()), rows, kwargs={"value": snapshot.isoformat()}))
+
+    only_before = spec.get("only_before")
+    if only_before and only_before["column"] in df.columns:
+        cutoff = _to_date(only_before["date"])
+        dates = df.loc[valid.index, only_before["column"]].map(_to_date)
+        late = sum(1 for v, d in zip(valid, dates) if float(v) == 1.0 and d is not None and d >= cutoff)
+        results.append(_result("expect_column_values_to_be_zero_from_date", column, critical, late, rows,
+                               kwargs={"date_column": only_before["column"], "date": cutoff.isoformat()}))
     return results, missing
+
+
+def _table_rule(df: pd.DataFrame, rule: dict) -> dict | None:
+    """Contract ``table_rules``: rules over groups of rows, reported per group."""
+    if rule["rule"] != "expect_column_sum_per_group_to_be_at_most":
+        raise ValueError(f"Unknown table rule: {rule['rule']}")
+    if any(c not in df.columns for c in (rule["column"], *rule["group_by"])):
+        return None  # the schema rule already reports the missing column
+    values = pd.to_numeric(df[rule["column"]], errors="coerce")
+    sums = values.groupby([df[g] for g in rule["group_by"]]).sum()
+    return _result(rule["rule"], rule["column"], bool(rule.get("critical", True)),
+                   int((sums > rule["max"] + 1e-9).sum()), len(sums),
+                   kwargs={"group_by": list(rule["group_by"]), "max_value": rule["max"]})
 
 
 def _split_waivers(waivers, table, columns: dict, as_of: date) -> tuple[list[dict], list[dict]]:
@@ -376,6 +397,10 @@ def validate_table(df: pd.DataFrame, contract_name: str, snapshot_date, waivers=
             if column in df.columns:
                 column_results, missing[column] = _column_rules(df, column, spec, snapshot)
                 results.extend(column_results)
+        for rule in contract.get("table_rules", []):
+            result = _table_rule(df, rule)
+            if result is not None:
+                results.append(result)
 
     active, ignored = _split_waivers(waivers, table, columns, as_of)
     applied = []
@@ -409,28 +434,37 @@ def _read_source(path: Path, contract_name: str) -> pd.DataFrame:
     return pd.read_csv(path, dtype=dtypes)
 
 
+def _validate_file(path: Path, name: str, contract_name: str, snapshot: str, waivers, as_of: date) -> dict:
+    if not path.exists():
+        return {
+            "table": name, "contract": contract_name,
+            "version": load_contract(contract_name).get("version"), "rows": 0,
+            "status": "FAIL",
+            "results": [{"rule": "expect_file_to_exist", "column": None,
+                         "critical": True, "success": False}],
+            "missing": {}, "waivers_applied": [], "waivers_ignored": [],
+        }
+    return validate_table(_read_source(path, contract_name), contract_name, snapshot,
+                          waivers=waivers, as_of=as_of, table=name)
+
+
 def run_gate1(cfg: dict, data_dir: str | Path | None = None, as_of: date | None = None) -> dict:
-    """Gate 1 over the three sources declared in ``cfg['sources']``."""
+    """Gate 1 over the sources in ``cfg['sources']`` and, for PCM runs, the hours log
+    in ``cfg['management']`` (null inside FinBank)."""
     data_dir = Path(data_dir) if data_dir is not None else ROOT / cfg["paths"]["input_dir"]
     as_of = as_of or date.today()
     snapshot = str(cfg["snapshot_date"])
+    waivers = cfg.get("waivers") or []
     tables = {}
     for name, contract_name in SOURCE_CONTRACTS.items():
         file_name = cfg["sources"][name]
-        path = data_dir / file_name
-        if not path.exists():
-            result = {
-                "table": name, "contract": contract_name,
-                "version": load_contract(contract_name).get("version"), "rows": 0,
-                "status": "FAIL",
-                "results": [{"rule": "expect_file_to_exist", "column": None,
-                             "critical": True, "success": False}],
-                "missing": {}, "waivers_applied": [], "waivers_ignored": [],
-            }
-        else:
-            result = validate_table(_read_source(path, contract_name), contract_name, snapshot,
-                                    waivers=cfg.get("waivers") or [], as_of=as_of, table=name)
-        tables[name] = {"file": file_name, **result}
+        tables[name] = {"file": file_name, **_validate_file(data_dir / file_name, name, contract_name,
+                                                            snapshot, waivers, as_of)}
+    management = cfg.get("management") or {}
+    if management.get("hours_log"):
+        file_name = str(management["hours_log"])
+        tables["hours_log"] = {"file": file_name, **_validate_file(ROOT / file_name, "hours_log", "hours_log_v1",
+                                                                   snapshot, waivers, as_of)}
 
     statuses = [t["status"] for t in tables.values()]
     status = ("FAIL" if "FAIL" in statuses

@@ -54,6 +54,12 @@ gate2:
   strict_rules: []
   baseline_models: [baseline_rule]
 
+# PCM Analytics project control (budget_schedule.py). Real team data, not synthetic;
+# the hours log is validated by Gate 1 with contract hours_log_v1.
+management:
+  hours_log: docs/hours_log.csv
+  sprint_log: docs/sprint_log.csv
+
 generator:
   created_at: "2026-11-10T00:00:00Z" # fixed so that outputs are byte-identical across runs
   immature_pct: 0.05                 # rows whose observation ends before T + H

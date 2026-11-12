@@ -29,6 +29,7 @@ REQUIRED_CONFIG_KEYS = (
     "sources",
     "waivers",
     "gate2",
+    "management",
     "generator",
 )
 
