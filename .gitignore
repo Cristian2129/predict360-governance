@@ -20,3 +20,6 @@ data/real/
 
 # Defective demo variants (regenerate with make_synthetic --defect)
 data/synthetic/defects/
+
+# Ad-hoc gate reports (copy to docs/evidence/ with --evidence)
+runs/adhoc/

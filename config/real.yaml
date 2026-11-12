@@ -21,4 +21,13 @@ horizons_days: [30, 60, 90]
 
 retention_days:                      # TODO(FinBank): RAW retention period (Ley 1581 policy); we do not set it
 
+sources:                             # TODO(FinBank): names of the extract files inside paths.input_dir
+  delinquency: delinquency.csv          # contract delinquency_v1
+  churn: churn.csv                      # contract churn_v1
+  scores: scores.csv                    # contract scores_v1
+
+# Gate 1 waivers are approved by FinBank's data owner, never by PCM Analytics.
+# Same fields as in synthetic.yaml: id, table, column, rule, risk, reason, approved_by, date, expires.
+waivers: []
+
 generator: null                      # real data comes from FinBank extracts, not from make_synthetic

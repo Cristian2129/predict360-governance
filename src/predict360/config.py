@@ -26,6 +26,8 @@ REQUIRED_CONFIG_KEYS = (
     "reconciliation",
     "horizons_days",
     "retention_days",
+    "sources",
+    "waivers",
     "generator",
 )
 

@@ -20,6 +20,6 @@ Following the scope approved in the *Project Charter* (*"We govern by exposure a
 ## 3. Local Execution
 ```bash
 pip install -r requirements.txt
-python src/predict360/make_synthetic.py
+python -m src.predict360.make_synthetic --config config/synthetic.yaml
 PYTHONPATH=. pytest tests/ -v
 python src/predict360/sprint_metrics.py

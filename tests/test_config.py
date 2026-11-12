@@ -43,7 +43,7 @@ def test_synthetic_config_reproduces_client_figures():
 def test_real_config_has_no_hmac_key_and_no_synthetic_flag():
     raw_text = (CONFIG_DIR / "real.yaml").read_text(encoding="utf-8")
     real = load_config(CONFIG_DIR / "real.yaml")
-    assert "demo_key" not in real["hmac"]
+    assert real["hmac"] == {"key_env": "PREDICT360_HMAC_KEY"}  # only the env var name
     assert "synthetic: true" not in raw_text
     assert real["retention_days"] is None  # FinBank sets it, not us
 
@@ -57,12 +57,29 @@ def test_missing_required_key_raises_value_error(tmp_path):
         load_config(path)
 
 
+def test_synthetic_demo_key_is_named_as_public():
+    cfg = load_config(CONFIG_DIR / "synthetic.yaml")
+    assert set(cfg["hmac"]) == {"key_env", "demo_key_public_not_secret"}
+
+
 def test_demo_key_is_rejected_in_a_non_synthetic_config(tmp_path):
     cfg = yaml.safe_load((CONFIG_DIR / "synthetic.yaml").read_text(encoding="utf-8"))
     cfg["synthetic"] = False
     path = tmp_path / "leaky.yaml"
     path.write_text(yaml.safe_dump(cfg), encoding="utf-8")
-    with pytest.raises(ValueError, match="demo_key"):
+    with pytest.raises(ValueError, match="demo_key_public_not_secret"):
+        load_config(path)
+
+
+@pytest.mark.parametrize("synthetic", [True, False])
+def test_any_other_hmac_key_is_rejected(tmp_path, synthetic):
+    # A real key must never be written into a config file, under any name
+    cfg = yaml.safe_load((CONFIG_DIR / "synthetic.yaml").read_text(encoding="utf-8"))
+    cfg["synthetic"] = synthetic
+    cfg["hmac"] = {"key_env": "PREDICT360_HMAC_KEY", "key": "finbank-real-key"}
+    path = tmp_path / "leaky.yaml"
+    path.write_text(yaml.safe_dump(cfg), encoding="utf-8")
+    with pytest.raises(ValueError, match="hmac"):
         load_config(path)
 
 
