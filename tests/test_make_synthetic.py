@@ -239,6 +239,23 @@ def test_model_cards_follow_contract_and_trace_scores(clean):
         assert "simulated" in card["algorithm"]
 
 
+# --- byte-level reproducibility across operating systems ------------------
+
+def test_written_files_use_lf_line_endings(clean):
+    # CRLF on Windows vs LF on Linux would change the sha256 of the scores
+    for path in _all_written_files(clean["dir"]):
+        assert b"\r" not in path.read_bytes(), path.name
+
+
+def test_committed_synthetic_data_is_traceable():
+    repo_data = CONFIG_DIR.parent / "data" / "synthetic"
+    scores = repo_data / "scores_sample.csv"
+    assert b"\r" not in scores.read_bytes()
+    for path in sorted((repo_data / "model_cards").glob("*.json")):
+        card = json.loads(path.read_text(encoding="utf-8"))
+        assert card["dataset_hash"] == _sha256(scores), path.name
+
+
 # --- defects --------------------------------------------------------------
 
 def test_defect_list_matches_spec():
