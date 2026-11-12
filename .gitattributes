@@ -1,0 +1,3 @@
+# Generated synthetic data is hashed (sha256) into the model cards:
+# store and check out the exact bytes, without CRLF conversion.
+data/synthetic/** -text
