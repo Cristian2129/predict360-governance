@@ -1,4 +1,4 @@
-"""US-03 P1: revisiom de calidad de datos sintéticos
+"""US-03 P1: data quality review of the synthetic data.
 
 Paula Gacha — PCM Analytics.
 
@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = ROOT / "data" / "synthetic"
 EVIDENCE_FILE = ROOT / "docs" / "evidence" / "us03_quality_report.md"
 
-# s: cadena, i: entero, n: numérico (entero o decimal).
+# s: string, i: integer, n: numeric (integer or decimal).
 SCHEMAS = {
     "backlog": {
         "story_id": "s", "title": "s", "domain": "s",
@@ -43,22 +43,22 @@ SCHEMAS = {
     },
 }
 
-# El identificador, puntajes y exposición financiera son críticos: 0% vacíos.
+# The identifier, scores and financial exposure are critical: 0% missing.
 CRITICAL_COLUMNS = {
     "story_id", "client_hash_id", "risk_score",
     "churn_probability", "exposure_cop_m",
 }
-DEFAULT_MISSING_LIMIT_PCT = 5.0  # propuesta de negocio para otros campos
+DEFAULT_MISSING_LIMIT_PCT = 5.0  # business proposal for the other fields
 SCORE_COLUMNS = {"risk_score", "churn_probability"}
 
 
 def _is_missing(value):
-    """Detecta NaN, None y cadenas en blanco."""
+    """Detects NaN, None and blank strings."""
     return bool(pd.isna(value)) or (isinstance(value, str) and not value.strip())
 
 
 def _is_valid_type(value, expected):
-    """No acepta cadenas como números ni booleanos como enteros."""
+    """Rejects strings as numbers and booleans as integers."""
     if expected == "s":
         return isinstance(value, str)
     if isinstance(value, bool) or not isinstance(value, numbers.Real):
@@ -73,10 +73,10 @@ def _is_valid_type(value, expected):
 def audit_source(df: pd.DataFrame, source: str) -> dict:
     """Legacy (Sprint 1, US-03). Superseded by validate_table / run_gate1.
 
-    Revisa un DataFrame y entrega un diccionario fácil de leer.
+    Checks a DataFrame and returns an easy-to-read dictionary.
 
-    source: 'backlog', 'delinquency' o 'churn'.
-    status: PASS si cumple todos los umbrales; FAIL en caso contrario.
+    source: 'backlog', 'delinquency' or 'churn'.
+    status: PASS if every threshold is met; FAIL otherwise.
     """
     if source not in SCHEMAS:
         raise ValueError(f"Unknown source: {source}")
@@ -123,8 +123,8 @@ def audit_source(df: pd.DataFrame, source: str) -> dict:
             result["errors"].append(f"{column}: {wrong_type} invalid data type(s)")
 
         if column in SCORE_COLUMNS:
-            # Verifica 0 <= puntaje <= 1, ignorando valores no numéricos
-            # (que ya quedan registrados en invalid_types).
+            # Checks 0 <= score <= 1, ignoring non-numeric values
+            # (already recorded in invalid_types).
             out = sum(
                 1 for val in present
                 if _is_valid_type(val, "n") and not 0 <= float(val) <= 1
@@ -139,13 +139,13 @@ def audit_source(df: pd.DataFrame, source: str) -> dict:
 
 
 def audit_csv(csv_path: str | Path, source: str) -> dict:
-    """Lee un archivo CSV y ejecuta los chequeos de calidad."""
+    """Reads a CSV file and runs the quality checks."""
     return audit_source(pd.read_csv(csv_path), source)
 
 
 def export_quality_report(data_dir: str | Path = DATA_DIR,
                           output: str | Path = EVIDENCE_FILE) -> list[dict]:
-    """Genera evidencia Markdown con los hallazgos de las tres fuentes."""
+    """Writes Markdown evidence with the findings for the three sources."""
     data_dir, output = Path(data_dir), Path(output)
     paths = {
         "backlog": data_dir / "backlog.csv",
