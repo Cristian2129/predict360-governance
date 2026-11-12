@@ -15,6 +15,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG_DIR = ROOT / "config"
 CONTRACTS_DIR = CONFIG_DIR / "contracts"
+DEMO_KEY_FIELD = "demo_key_public_not_secret"
 
 REQUIRED_CONFIG_KEYS = (
     "synthetic",
@@ -48,8 +49,14 @@ def load_config(path: str | Path) -> dict:
     hmac_cfg = cfg["hmac"] or {}
     if "key_env" not in hmac_cfg:
         raise ValueError(f"{path}: missing required key hmac.key_env")
-    if not cfg["synthetic"] and "demo_key" in hmac_cfg:
-        raise ValueError(f"{path}: hmac.demo_key is only allowed when synthetic is true")
+    # The real key is never versioned: it only comes from the environment variable.
+    # The demo key is public and only pseudonymizes synthetic IDs.
+    unknown = set(hmac_cfg) - {"key_env", DEMO_KEY_FIELD}
+    if unknown:
+        raise ValueError(f"{path}: hmac only accepts key_env and {DEMO_KEY_FIELD}; "
+                         f"found {', '.join(sorted(unknown))}")
+    if not cfg["synthetic"] and DEMO_KEY_FIELD in hmac_cfg:
+        raise ValueError(f"{path}: hmac.{DEMO_KEY_FIELD} is only allowed when synthetic is true")
     if cfg["synthetic"] and not isinstance(cfg["generator"], dict):
         raise ValueError(f"{path}: a synthetic config needs a 'generator' section")
     return cfg

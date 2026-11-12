@@ -29,7 +29,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from src.predict360.config import CONFIG_DIR, ROOT, contract_columns, load_config
+from src.predict360.config import CONFIG_DIR, DEMO_KEY_FIELD, ROOT, contract_columns, load_config
 
 DEFAULT_CONFIG = CONFIG_DIR / "synthetic.yaml"
 MODEL_IDS = ("baseline_rule", "model_a", "model_b")
@@ -52,8 +52,8 @@ def _resolve_hmac_key(cfg: dict) -> bytes:
     key = os.environ.get(env_name)
     if key:
         return key.encode("utf-8")
-    if cfg["synthetic"] and cfg["hmac"].get("demo_key"):
-        return str(cfg["hmac"]["demo_key"]).encode("utf-8")
+    if cfg["synthetic"] and cfg["hmac"].get(DEMO_KEY_FIELD):
+        return str(cfg["hmac"][DEMO_KEY_FIELD]).encode("utf-8")
     raise RuntimeError(f"Environment variable {env_name} is not set (required outside synthetic runs)")
 
 

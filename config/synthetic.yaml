@@ -11,10 +11,12 @@ paths:
 
 hmac:
   key_env: PREDICT360_HMAC_KEY       # FinBank's key always comes from this variable
-  # Fallback used ONLY when synthetic is true and the variable is unset, so the
-  # demo is reproducible. It pseudonymizes fake IDs and protects nothing real.
-  # config.load_config rejects it in any non-synthetic config.
-  demo_key: predict360-synthetic-demo-key-not-a-secret
+  # PUBLIC key, NOT a secret. Fallback used ONLY when synthetic is true and the
+  # variable is unset, so the demo, CI and the clean-clone test are reproducible.
+  # It pseudonymizes fake IDs and protects nothing real. The real key is never
+  # versioned: config.load_config rejects this field in any non-synthetic config
+  # and rejects any other key field in every config.
+  demo_key_public_not_secret: predict360-synthetic-demo-key-not-a-secret
 
 reconciliation:
   delinquency_expected_cop_m: 58800.0
