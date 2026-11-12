@@ -51,6 +51,15 @@ def _churn_label_name(horizon_days: int) -> str:
     return f"churn_{horizon_days // 30}m" if horizon_days % 30 == 0 else f"churn_{horizon_days}d"
 
 
+def label_column(target: str, horizon_days: int) -> str:
+    """Label name for a target and horizon: delinquency_30, delinquency_60, churn_3m."""
+    if target == "delinquency":
+        return f"delinquency_{int(horizon_days)}"
+    if target == "churn":
+        return _churn_label_name(int(horizon_days))
+    raise ValueError(f"Unknown target: {target}")
+
+
 def _count(df: pd.DataFrame, mask=None) -> dict:
     part = df if mask is None else df[mask]
     return {"rows": int(len(part)), "clients": float(part["weight"].sum())}
@@ -109,13 +118,13 @@ def _label(df: pd.DataFrame, table: str, snapshot_date, event_column: str,
 
 def label_delinquency(df: pd.DataFrame, snapshot_date, horizons_days) -> tuple[pd.DataFrame, dict]:
     """Adds ``delinquency_<H>`` per horizon; returns the labeled table and its funnel."""
-    horizons = {f"delinquency_{int(h)}": int(h) for h in horizons_days}
+    horizons = {label_column("delinquency", h): int(h) for h in horizons_days}
     return _label(df, "delinquency", snapshot_date, DELINQUENCY_EVENT, horizons)
 
 
 def label_churn(df: pd.DataFrame, snapshot_date, horizon_days) -> tuple[pd.DataFrame, dict]:
     """Adds ``churn_3m`` (90 days by default assumption); returns the labeled table and its funnel."""
-    horizons = {_churn_label_name(int(horizon_days)): int(horizon_days)}
+    horizons = {label_column("churn", horizon_days): int(horizon_days)}
     return _label(df, "churn", snapshot_date, CHURN_EVENT, horizons)
 
 
