@@ -1,0 +1,2014 @@
+{
+  "meta": {
+    "run_id": "20261112T1800-e4c89a",
+    "generated_at": "2026-11-12T18:00:00Z",
+    "synthetic": true,
+    "sample": true,
+    "scores_simulated": true,
+    "commit": "0b4c349cbed15f4b11cea24c214b6395ba0e979b",
+    "code_version": "0.3.0",
+    "config": "synthetic.yaml",
+    "snapshot_date": "2026-03-31",
+    "contract_versions": {
+      "delinquency": "v1",
+      "churn": "v1",
+      "scores": "v1",
+      "hours_log": "v1",
+      "model_card": "v1",
+      "dashboard_data": "v1"
+    }
+  },
+  "exposure": {
+    "status": "PASS",
+    "tables": {
+      "delinquency": {
+        "expected_cop_m": 58800.0,
+        "actual_cop_m": 58800.0,
+        "difference_cop_m": 0.0,
+        "tolerance_cop_m": 0.01,
+        "status": "PASS"
+      },
+      "churn": {
+        "expected_cop_m": 18200.0,
+        "actual_cop_m": 18200.0,
+        "difference_cop_m": 0.0,
+        "tolerance_cop_m": 0.01,
+        "status": "PASS"
+      }
+    }
+  },
+  "gates": {
+    "gate1": {
+      "status": "PASS_WITH_WAIVERS",
+      "tables": {
+        "delinquency": {
+          "status": "PASS",
+          "rows": 500,
+          "failed_rules": []
+        },
+        "churn": {
+          "status": "PASS_WITH_WAIVERS",
+          "rows": 200,
+          "failed_rules": [
+            {
+              "rule": "expect_column_values_to_not_be_null",
+              "column": "tenure_months",
+              "critical": false,
+              "unexpected_count": 24,
+              "unexpected_pct": 12.0,
+              "waived_by": "W-01"
+            }
+          ]
+        },
+        "scores": {
+          "status": "PASS",
+          "rows": 3600,
+          "failed_rules": []
+        },
+        "hours_log": {
+          "status": "PASS",
+          "rows": 13,
+          "failed_rules": []
+        }
+      }
+    },
+    "gate2": {
+      "status": "FAIL",
+      "counts": {
+        "ADMITTED": 5,
+        "REJECTED": 1,
+        "SKIPPED": 1
+      }
+    },
+    "gate3": {
+      "status": "NOT_RUN",
+      "checked": 0,
+      "mismatches": []
+    }
+  },
+  "quality": {
+    "missing": {
+      "delinquency": {
+        "client_id": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "snapshot_date": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "exposure_cop_m": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "weight": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "origination_date": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "utilization": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": null
+        },
+        "prior_late_12m": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": null
+        },
+        "max_dpd_12m": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": null
+        },
+        "tenure_months": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 5.0
+        },
+        "first_delinquency_date": {
+          "count": 438,
+          "pct": 87.6,
+          "limit_pct": null
+        },
+        "observation_end_date": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        }
+      },
+      "churn": {
+        "client_id": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "snapshot_date": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "exposure_cop_m": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "weight": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "tenure_months": {
+          "count": 24,
+          "pct": 12.0,
+          "limit_pct": 5.0
+        },
+        "products_active": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": null
+        },
+        "cancellation_date": {
+          "count": 178,
+          "pct": 89.0,
+          "limit_pct": null
+        },
+        "observation_end_date": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        }
+      },
+      "scores": {
+        "client_id": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "model_id": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "snapshot_date": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "horizon_days": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "score": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "intervened": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": null
+        }
+      },
+      "hours_log": {
+        "date": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "person": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "sprint": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "story_id": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "hours": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "estimated": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "note": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": null
+        }
+      }
+    },
+    "waivers": [
+      {
+        "id": "W-01",
+        "table": "churn",
+        "column": "tenure_months",
+        "rule": "expect_column_values_to_not_be_null",
+        "risk": "R-01",
+        "reason": "12% of tenure_months is missing on purpose against a 5% threshold. It is not imputed: it is flagged and evaluated as its own slice.",
+        "approved_by": "Cristian Vega (Project Leader)",
+        "date": "2026-11-11",
+        "expires": "2026-12-31"
+      }
+    ],
+    "labeling_funnel": {
+      "delinquency": {
+        "table": "delinquency",
+        "snapshot_date": "2026-03-31",
+        "steps": [
+          {
+            "step": "input",
+            "rows": 500,
+            "clients": 125000.0
+          },
+          {
+            "step": "cohort_not_in_arrears_at_T",
+            "missing_column": "current_dpd",
+            "status": "not_verifiable"
+          },
+          {
+            "step": "excluded_immature_all_horizons",
+            "rows": 13,
+            "clients": 3250.0
+          },
+          {
+            "step": "labeled",
+            "rows": 487,
+            "clients": 121750.0
+          }
+        ],
+        "horizons": {
+          "delinquency_30": {
+            "horizon_days": 30,
+            "mature_rows": 487,
+            "mature_clients": 121750.0,
+            "immature_rows": 13,
+            "positive_rows": 24,
+            "positive_clients": 6000.0,
+            "base_rate": 0.049281
+          },
+          "delinquency_60": {
+            "horizon_days": 60,
+            "mature_rows": 475,
+            "mature_clients": 118750.0,
+            "immature_rows": 25,
+            "positive_rows": 47,
+            "positive_clients": 11750.0,
+            "base_rate": 0.098947
+          }
+        }
+      },
+      "churn": {
+        "table": "churn",
+        "snapshot_date": "2026-03-31",
+        "steps": [
+          {
+            "step": "input",
+            "rows": 200,
+            "clients": 12500.0
+          },
+          {
+            "step": "cohort_not_maturing_within_horizon",
+            "missing_column": "maturity_date",
+            "status": "not_verifiable"
+          },
+          {
+            "step": "excluded_immature_all_horizons",
+            "rows": 10,
+            "clients": 625.0
+          },
+          {
+            "step": "labeled",
+            "rows": 190,
+            "clients": 11875.0
+          }
+        ],
+        "horizons": {
+          "churn_3m": {
+            "horizon_days": 90,
+            "mature_rows": 190,
+            "mature_clients": 11875.0,
+            "immature_rows": 10,
+            "positive_rows": 16,
+            "positive_clients": 1000.0,
+            "base_rate": 0.084211
+          }
+        }
+      }
+    }
+  },
+  "lineage": {
+    "manifest": {
+      "run_id": "20261112T1800-e4c89a",
+      "created_at": "2026-11-12T18:00:00Z",
+      "closed_at": "2026-11-12T18:00:00Z",
+      "lineage_head_sha256": null,
+      "scores_sha256": "ef94feb14fa244085beb136483937120f66f5910d9a347771158066ab693154a",
+      "sources": [
+        {
+          "name": "delinquency",
+          "file": "data/synthetic/delinquency_sample.csv",
+          "sha256": "be602922fa28db78542df41e089ee56dfeef8e466871628862c764c00b1acc42",
+          "rows": 500,
+          "bytes": 64538
+        },
+        {
+          "name": "churn",
+          "file": "data/synthetic/churn_sample.csv",
+          "sha256": "8c870db2d8dfe97c0be83e9682ccece6c16ba0c76b53fe9485dad1fc872d112e",
+          "rows": 200,
+          "bytes": 21526
+        },
+        {
+          "name": "scores",
+          "file": "data/synthetic/scores_sample.csv",
+          "sha256": "ef94feb14fa244085beb136483937120f66f5910d9a347771158066ab693154a",
+          "rows": 3600,
+          "bytes": 359637
+        }
+      ],
+      "outputs": [
+        {
+          "file": "reconciliation.json",
+          "sha256": "d0356a25e7314e6d435d487ef6302b372b1115e6ead55e7a68a3939e61f756b3",
+          "rows": null,
+          "bytes": 298
+        },
+        {
+          "file": "evaluation.json",
+          "sha256": "71fc2b2427cf41c196b5f839275de340b086fcd1421e52af514feeb4f3e543f8",
+          "rows": null,
+          "bytes": 21537
+        },
+        {
+          "file": "management.json",
+          "sha256": "677ba0de2f5755a064bbaafe6330d95bd11939db845b2f5c5eaac3aa67641206",
+          "rows": null,
+          "bytes": 1825
+        }
+      ]
+    },
+    "log_status": "OK",
+    "figures": [
+      {
+        "figure_id": "exposure.delinquency.observed_cop_m",
+        "value": 58800.0,
+        "unit": "COP_m",
+        "file": "reconciliation.json",
+        "script": "src/predict360/reconcile.py"
+      },
+      {
+        "figure_id": "exposure.churn.observed_cop_m",
+        "value": 18200.0,
+        "unit": "COP_m",
+        "file": "reconciliation.json",
+        "script": "src/predict360/reconcile.py"
+      },
+      {
+        "figure_id": "models.delinquency_30.model_a.net_value_at_k_cop_m",
+        "value": 60.397560000000055,
+        "unit": "COP_m",
+        "file": "evaluation.json",
+        "script": "src/predict360/evaluator.py"
+      },
+      {
+        "figure_id": "models.delinquency_30.model_a.capture_at_k",
+        "value": 0.2788484320217882,
+        "unit": "share",
+        "file": "evaluation.json",
+        "script": "src/predict360/evaluator.py"
+      },
+      {
+        "figure_id": "management.cumulative.cpi",
+        "value": 0.7550812985772358,
+        "unit": "ratio",
+        "file": "management.json",
+        "script": "src/predict360/budget_schedule.py"
+      },
+      {
+        "figure_id": "management.cumulative.eac_cop_m",
+        "value": 222.934051362658,
+        "unit": "COP_m",
+        "file": "management.json",
+        "script": "src/predict360/budget_schedule.py"
+      }
+    ]
+  },
+  "models": {
+    "cards": [
+      {
+        "file": "churn_baseline_rule.json",
+        "model_id": "baseline_rule",
+        "target": "churn",
+        "status": "candidate",
+        "decision": "ADMITTED",
+        "reasons": []
+      },
+      {
+        "file": "churn_model_a.json",
+        "model_id": "model_a",
+        "target": "churn",
+        "status": "candidate",
+        "decision": "ADMITTED",
+        "reasons": []
+      },
+      {
+        "file": "churn_model_b.json",
+        "model_id": "model_b",
+        "target": "churn",
+        "status": "retired",
+        "decision": "SKIPPED",
+        "reasons": [
+          {
+            "rule": "status",
+            "severity": "skip",
+            "message": "retired"
+          }
+        ]
+      },
+      {
+        "file": "delinquency_baseline_rule.json",
+        "model_id": "baseline_rule",
+        "target": "delinquency",
+        "status": "candidate",
+        "decision": "ADMITTED",
+        "reasons": []
+      },
+      {
+        "file": "delinquency_model_a.json",
+        "model_id": "model_a",
+        "target": "delinquency",
+        "status": "candidate",
+        "decision": "ADMITTED",
+        "reasons": []
+      },
+      {
+        "file": "delinquency_model_b.json",
+        "model_id": "model_b",
+        "target": "delinquency",
+        "status": "candidate",
+        "decision": "ADMITTED",
+        "reasons": []
+      },
+      {
+        "file": "delinquency_model_c.json",
+        "model_id": "model_c",
+        "target": "delinquency",
+        "status": "candidate",
+        "decision": "REJECTED",
+        "reasons": [
+          {
+            "rule": "temporal_split",
+            "severity": "reject",
+            "message": "non-temporal split: train_end_date is not before eval_start_date"
+          }
+        ]
+      }
+    ],
+    "evaluations": [
+      {
+        "target": "churn",
+        "horizon_days": 90,
+        "label": "churn_3m",
+        "model_id": "baseline_rule",
+        "n_rows": 190,
+        "n_clients": 11875.0,
+        "scores_dropped_rows": 10,
+        "status": "not_evaluated",
+        "reason": "incomplete_scores",
+        "missing_score_rows": 1
+      },
+      {
+        "target": "churn",
+        "horizon_days": 90,
+        "label": "churn_3m",
+        "model_id": "model_a",
+        "n_rows": 190,
+        "n_clients": 11875.0,
+        "scores_dropped_rows": 10,
+        "status": "evaluated",
+        "event_clients": 1000.0,
+        "event_exposure_cop_m": 1538.1798,
+        "k_requested": 1187.5,
+        "k_applied": 1187.5,
+        "at_k": {
+          "capture": 0.3394688969390965,
+          "captured_cop_m": 522.1642,
+          "net_value_cop_m": 185.11568000000003
+        },
+        "random_at_k": {
+          "capture": 0.1,
+          "captured_cop_m": 153.81798,
+          "net_value_cop_m": 37.77719200000001
+        },
+        "k_star": {
+          "k": 5312.5,
+          "capture": 0.8099330130326767,
+          "captured_cop_m": 1245.8226000000002,
+          "net_value_cop_m": 392.0790400000001
+        },
+        "curve": [
+          {
+            "k": 0.0,
+            "capture": 0.0,
+            "captured_cop_m": 0.0,
+            "net_value_cop_m": 0.0
+          },
+          {
+            "k": 562.5,
+            "capture": 0.18713631527341604,
+            "captured_cop_m": 287.8493,
+            "net_value_cop_m": 103.88972000000001
+          },
+          {
+            "k": 1187.5,
+            "capture": 0.3394688969390965,
+            "captured_cop_m": 522.1642,
+            "net_value_cop_m": 185.11568000000003
+          },
+          {
+            "k": 1750.0,
+            "capture": 0.374823541435143,
+            "captured_cop_m": 576.546,
+            "net_value_cop_m": 195.61840000000004
+          },
+          {
+            "k": 2375.0,
+            "capture": 0.374823541435143,
+            "captured_cop_m": 576.546,
+            "net_value_cop_m": 183.11840000000004
+          },
+          {
+            "k": 2937.5,
+            "capture": 0.5714431433828477,
+            "captured_cop_m": 878.9823000000001,
+            "net_value_cop_m": 292.84292000000005
+          },
+          {
+            "k": 3562.5,
+            "capture": 0.6076972275932893,
+            "captured_cop_m": 934.7476000000001,
+            "net_value_cop_m": 302.64904000000007
+          },
+          {
+            "k": 4125.0,
+            "capture": 0.723247698350999,
+            "captured_cop_m": 1112.4850000000001,
+            "net_value_cop_m": 362.4940000000001
+          },
+          {
+            "k": 4750.0,
+            "capture": 0.723247698350999,
+            "captured_cop_m": 1112.4850000000001,
+            "net_value_cop_m": 349.9940000000001
+          },
+          {
+            "k": 5312.5,
+            "capture": 0.8099330130326767,
+            "captured_cop_m": 1245.8226000000002,
+            "net_value_cop_m": 392.0790400000001
+          },
+          {
+            "k": 5937.5,
+            "capture": 0.8099330130326767,
+            "captured_cop_m": 1245.8226000000002,
+            "net_value_cop_m": 379.5790400000001
+          },
+          {
+            "k": 6500.0,
+            "capture": 0.8099330130326767,
+            "captured_cop_m": 1245.8226000000002,
+            "net_value_cop_m": 368.3290400000001
+          },
+          {
+            "k": 7125.0,
+            "capture": 0.8099330130326767,
+            "captured_cop_m": 1245.8226000000002,
+            "net_value_cop_m": 355.8290400000001
+          },
+          {
+            "k": 7687.5,
+            "capture": 0.8800712374457135,
+            "captured_cop_m": 1353.7078000000001,
+            "net_value_cop_m": 387.7331200000001
+          },
+          {
+            "k": 8312.5,
+            "capture": 0.8800712374457135,
+            "captured_cop_m": 1353.7078000000001,
+            "net_value_cop_m": 375.2331200000001
+          },
+          {
+            "k": 8875.0,
+            "capture": 0.8800712374457135,
+            "captured_cop_m": 1353.7078000000001,
+            "net_value_cop_m": 363.9831200000001
+          },
+          {
+            "k": 9500.0,
+            "capture": 0.9290059588612462,
+            "captured_cop_m": 1428.9782,
+            "net_value_cop_m": 381.59128
+          },
+          {
+            "k": 10062.5,
+            "capture": 0.9290059588612462,
+            "captured_cop_m": 1428.9782,
+            "net_value_cop_m": 370.34128
+          },
+          {
+            "k": 10687.5,
+            "capture": 0.9290059588612462,
+            "captured_cop_m": 1428.9782,
+            "net_value_cop_m": 357.84128
+          },
+          {
+            "k": 11250.0,
+            "capture": 1.0,
+            "captured_cop_m": 1538.1798000000001,
+            "net_value_cop_m": 390.27192000000014
+          },
+          {
+            "k": 11875.0,
+            "capture": 1.0,
+            "captured_cop_m": 1538.1798000000001,
+            "net_value_cop_m": 377.77192000000014
+          }
+        ]
+      },
+      {
+        "target": "delinquency",
+        "horizon_days": 30,
+        "label": "delinquency_30",
+        "model_id": "baseline_rule",
+        "n_rows": 487,
+        "n_clients": 121750.0,
+        "scores_dropped_rows": 13,
+        "status": "evaluated",
+        "event_clients": 6000.0,
+        "event_exposure_cop_m": 2693.1975,
+        "k_requested": 12175.0,
+        "k_applied": 12000.0,
+        "at_k": {
+          "capture": 0.13721834362314683,
+          "captured_cop_m": 369.5561,
+          "net_value_cop_m": -92.17756
+        },
+        "random_at_k": {
+          "capture": 0.09856262833675565,
+          "captured_cop_m": 265.4486242299795,
+          "net_value_cop_m": -133.8205503080082
+        },
+        "k_star": {
+          "k": 0.0,
+          "capture": 0.0,
+          "captured_cop_m": 0.0,
+          "net_value_cop_m": 0.0
+        },
+        "curve": [
+          {
+            "k": 0.0,
+            "capture": 0.0,
+            "captured_cop_m": 0.0,
+            "net_value_cop_m": 0.0
+          },
+          {
+            "k": 6000.0,
+            "capture": 0.06225332527599627,
+            "captured_cop_m": 167.66049999999998,
+            "net_value_cop_m": -52.9358
+          },
+          {
+            "k": 12000.0,
+            "capture": 0.13721834362314683,
+            "captured_cop_m": 369.5561,
+            "net_value_cop_m": -92.17756
+          },
+          {
+            "k": 18250.0,
+            "capture": 0.21555804949321394,
+            "captured_cop_m": 580.5404000000001,
+            "net_value_cop_m": -132.78383999999994
+          },
+          {
+            "k": 24250.0,
+            "capture": 0.21555804949321394,
+            "captured_cop_m": 580.5404000000001,
+            "net_value_cop_m": -252.78383999999994
+          },
+          {
+            "k": 30250.0,
+            "capture": 0.21555804949321394,
+            "captured_cop_m": 580.5404000000001,
+            "net_value_cop_m": -372.78383999999994
+          },
+          {
+            "k": 36500.0,
+            "capture": 0.25867861528907554,
+            "captured_cop_m": 696.6726000000001,
+            "net_value_cop_m": -451.33095999999995
+          },
+          {
+            "k": 42500.0,
+            "capture": 0.2653991027394018,
+            "captured_cop_m": 714.7722000000001,
+            "net_value_cop_m": -564.0911199999999
+          },
+          {
+            "k": 48500.0,
+            "capture": 0.6858837125758508,
+            "captured_cop_m": 1847.2203000000002,
+            "net_value_cop_m": -231.11187999999993
+          },
+          {
+            "k": 54750.0,
+            "capture": 0.7138338350603697,
+            "captured_cop_m": 1922.4955000000002,
+            "net_value_cop_m": -326.0017999999999
+          },
+          {
+            "k": 60750.0,
+            "capture": 0.7675280405540255,
+            "captured_cop_m": 2067.1046,
+            "net_value_cop_m": -388.15815999999995
+          },
+          {
+            "k": 66750.0,
+            "capture": 0.8291804815651284,
+            "captured_cop_m": 2233.1468,
+            "net_value_cop_m": -441.74127999999996
+          },
+          {
+            "k": 73000.0,
+            "capture": 0.8291804815651284,
+            "captured_cop_m": 2233.1468,
+            "net_value_cop_m": -566.74128
+          },
+          {
+            "k": 79000.0,
+            "capture": 0.8291804815651284,
+            "captured_cop_m": 2233.1468,
+            "net_value_cop_m": -686.74128
+          },
+          {
+            "k": 85000.0,
+            "capture": 0.8291804815651284,
+            "captured_cop_m": 2233.1468,
+            "net_value_cop_m": -806.74128
+          },
+          {
+            "k": 91250.0,
+            "capture": 0.8498889888320481,
+            "captured_cop_m": 2288.9189,
+            "net_value_cop_m": -909.4324399999999
+          },
+          {
+            "k": 97250.0,
+            "capture": 0.854711732058269,
+            "captured_cop_m": 2301.9075000000003,
+            "net_value_cop_m": -1024.2369999999999
+          },
+          {
+            "k": 103250.0,
+            "capture": 0.9236926738570046,
+            "captured_cop_m": 2487.6868000000004,
+            "net_value_cop_m": -1069.92528
+          },
+          {
+            "k": 109500.0,
+            "capture": 0.975788184862046,
+            "captured_cop_m": 2627.9903000000004,
+            "net_value_cop_m": -1138.8038799999997
+          },
+          {
+            "k": 115500.0,
+            "capture": 0.975788184862046,
+            "captured_cop_m": 2627.9903000000004,
+            "net_value_cop_m": -1258.8038799999997
+          },
+          {
+            "k": 121750.0,
+            "capture": 1.0,
+            "captured_cop_m": 2693.1975,
+            "net_value_cop_m": -1357.7209999999998
+          }
+        ]
+      },
+      {
+        "target": "delinquency",
+        "horizon_days": 60,
+        "label": "delinquency_60",
+        "model_id": "baseline_rule",
+        "n_rows": 475,
+        "n_clients": 118750.0,
+        "scores_dropped_rows": 25,
+        "status": "evaluated",
+        "event_clients": 11750.0,
+        "event_exposure_cop_m": 5803.003500000001,
+        "k_requested": 11875.0,
+        "k_applied": 11750.0,
+        "at_k": {
+          "capture": 0.11652708808464442,
+          "captured_cop_m": 676.2071,
+          "net_value_cop_m": 35.48284000000001
+        },
+        "random_at_k": {
+          "capture": 0.09894736842105263,
+          "captured_cop_m": 574.1919252631579,
+          "net_value_cop_m": -5.323229894736812
+        },
+        "k_star": {
+          "k": 41500.0,
+          "capture": 0.41629282146736596,
+          "captured_cop_m": 2415.7487,
+          "net_value_cop_m": 136.29948000000013
+        },
+        "curve": [
+          {
+            "k": 0.0,
+            "capture": 0.0,
+            "captured_cop_m": 0.0,
+            "net_value_cop_m": 0.0
+          },
+          {
+            "k": 5750.0,
+            "capture": 0.042375176923467296,
+            "captured_cop_m": 245.9033,
+            "net_value_cop_m": -16.638679999999994
+          },
+          {
+            "k": 11750.0,
+            "capture": 0.11652708808464442,
+            "captured_cop_m": 676.2071,
+            "net_value_cop_m": 35.48284000000001
+          },
+          {
+            "k": 17750.0,
+            "capture": 0.13843867231856744,
+            "captured_cop_m": 803.3601,
+            "net_value_cop_m": -33.65595999999999
+          },
+          {
+            "k": 23750.0,
+            "capture": 0.20745382972800203,
+            "captured_cop_m": 1203.8553,
+            "net_value_cop_m": 6.542120000000011
+          },
+          {
+            "k": 29500.0,
+            "capture": 0.20872530922995305,
+            "captured_cop_m": 1211.2337,
+            "net_value_cop_m": -105.50651999999997
+          },
+          {
+            "k": 35500.0,
+            "capture": 0.28007405130808555,
+            "captured_cop_m": 1625.2707000000003,
+            "net_value_cop_m": -59.89171999999985
+          },
+          {
+            "k": 41500.0,
+            "capture": 0.41629282146736596,
+            "captured_cop_m": 2415.7487,
+            "net_value_cop_m": 136.29948000000013
+          },
+          {
+            "k": 47500.0,
+            "capture": 0.45659803582748143,
+            "captured_cop_m": 2649.6400000000003,
+            "net_value_cop_m": 109.85600000000022
+          },
+          {
+            "k": 53250.0,
+            "capture": 0.45883629055195296,
+            "captured_cop_m": 2662.6286000000005,
+            "net_value_cop_m": 0.05144000000018423
+          },
+          {
+            "k": 59250.0,
+            "capture": 0.4830140288559192,
+            "captured_cop_m": 2802.9321000000004,
+            "net_value_cop_m": -63.82715999999982
+          },
+          {
+            "k": 65250.0,
+            "capture": 0.49231957209744925,
+            "captured_cop_m": 2856.9322000000006,
+            "net_value_cop_m": -162.2271199999998
+          },
+          {
+            "k": 71250.0,
+            "capture": 0.5332398300293978,
+            "captured_cop_m": 3094.3926000000006,
+            "net_value_cop_m": -187.24295999999958
+          },
+          {
+            "k": 77000.0,
+            "capture": 0.5363588355581727,
+            "captured_cop_m": 3112.4922000000006,
+            "net_value_cop_m": -295.0031199999996
+          },
+          {
+            "k": 83000.0,
+            "capture": 0.5459937944204238,
+            "captured_cop_m": 3168.4039000000007,
+            "net_value_cop_m": -392.6384399999997
+          },
+          {
+            "k": 89000.0,
+            "capture": 0.651810084208979,
+            "captured_cop_m": 3782.4562000000005,
+            "net_value_cop_m": -267.01751999999965
+          },
+          {
+            "k": 95000.0,
+            "capture": 0.6741995416683791,
+            "captured_cop_m": 3912.3823,
+            "net_value_cop_m": -335.0470799999998
+          },
+          {
+            "k": 100750.0,
+            "capture": 0.6985757633956278,
+            "captured_cop_m": 4053.8376000000003,
+            "net_value_cop_m": -393.4649599999998
+          },
+          {
+            "k": 106750.0,
+            "capture": 0.6985757633956278,
+            "captured_cop_m": 4053.8376000000003,
+            "net_value_cop_m": -513.4649599999998
+          },
+          {
+            "k": 112750.0,
+            "capture": 0.776742785007798,
+            "captured_cop_m": 4507.4411,
+            "net_value_cop_m": -452.02355999999986
+          },
+          {
+            "k": 118750.0,
+            "capture": 1.0,
+            "captured_cop_m": 5803.003500000001,
+            "net_value_cop_m": -53.798599999999624
+          }
+        ]
+      },
+      {
+        "target": "delinquency",
+        "horizon_days": 30,
+        "label": "delinquency_30",
+        "model_id": "model_a",
+        "n_rows": 487,
+        "n_clients": 121750.0,
+        "scores_dropped_rows": 13,
+        "status": "evaluated",
+        "event_clients": 6000.0,
+        "event_exposure_cop_m": 2693.1975,
+        "k_requested": 12175.0,
+        "k_applied": 12000.0,
+        "at_k": {
+          "capture": 0.2788484320217882,
+          "captured_cop_m": 750.9939,
+          "net_value_cop_m": 60.397560000000055
+        },
+        "random_at_k": {
+          "capture": 0.09856262833675565,
+          "captured_cop_m": 265.4486242299795,
+          "net_value_cop_m": -133.8205503080082
+        },
+        "k_star": {
+          "k": 30250.0,
+          "capture": 0.7552561592679333,
+          "captured_cop_m": 2034.054,
+          "net_value_cop_m": 208.62160000000006
+        },
+        "curve": [
+          {
+            "k": 0.0,
+            "capture": 0.0,
+            "captured_cop_m": 0.0,
+            "net_value_cop_m": 0.0
+          },
+          {
+            "k": 6000.0,
+            "capture": 0.127607425745791,
+            "captured_cop_m": 343.672,
+            "net_value_cop_m": 17.468800000000016
+          },
+          {
+            "k": 12000.0,
+            "capture": 0.2788484320217882,
+            "captured_cop_m": 750.9939,
+            "net_value_cop_m": 60.397560000000055
+          },
+          {
+            "k": 18250.0,
+            "capture": 0.34377445397153383,
+            "captured_cop_m": 925.8525000000001,
+            "net_value_cop_m": 5.341000000000065
+          },
+          {
+            "k": 24250.0,
+            "capture": 0.3665862232532148,
+            "captured_cop_m": 987.2891000000001,
+            "net_value_cop_m": -90.08435999999995
+          },
+          {
+            "k": 30250.0,
+            "capture": 0.7552561592679333,
+            "captured_cop_m": 2034.054,
+            "net_value_cop_m": 208.62160000000006
+          },
+          {
+            "k": 36500.0,
+            "capture": 0.8189739890966037,
+            "captured_cop_m": 2205.6587000000004,
+            "net_value_cop_m": 152.2634800000002
+          },
+          {
+            "k": 42500.0,
+            "capture": 0.8189739890966037,
+            "captured_cop_m": 2205.6587000000004,
+            "net_value_cop_m": 32.263480000000186
+          },
+          {
+            "k": 48500.0,
+            "capture": 0.8280489269724928,
+            "captured_cop_m": 2230.0993000000003,
+            "net_value_cop_m": -77.96027999999978
+          },
+          {
+            "k": 54750.0,
+            "capture": 0.8801444379775342,
+            "captured_cop_m": 2370.4028000000003,
+            "net_value_cop_m": -146.8388799999998
+          },
+          {
+            "k": 60750.0,
+            "capture": 0.975788184862046,
+            "captured_cop_m": 2627.9903000000004,
+            "net_value_cop_m": -163.8038799999997
+          },
+          {
+            "k": 66750.0,
+            "capture": 1.0,
+            "captured_cop_m": 2693.1975,
+            "net_value_cop_m": -257.7209999999998
+          },
+          {
+            "k": 73000.0,
+            "capture": 1.0,
+            "captured_cop_m": 2693.1975,
+            "net_value_cop_m": -382.7209999999998
+          },
+          {
+            "k": 79000.0,
+            "capture": 1.0,
+            "captured_cop_m": 2693.1975,
+            "net_value_cop_m": -502.7209999999998
+          },
+          {
+            "k": 85000.0,
+            "capture": 1.0,
+            "captured_cop_m": 2693.1975,
+            "net_value_cop_m": -622.7209999999998
+          },
+          {
+            "k": 91250.0,
+            "capture": 1.0,
+            "captured_cop_m": 2693.1975,
+            "net_value_cop_m": -747.7209999999998
+          },
+          {
+            "k": 97250.0,
+            "capture": 1.0,
+            "captured_cop_m": 2693.1975,
+            "net_value_cop_m": -867.7209999999998
+          },
+          {
+            "k": 103250.0,
+            "capture": 1.0,
+            "captured_cop_m": 2693.1975,
+            "net_value_cop_m": -987.7209999999998
+          },
+          {
+            "k": 109500.0,
+            "capture": 1.0,
+            "captured_cop_m": 2693.1975,
+            "net_value_cop_m": -1112.7209999999998
+          },
+          {
+            "k": 115500.0,
+            "capture": 1.0,
+            "captured_cop_m": 2693.1975,
+            "net_value_cop_m": -1232.7209999999998
+          },
+          {
+            "k": 121750.0,
+            "capture": 1.0,
+            "captured_cop_m": 2693.1975,
+            "net_value_cop_m": -1357.7209999999998
+          }
+        ]
+      },
+      {
+        "target": "delinquency",
+        "horizon_days": 60,
+        "label": "delinquency_60",
+        "model_id": "model_a",
+        "n_rows": 475,
+        "n_clients": 118750.0,
+        "scores_dropped_rows": 25,
+        "status": "evaluated",
+        "event_clients": 11750.0,
+        "event_exposure_cop_m": 5803.003500000001,
+        "k_requested": 11875.0,
+        "k_applied": 11750.0,
+        "at_k": {
+          "capture": 0.1775335651615582,
+          "captured_cop_m": 1030.2279,
+          "net_value_cop_m": 177.09116000000006
+        },
+        "random_at_k": {
+          "capture": 0.09894736842105263,
+          "captured_cop_m": 574.1919252631579,
+          "net_value_cop_m": -5.323229894736812
+        },
+        "k_star": {
+          "k": 41500.0,
+          "capture": 0.8671747483867623,
+          "captured_cop_m": 5032.2181,
+          "net_value_cop_m": 1182.88724
+        },
+        "curve": [
+          {
+            "k": 0.0,
+            "capture": 0.0,
+            "captured_cop_m": 0.0,
+            "net_value_cop_m": 0.0
+          },
+          {
+            "k": 5750.0,
+            "capture": 0.12096236026740292,
+            "captured_cop_m": 701.9449999999999,
+            "net_value_cop_m": 165.77799999999996
+          },
+          {
+            "k": 11750.0,
+            "capture": 0.1775335651615582,
+            "captured_cop_m": 1030.2279,
+            "net_value_cop_m": 177.09116000000006
+          },
+          {
+            "k": 17750.0,
+            "capture": 0.29764770950077835,
+            "captured_cop_m": 1727.2506999999998,
+            "net_value_cop_m": 335.90027999999995
+          },
+          {
+            "k": 23750.0,
+            "capture": 0.45796286354126803,
+            "captured_cop_m": 2657.5601,
+            "net_value_cop_m": 588.02404
+          },
+          {
+            "k": 29500.0,
+            "capture": 0.5228186231492021,
+            "captured_cop_m": 3033.9183000000003,
+            "net_value_cop_m": 623.5673200000001
+          },
+          {
+            "k": 35500.0,
+            "capture": 0.6538042067353571,
+            "captured_cop_m": 3794.0281,
+            "net_value_cop_m": 807.6112400000002
+          },
+          {
+            "k": 41500.0,
+            "capture": 0.8671747483867623,
+            "captured_cop_m": 5032.2181,
+            "net_value_cop_m": 1182.88724
+          },
+          {
+            "k": 47500.0,
+            "capture": 0.8776092759551154,
+            "captured_cop_m": 5092.7697,
+            "net_value_cop_m": 1087.10788
+          },
+          {
+            "k": 53250.0,
+            "capture": 0.9074040365476258,
+            "captured_cop_m": 5265.6687999999995,
+            "net_value_cop_m": 1041.2675199999999
+          },
+          {
+            "k": 59250.0,
+            "capture": 0.9674792889578647,
+            "captured_cop_m": 5614.285699999999,
+            "net_value_cop_m": 1060.7142799999997
+          },
+          {
+            "k": 65250.0,
+            "capture": 0.98876319823002,
+            "captured_cop_m": 5737.796299999999,
+            "net_value_cop_m": 990.1185199999995
+          },
+          {
+            "k": 71250.0,
+            "capture": 1.0,
+            "captured_cop_m": 5803.003499999999,
+            "net_value_cop_m": 896.2013999999995
+          },
+          {
+            "k": 77000.0,
+            "capture": 1.0,
+            "captured_cop_m": 5803.003499999999,
+            "net_value_cop_m": 781.2013999999995
+          },
+          {
+            "k": 83000.0,
+            "capture": 1.0,
+            "captured_cop_m": 5803.003499999999,
+            "net_value_cop_m": 661.2013999999995
+          },
+          {
+            "k": 89000.0,
+            "capture": 1.0,
+            "captured_cop_m": 5803.003499999999,
+            "net_value_cop_m": 541.2013999999995
+          },
+          {
+            "k": 95000.0,
+            "capture": 1.0,
+            "captured_cop_m": 5803.003499999999,
+            "net_value_cop_m": 421.20139999999947
+          },
+          {
+            "k": 100750.0,
+            "capture": 1.0,
+            "captured_cop_m": 5803.003499999999,
+            "net_value_cop_m": 306.20139999999947
+          },
+          {
+            "k": 106750.0,
+            "capture": 1.0,
+            "captured_cop_m": 5803.003499999999,
+            "net_value_cop_m": 186.20139999999947
+          },
+          {
+            "k": 112750.0,
+            "capture": 1.0,
+            "captured_cop_m": 5803.003499999999,
+            "net_value_cop_m": 66.20139999999947
+          },
+          {
+            "k": 118750.0,
+            "capture": 1.0,
+            "captured_cop_m": 5803.003499999999,
+            "net_value_cop_m": -53.79860000000053
+          }
+        ]
+      },
+      {
+        "target": "delinquency",
+        "horizon_days": 30,
+        "label": "delinquency_30",
+        "model_id": "model_b",
+        "n_rows": 487,
+        "n_clients": 121750.0,
+        "scores_dropped_rows": 13,
+        "status": "evaluated",
+        "event_clients": 6000.0,
+        "event_exposure_cop_m": 2693.1975,
+        "k_requested": 12175.0,
+        "k_applied": 12000.0,
+        "at_k": {
+          "capture": 0.475141834195227,
+          "captured_cop_m": 1279.6508,
+          "net_value_cop_m": 271.86032
+        },
+        "random_at_k": {
+          "capture": 0.09856262833675565,
+          "captured_cop_m": 265.4486242299795,
+          "net_value_cop_m": -133.8205503080082
+        },
+        "k_star": {
+          "k": 12000.0,
+          "capture": 0.475141834195227,
+          "captured_cop_m": 1279.6508,
+          "net_value_cop_m": 271.86032
+        },
+        "curve": [
+          {
+            "k": 0.0,
+            "capture": 0.0,
+            "captured_cop_m": 0.0,
+            "net_value_cop_m": 0.0
+          },
+          {
+            "k": 6000.0,
+            "capture": 0.34220227072095527,
+            "captured_cop_m": 921.6183,
+            "net_value_cop_m": 248.64732000000004
+          },
+          {
+            "k": 12000.0,
+            "capture": 0.475141834195227,
+            "captured_cop_m": 1279.6508,
+            "net_value_cop_m": 271.86032
+          },
+          {
+            "k": 18250.0,
+            "capture": 0.5893174562949802,
+            "captured_cop_m": 1587.1483,
+            "net_value_cop_m": 269.85932
+          },
+          {
+            "k": 24250.0,
+            "capture": 0.6950600540806977,
+            "captured_cop_m": 1871.934,
+            "net_value_cop_m": 263.7736
+          },
+          {
+            "k": 30250.0,
+            "capture": 0.7471555650857391,
+            "captured_cop_m": 2012.2375,
+            "net_value_cop_m": 199.89499999999998
+          },
+          {
+            "k": 36500.0,
+            "capture": 0.8008648455971014,
+            "captured_cop_m": 2156.8871999999997,
+            "net_value_cop_m": 132.75487999999996
+          },
+          {
+            "k": 42500.0,
+            "capture": 0.8496378375518319,
+            "captured_cop_m": 2288.2425,
+            "net_value_cop_m": 65.29700000000003
+          },
+          {
+            "k": 48500.0,
+            "capture": 0.9153185015209615,
+            "captured_cop_m": 2465.1335,
+            "net_value_cop_m": 16.05340000000001
+          },
+          {
+            "k": 54750.0,
+            "capture": 0.9153185015209615,
+            "captured_cop_m": 2465.1335,
+            "net_value_cop_m": -108.94659999999999
+          },
+          {
+            "k": 60750.0,
+            "capture": 0.9153185015209615,
+            "captured_cop_m": 2465.1335,
+            "net_value_cop_m": -228.9466
+          },
+          {
+            "k": 66750.0,
+            "capture": 0.9694454639884375,
+            "captured_cop_m": 2610.9081,
+            "net_value_cop_m": -290.63675999999987
+          },
+          {
+            "k": 73000.0,
+            "capture": 0.9694454639884375,
+            "captured_cop_m": 2610.9081,
+            "net_value_cop_m": -415.63675999999987
+          },
+          {
+            "k": 79000.0,
+            "capture": 0.9694454639884375,
+            "captured_cop_m": 2610.9081,
+            "net_value_cop_m": -535.6367599999999
+          },
+          {
+            "k": 85000.0,
+            "capture": 0.9852408893146528,
+            "captured_cop_m": 2653.4483,
+            "net_value_cop_m": -638.62068
+          },
+          {
+            "k": 91250.0,
+            "capture": 0.9900636325408738,
+            "captured_cop_m": 2666.4369,
+            "net_value_cop_m": -758.4252399999998
+          },
+          {
+            "k": 97250.0,
+            "capture": 0.9939867759419797,
+            "captured_cop_m": 2677.0027,
+            "net_value_cop_m": -874.19892
+          },
+          {
+            "k": 103250.0,
+            "capture": 0.9972603568806223,
+            "captured_cop_m": 2685.8191,
+            "net_value_cop_m": -990.6723599999998
+          },
+          {
+            "k": 109500.0,
+            "capture": 1.0,
+            "captured_cop_m": 2693.1975,
+            "net_value_cop_m": -1112.7209999999998
+          },
+          {
+            "k": 115500.0,
+            "capture": 1.0,
+            "captured_cop_m": 2693.1975,
+            "net_value_cop_m": -1232.7209999999998
+          },
+          {
+            "k": 121750.0,
+            "capture": 1.0,
+            "captured_cop_m": 2693.1975,
+            "net_value_cop_m": -1357.7209999999998
+          }
+        ]
+      },
+      {
+        "target": "delinquency",
+        "horizon_days": 60,
+        "label": "delinquency_60",
+        "model_id": "model_b",
+        "n_rows": 475,
+        "n_clients": 118750.0,
+        "scores_dropped_rows": 25,
+        "status": "evaluated",
+        "event_clients": 11750.0,
+        "event_exposure_cop_m": 5803.003500000001,
+        "k_requested": 11875.0,
+        "k_applied": 11750.0,
+        "at_k": {
+          "capture": 0.4685435051004193,
+          "captured_cop_m": 2718.9596,
+          "net_value_cop_m": 852.58384
+        },
+        "random_at_k": {
+          "capture": 0.09894736842105263,
+          "captured_cop_m": 574.1919252631579,
+          "net_value_cop_m": -5.323229894736812
+        },
+        "k_star": {
+          "k": 29500.0,
+          "capture": 0.810361048377793,
+          "captured_cop_m": 4702.528,
+          "net_value_cop_m": 1291.0112000000001
+        },
+        "curve": [
+          {
+            "k": 0.0,
+            "capture": 0.0,
+            "captured_cop_m": 0.0,
+            "net_value_cop_m": 0.0
+          },
+          {
+            "k": 5750.0,
+            "capture": 0.35054431726605034,
+            "captured_cop_m": 2034.2098999999998,
+            "net_value_cop_m": 698.68396
+          },
+          {
+            "k": 11750.0,
+            "capture": 0.4685435051004193,
+            "captured_cop_m": 2718.9596,
+            "net_value_cop_m": 852.58384
+          },
+          {
+            "k": 17750.0,
+            "capture": 0.5213343917507548,
+            "captured_cop_m": 3025.3053,
+            "net_value_cop_m": 855.12212
+          },
+          {
+            "k": 23750.0,
+            "capture": 0.6943758693235325,
+            "captured_cop_m": 4029.4656,
+            "net_value_cop_m": 1136.7862400000001
+          },
+          {
+            "k": 29500.0,
+            "capture": 0.810361048377793,
+            "captured_cop_m": 4702.528,
+            "net_value_cop_m": 1291.0112000000001
+          },
+          {
+            "k": 35500.0,
+            "capture": 0.8584348777318508,
+            "captured_cop_m": 4981.5006,
+            "net_value_cop_m": 1282.6002400000002
+          },
+          {
+            "k": 41500.0,
+            "capture": 0.9006505165816292,
+            "captured_cop_m": 5226.4781,
+            "net_value_cop_m": 1260.5912400000002
+          },
+          {
+            "k": 47500.0,
+            "capture": 0.9181900545122885,
+            "captured_cop_m": 5328.2600999999995,
+            "net_value_cop_m": 1181.30404
+          },
+          {
+            "k": 53250.0,
+            "capture": 0.9354543556625464,
+            "captured_cop_m": 5428.4448999999995,
+            "net_value_cop_m": 1106.3779599999998
+          },
+          {
+            "k": 59250.0,
+            "capture": 0.9811318914420785,
+            "captured_cop_m": 5693.511799999999,
+            "net_value_cop_m": 1092.40472
+          },
+          {
+            "k": 65250.0,
+            "capture": 0.9811318914420785,
+            "captured_cop_m": 5693.511799999999,
+            "net_value_cop_m": 972.40472
+          },
+          {
+            "k": 71250.0,
+            "capture": 0.9853436069786967,
+            "captured_cop_m": 5717.952399999999,
+            "net_value_cop_m": 862.1809599999997
+          },
+          {
+            "k": 77000.0,
+            "capture": 0.9853436069786967,
+            "captured_cop_m": 5717.952399999999,
+            "net_value_cop_m": 747.1809599999997
+          },
+          {
+            "k": 83000.0,
+            "capture": 0.9910970930829184,
+            "captured_cop_m": 5751.339899999999,
+            "net_value_cop_m": 640.5359599999997
+          },
+          {
+            "k": 89000.0,
+            "capture": 0.9910970930829184,
+            "captured_cop_m": 5751.339899999999,
+            "net_value_cop_m": 520.5359599999997
+          },
+          {
+            "k": 95000.0,
+            "capture": 0.9972092382849675,
+            "captured_cop_m": 5786.808699999999,
+            "net_value_cop_m": 414.72347999999965
+          },
+          {
+            "k": 100750.0,
+            "capture": 0.998728520498049,
+            "captured_cop_m": 5795.625099999998,
+            "net_value_cop_m": 303.25003999999944
+          },
+          {
+            "k": 106750.0,
+            "capture": 1.0,
+            "captured_cop_m": 5803.003499999998,
+            "net_value_cop_m": 186.20139999999947
+          },
+          {
+            "k": 112750.0,
+            "capture": 1.0,
+            "captured_cop_m": 5803.003499999998,
+            "net_value_cop_m": 66.20139999999947
+          },
+          {
+            "k": 118750.0,
+            "capture": 1.0,
+            "captured_cop_m": 5803.003499999998,
+            "net_value_cop_m": -53.79860000000053
+          }
+        ]
+      }
+    ],
+    "decisions": [
+      {
+        "target": "churn",
+        "verdict": "authorized_for_shadow_deployment",
+        "model_id": "model_a",
+        "reason": "SAMPLE: illustrative verdict; B8b implements the promotion rule"
+      },
+      {
+        "target": "delinquency",
+        "verdict": "authorized_for_shadow_deployment",
+        "model_id": "model_b",
+        "reason": "SAMPLE: illustrative verdict; B8b implements the promotion rule"
+      }
+    ]
+  },
+  "assumptions": [
+    {
+      "id": "A01",
+      "name": "Days past due that count as delinquency",
+      "type": "business",
+      "value": {
+        "delinquency.dpd_threshold_days": 30
+      },
+      "rationale": "First delinquency bucket; an early warning makes sense before 60 or 90 days."
+    },
+    {
+      "id": "A02",
+      "name": "Delinquency alert horizons",
+      "type": "business",
+      "value": {
+        "delinquency.horizons_days": [
+          30,
+          60
+        ]
+      },
+      "rationale": "Stated verbatim in the client brief."
+    },
+    {
+      "id": "A03",
+      "name": "Churn definition",
+      "type": "business",
+      "value": {
+        "churn.definition": "voluntary_early_cancellation",
+        "churn.horizon_days": 90
+      },
+      "rationale": "The client asks for 3 months' lead time; a natural maturity is not a decision that can be retained."
+    },
+    {
+      "id": "A04",
+      "name": "Preferred segment",
+      "type": "business",
+      "value": {
+        "churn.preferred_segment": "top_10pct_by_exposure"
+      },
+      "rationale": "Top 10% of clients by exposure (12,500 clients), matching the synthetic churn data (200 rows x 62.5). Tenure is not usable as the criterion because 12% of tenure_months is missing."
+    },
+    {
+      "id": "A05",
+      "name": "Feature history window",
+      "type": "design",
+      "value": {
+        "features.history_window_months": 12
+      },
+      "rationale": "Covers a full annual cycle and its seasonality."
+    },
+    {
+      "id": "A06",
+      "name": "No-intervention control group",
+      "type": "design",
+      "value": {
+        "intervention.control_group_share": 0.05
+      },
+      "rationale": "Measures the effect of the action without leaving many clients unmanaged."
+    },
+    {
+      "id": "A07",
+      "name": "Share of exposure lost if the event occurs",
+      "type": "simulation",
+      "value": {
+        "value.loss_given_event": 1.0
+      },
+      "rationale": "Upper-bound scenario; 58,800M and 18,200M are exposure, not loss. The simulator allows lowering it."
+    },
+    {
+      "id": "A08",
+      "name": "Alert frequency and capacity K",
+      "type": "design",
+      "value": {
+        "intervention.alert_frequency": "weekly",
+        "value.default_capacity_share": 0.1
+      },
+      "rationale": "Collections working rhythm; K moves in the simulator and K* comes from the calculation."
+    },
+    {
+      "id": "A09",
+      "name": "Action effectiveness and cost per contact",
+      "type": "simulation",
+      "value": {
+        "value.action_effectiveness": 0.4,
+        "value.cost_per_contact_cop": 20000
+      },
+      "rationale": "Test-case values with no source; declared illustrative."
+    },
+    {
+      "id": "A10",
+      "name": "Reconciliation tolerance",
+      "type": "design",
+      "value": {
+        "reconciliation.tolerance_cop_m": 0.01
+      },
+      "rationale": "Rounding of the published figure; already used in reconcile.py."
+    },
+    {
+      "id": "A11",
+      "name": "Condition to beat the baseline",
+      "type": "design",
+      "value": {
+        "promotion.beat_baseline_rule": "higher_net_value_at_K"
+      },
+      "rationale": "The criterion is measured in COP, not only in classification metrics."
+    },
+    {
+      "id": "A12",
+      "name": "RAW retention period",
+      "type": "business",
+      "value": {
+        "retention.raw_retention_days": null
+      },
+      "rationale": "Depends on FinBank's data policy (Ley 1581); we do not set it because we do not give legal advice."
+    },
+    {
+      "id": "A13",
+      "name": "Charter budget, contingency reserve and hours",
+      "type": "business",
+      "value": {
+        "budget.ceiling_cop_m": 180,
+        "budget.contingency_cop_m": 20,
+        "budget.planned_consultant_hours": 1620,
+        "budget.sprints": 6
+      },
+      "rationale": "Charter table 1: management 30 + business and data 40 + modeling 60 + validation 30 + contingency 20. BAC = ceiling - contingency (160M); the reserve is kept apart so that its use is visible. The rate is derived (180M / 1,620 h) and only rounded on screen."
+    },
+    {
+      "id": "A14",
+      "name": "Academic hours scale",
+      "type": "design",
+      "value": {
+        "budget.k_scale": 7.5
+      },
+      "rationale": "GMAC has 2 credits = 12 h per person per sprint; the Charter plans 90 consultant hours per person per sprint. k = 90 / 12 = 7.5, so one logged hour = 7.5 consultant hours."
+    },
+    {
+      "id": "A15",
+      "name": "Approved change requests",
+      "type": "business",
+      "value": {
+        "budget.change_requests": [
+          {
+            "id": "CR-01",
+            "sprint": 3,
+            "approved_cop_m": 8.333333
+          }
+        ]
+      },
+      "rationale": "CR-01 (web dashboard, US-10) is approved for (8 + 2) h x 7.5 x rate = 8.33M. Control of change moves that amount from the contingency reserve to the BAC of Sprint 3."
+    }
+  ],
+  "management": {
+    "baseline": {
+      "ceiling_cop_m": 180,
+      "contingency_cop_m": 20,
+      "change_requests": [
+        {
+          "id": "CR-01",
+          "sprint": 3,
+          "approved_cop_m": 8.333333
+        }
+      ],
+      "bac_cop_m": 168.333333,
+      "reserve_remaining_cop_m": 11.666667,
+      "k_scale": 7.5,
+      "rate_cop": 111111.11111111111,
+      "logged_hour_cop_m": 0.8333333333333334,
+      "pv_by_sprint_cop_m": {
+        "1": 26.666666666666668,
+        "2": 26.666666666666668,
+        "3": 34.99999966666667,
+        "4": 26.666666666666668,
+        "5": 26.666666666666668,
+        "6": 26.666666666666668
+      }
+    },
+    "sprints": [
+      {
+        "sprint": 1,
+        "committed_sp": 15,
+        "done_sp": 15,
+        "pv_cop_m": 26.666666666666668,
+        "ev_cop_m": 26.666666666666668,
+        "ac_cop_m": 30.0,
+        "spi": 1.0,
+        "cpi": 0.888888888888889,
+        "logged_hours": 36.0,
+        "estimated_hours": 36.0,
+        "hours_estimated": true,
+        "mgmt_hours": 0.0,
+        "mgmt_ac_cop_m": 0.0,
+        "change_requests_cop_m": 0
+      },
+      {
+        "sprint": 2,
+        "committed_sp": 13,
+        "done_sp": 13,
+        "pv_cop_m": 26.666666666666668,
+        "ev_cop_m": 26.666666666666668,
+        "ac_cop_m": 30.0,
+        "spi": 1.0,
+        "cpi": 0.888888888888889,
+        "logged_hours": 36.0,
+        "estimated_hours": 36.0,
+        "hours_estimated": true,
+        "mgmt_hours": 0.0,
+        "mgmt_ac_cop_m": 0.0,
+        "change_requests_cop_m": 0
+      },
+      {
+        "sprint": 3,
+        "committed_sp": 16,
+        "done_sp": 11,
+        "pv_cop_m": 34.99999966666667,
+        "ev_cop_m": 24.062499770833334,
+        "ac_cop_m": 42.5,
+        "spi": 0.6875,
+        "cpi": 0.5661764651960784,
+        "logged_hours": 51.0,
+        "estimated_hours": 0.0,
+        "hours_estimated": false,
+        "mgmt_hours": 3.0,
+        "mgmt_ac_cop_m": 2.5,
+        "change_requests_cop_m": 8.333333
+      }
+    ],
+    "cumulative": {
+      "sprints": [
+        1,
+        2,
+        3
+      ],
+      "pv_cop_m": 88.33333300000001,
+      "ev_cop_m": 77.39583310416667,
+      "ac_cop_m": 102.5,
+      "spi": 0.876179245995016,
+      "cpi": 0.7550812985772358,
+      "bac_cop_m": 168.333333,
+      "eac_cop_m": 222.934051362658,
+      "ceiling_cop_m": 180,
+      "eac_minus_ceiling_cop_m": 42.93405136265801,
+      "eac_over_ceiling": true,
+      "estimated_hours": 72.0,
+      "mgmt_hours": 3.0
+    },
+    "hours_outside_reported_sprints": {},
+    "velocity": [
+      {
+        "sprint": 1,
+        "planned_sp": 15.0,
+        "completed_sp": 15.0,
+        "completion_rate_pct": 100.0
+      },
+      {
+        "sprint": 2,
+        "planned_sp": 13.0,
+        "completed_sp": 13.0,
+        "completion_rate_pct": 100.0
+      },
+      {
+        "sprint": 3,
+        "planned_sp": 16.0,
+        "completed_sp": 11.0,
+        "completion_rate_pct": 68.75
+      }
+    ],
+    "risks": [
+      {
+        "risk_id": "R-01",
+        "category": "Data quality",
+        "description": "Records may be incomplete or fragmented for forecasting use",
+        "probability": "High",
+        "impact": "High",
+        "owner": "Paula Gacha",
+        "status": "Mitigating"
+      },
+      {
+        "risk_id": "R-02",
+        "category": "Schedule",
+        "description": "Analytical and validation work may extend beyond planned effort",
+        "probability": "High",
+        "impact": "High",
+        "owner": "Marco Jimenez",
+        "status": "Open"
+      },
+      {
+        "risk_id": "R-03",
+        "category": "Scope",
+        "description": "Requests for model development or system integration",
+        "probability": "Low",
+        "impact": "High",
+        "owner": "Cristian Vega",
+        "status": "Open"
+      },
+      {
+        "risk_id": "R-04",
+        "category": "Compliance",
+        "description": "Data of 125000 clients falls under Ley 1581 de 2012 (Habeas Data)",
+        "probability": "Low",
+        "impact": "High",
+        "owner": "Paula Gacha",
+        "status": "Mitigating"
+      },
+      {
+        "risk_id": "R-05",
+        "category": "Business adoption",
+        "description": "Low uptake by the Risk and Analytics function",
+        "probability": "Low",
+        "impact": "Low",
+        "owner": "Cristian Vega",
+        "status": "Open"
+      },
+      {
+        "risk_id": "I-01",
+        "category": "Schedule",
+        "description": "Sponsor sign-off delayed stories at closure in the Cut 1 simulation",
+        "probability": "High",
+        "impact": "Medium",
+        "owner": "Marco Jimenez",
+        "status": "Mitigating"
+      }
+    ]
+  },
+  "handover": {
+    "steps": [
+      {
+        "step": 1,
+        "title": "Clone the repository inside FinBank and install requirements",
+        "status": "pending"
+      },
+      {
+        "step": 2,
+        "title": "Set PREDICT360_HMAC_KEY and fill the TODO(FinBank) fields of config/real.yaml",
+        "status": "pending"
+      },
+      {
+        "step": 3,
+        "title": "Export scores (scores_v1) and model cards (model_card_v1)",
+        "status": "pending"
+      },
+      {
+        "step": 4,
+        "title": "Run run_pipeline.py --config config/real.yaml and review the three gates",
+        "status": "pending"
+      }
+    ],
+    "finbank_todo": [
+      "delinquency_v2: add current_dpd (days past due at T)",
+      "churn_v2: add maturity_date"
+    ]
+  }
+}
