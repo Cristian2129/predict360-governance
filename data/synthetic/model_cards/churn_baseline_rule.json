@@ -4,7 +4,7 @@
   "run_by": "PCM Analytics - make_synthetic v2",
   "target": "churn",
   "spec_version": "technical_spec 2026-11-10",
-  "dataset_hash": "e715b00fbfc0e9b11ef22bd238a88ba428d7f53a9a3412ec52eff62825f6b5f9",
+  "dataset_hash": "ef94feb14fa244085beb136483937120f66f5910d9a347771158066ab693154a",
   "snapshot_date": "2026-03-31",
   "train_end_date": "2025-12-30",
   "eval_start_date": "2026-03-31",

@@ -353,10 +353,11 @@ def generate_synthetic_data(config: str | Path | dict = DEFAULT_CONFIG,
 
     dlq, scores = _apply_data_defect(defect, dlq, scores)
 
-    backlog.to_csv(out / "backlog.csv", index=False)
-    dlq.to_csv(out / "delinquency_sample.csv", index=False)
-    churn.to_csv(out / "churn_sample.csv", index=False)
-    scores.to_csv(out / "scores_sample.csv", index=False)
+    # LF everywhere: the sha256 in the model cards must not depend on the OS
+    backlog.to_csv(out / "backlog.csv", index=False, lineterminator="\n")
+    dlq.to_csv(out / "delinquency_sample.csv", index=False, lineterminator="\n")
+    churn.to_csv(out / "churn_sample.csv", index=False, lineterminator="\n")
+    scores.to_csv(out / "scores_sample.csv", index=False, lineterminator="\n")
 
     cards = _model_cards(cfg, t, _sha256(out / "scores_sample.csv"))
     if defect == "overlapping_split":
@@ -366,7 +367,7 @@ def generate_synthetic_data(config: str | Path | dict = DEFAULT_CONFIG,
                                           + pd.Timedelta(days=30)).strftime("%Y-%m-%d")
     for name, card in cards.items():
         (out / "model_cards" / f"{name}.json").write_text(
-            json.dumps(card, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            json.dumps(card, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
 
     return {
         "backlog": backlog,
