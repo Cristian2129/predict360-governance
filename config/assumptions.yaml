@@ -84,3 +84,34 @@ assumptions:
     value: {retention.raw_retention_days: null}
     type: business
     rationale: Depends on FinBank's data policy (Ley 1581); we do not set it because we do not give legal advice.
+
+  - id: A13
+    name: Charter budget, contingency reserve and hours
+    value:
+      budget.ceiling_cop_m: 180
+      budget.contingency_cop_m: 20
+      budget.planned_consultant_hours: 1620
+      budget.sprints: 6
+    type: business
+    rationale: >-
+      Charter table 1: management 30 + business and data 40 + modeling 60 + validation 30 +
+      contingency 20. BAC = ceiling - contingency (160M); the reserve is kept apart so that its
+      use is visible. The rate is derived (180M / 1,620 h) and only rounded on screen.
+
+  - id: A14
+    name: Academic hours scale
+    value: {budget.k_scale: 7.5}
+    type: design
+    rationale: >-
+      GMAC has 2 credits = 12 h per person per sprint; the Charter plans 90 consultant hours per
+      person per sprint. k = 90 / 12 = 7.5, so one logged hour = 7.5 consultant hours.
+
+  - id: A15
+    name: Approved change requests
+    value:
+      budget.change_requests:
+        - {id: CR-01, sprint: 3, approved_cop_m: 8.333333}
+    type: business
+    rationale: >-
+      CR-01 (web dashboard, US-10) is approved for (8 + 2) h x 7.5 x rate = 8.33M. Control of
+      change moves that amount from the contingency reserve to the BAC of Sprint 3.

@@ -36,4 +36,6 @@ gate2:
   strict_rules: []                   # TODO(FinBank): rules that must reject instead of warn
   baseline_models: [baseline_rule]   # TODO(FinBank): model_id of FinBank's current heuristic rule
 
+management: null                     # PCM's hours log is project control, not FinBank data
+
 generator: null                      # real data comes from FinBank extracts, not from make_synthetic
