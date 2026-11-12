@@ -41,6 +41,21 @@ def reconcile_exposure(df: pd.DataFrame,
     }
 
 
+def reconcile_all(cfg: dict, delinquency_df: pd.DataFrame, churn_df: pd.DataFrame) -> dict:
+    """Station 9: each portfolio against its own client figure from ``cfg['reconciliation']``.
+
+    PASS only if both portfolios reconcile within the configured tolerance.
+    """
+    rec = cfg["reconciliation"]
+    tolerance = rec["tolerance_cop_m"]
+    tables = {
+        "delinquency": reconcile_exposure(delinquency_df, rec["delinquency_expected_cop_m"], tolerance),
+        "churn": reconcile_exposure(churn_df, rec["churn_expected_cop_m"], tolerance),
+    }
+    status = "PASS" if all(t["status"] == "PASS" for t in tables.values()) else "FAIL"
+    return {"status": status, "tables": tables}
+
+
 def reconcile_csv(csv_path: str | Path = DEFAULT_CSV) -> dict:
     return reconcile_exposure(pd.read_csv(csv_path))
 
