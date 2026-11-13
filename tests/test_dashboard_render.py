@@ -147,6 +147,14 @@ def test_summary_shows_gates_run_and_verdicts(sample, html):
     assert "producción" not in html.lower()
 
 
+@pytest.mark.parametrize("citations,warned", [(0, True), (3, False)])
+def test_gate3_pass_without_citations_is_flagged(sample, citations, warned):
+    data = copy.deepcopy(sample)
+    data["gates"]["gate3"].update(status="PASS", checked=6 + citations, figures_checked=6,
+                                  citations_checked=citations)
+    assert ('id="gate3-no-citations"' in render(data)) is warned
+
+
 def _authorized(sample):
     data = copy.deepcopy(sample)
     data["models"]["decisions"][0].update(verdict="authorized_for_shadow_deployment",

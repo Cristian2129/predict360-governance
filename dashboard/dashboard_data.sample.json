@@ -83,6 +83,10 @@
     "gate3": {
       "status": "NOT_RUN",
       "checked": 0,
+      "figures_checked": 0,
+      "citations_checked": 0,
+      "require_citations": false,
+      "warnings": [],
       "mismatches": []
     }
   },
@@ -414,42 +418,48 @@
         "value": 58800.0,
         "unit": "COP_m",
         "file": "reconciliation.json",
-        "script": "src/predict360/reconcile.py"
+        "script": "src/predict360/reconcile.py",
+        "path": "tables.delinquency.actual_cop_m"
       },
       {
         "figure_id": "exposure.churn.observed_cop_m",
         "value": 18200.0,
         "unit": "COP_m",
         "file": "reconciliation.json",
-        "script": "src/predict360/reconcile.py"
+        "script": "src/predict360/reconcile.py",
+        "path": "tables.churn.actual_cop_m"
       },
       {
         "figure_id": "models.delinquency_30.model_a.net_value_at_k_cop_m",
         "value": 60.397560000000055,
         "unit": "COP_m",
         "file": "evaluation.json",
-        "script": "src/predict360/evaluator.py"
+        "script": "src/predict360/evaluator.py",
+        "path": "evaluations[model_id=model_a,label=delinquency_30].at_k.net_value_cop_m"
       },
       {
         "figure_id": "models.delinquency_30.model_a.capture_at_k",
         "value": 0.2788484320217882,
         "unit": "share",
         "file": "evaluation.json",
-        "script": "src/predict360/evaluator.py"
+        "script": "src/predict360/evaluator.py",
+        "path": "evaluations[model_id=model_a,label=delinquency_30].at_k.capture"
       },
       {
         "figure_id": "management.cumulative.cpi",
         "value": 0.7550812985772358,
         "unit": "ratio",
         "file": "management.json",
-        "script": "src/predict360/budget_schedule.py"
+        "script": "src/predict360/budget_schedule.py",
+        "path": "cumulative.cpi"
       },
       {
         "figure_id": "management.cumulative.eac_cop_m",
         "value": 222.934051362658,
         "unit": "COP_m",
         "file": "management.json",
-        "script": "src/predict360/budget_schedule.py"
+        "script": "src/predict360/budget_schedule.py",
+        "path": "cumulative.eac_cop_m"
       }
     ]
   },
