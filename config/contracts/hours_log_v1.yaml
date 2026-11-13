@@ -1,0 +1,51 @@
+# Data contract: team hours log. PCM Analytics project control, not FinBank data.
+# Each person logs their own hours daily and Marco Jimenez consolidates. Enforced by Gate 1
+# only when the run config has a management section (never inside FinBank).
+name: hours_log_v1
+version: v1
+table: hours_log
+description: >-
+  One row per person, day and story. Sprints 1 and 2 are reconstructed as one estimated
+  row per person and sprint. story_id MGMT is management work without SP (AC, not EV).
+columns:
+  date:
+    type: date
+    required: true
+    critical: true
+  person:
+    type: string
+    required: true
+    allowed: [Cristian Vega, Paula Gacha, Marco Jimenez]
+    critical: true
+  sprint:
+    type: integer
+    required: true
+    min: 1
+    max: 6
+    critical: true
+  story_id:
+    type: string
+    required: true
+    critical: true
+  hours:
+    type: decimal
+    required: true
+    min: 0
+    min_exclusive: true
+    max: 24                 # per row; the daily cap is a table rule
+    critical: true
+  estimated:
+    type: binary
+    required: true
+    only_before: {column: date, date: 2026-11-11}   # daily logging started on 2026-11-11
+    critical: true
+  note:
+    type: string
+    required: false
+    critical: false
+table_rules:
+  - rule: expect_column_sum_per_group_to_be_at_most
+    column: hours
+    group_by: [person, date]
+    max: 12                 # three 10 h rows on the same day pass the per-row cap, not this one
+    critical: true

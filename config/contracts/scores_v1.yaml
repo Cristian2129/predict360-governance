@@ -1,0 +1,39 @@
+# Data contract: model predictions in long format, one row per client, model and horizon.
+name: scores_v1
+version: v1
+table: scores
+description: Long format lets the system evaluate any number of models without changing the contract.
+columns:
+  client_id:
+    # RAW carries FinBank's original identifier: Gate 1 checks only presence.
+    # TODO(station 3, Curate): the sha256_hex format rule belongs to the CURATED contract.
+    type: string
+    required: true
+    must_exist_in: labeled_table
+    critical: true
+  model_id:
+    type: string
+    required: true
+    must_exist_in: admitted_model_cards
+    critical: true
+  snapshot_date:
+    type: date
+    required: true
+    equals: run.snapshot_date
+    critical: true
+  horizon_days:
+    type: integer
+    required: true
+    allowed: [30, 60, 90]
+    critical: true
+  score:
+    type: decimal
+    required: true
+    min: 0
+    max: 1
+    max_null_pct: 0
+    critical: true
+  intervened:
+    type: binary
+    required: false
+    critical: false

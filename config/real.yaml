@@ -1,0 +1,41 @@
+# Run configuration for FinBank REAL data. Runs only inside the bank.
+# Same structure as synthetic.yaml; FinBank fills in the values marked TODO.
+synthetic: false
+seed: 42                             # only used for bootstrap intervals
+snapshot_date: 2026-03-31            # TODO(FinBank): cut-off date T of the extract
+
+paths:
+  input_dir: data/real               # git-ignored; never leaves the bank
+  output_dir: data/real
+  runs_dir: runs
+
+hmac:
+  key_env: PREDICT360_HMAC_KEY       # FinBank's key, set as an environment variable only
+
+reconciliation:
+  delinquency_expected_cop_m: 58800.0
+  churn_expected_cop_m: 18200.0
+  tolerance_cop_m: 0.01
+
+horizons_days: [30, 60, 90]
+
+retention_days:                      # TODO(FinBank): RAW retention period (Ley 1581 policy); we do not set it
+
+sources:                             # TODO(FinBank): names of the extract files inside paths.input_dir
+  delinquency: delinquency.csv          # contract delinquency_v1
+  churn: churn.csv                      # contract churn_v1
+  scores: scores.csv                    # contract scores_v1
+
+# Gate 1 waivers are approved by FinBank's data owner, never by PCM Analytics.
+# Same fields as in synthetic.yaml: id, table, column, rule, risk, reason, approved_by, date, expires.
+waivers: []
+
+# Gate 2 (model card admission). FinBank may make these rules blocking:
+# intervention_declared, baselines_compared. An unknown rule name fails on load.
+gate2:
+  strict_rules: []                   # TODO(FinBank): rules that must reject instead of warn
+  baseline_models: [baseline_rule]   # TODO(FinBank): model_id of FinBank's current heuristic rule
+
+management: null                     # PCM's hours log is project control, not FinBank data
+
+generator: null                      # real data comes from FinBank extracts, not from make_synthetic

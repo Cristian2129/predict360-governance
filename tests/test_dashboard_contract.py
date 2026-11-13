@@ -1,0 +1,218 @@
+"""Tests for the dashboard_data.json contract (technical spec, section 11)."""
+import copy
+import json
+
+import pytest
+
+from src.predict360.config import ROOT, load_assumptions
+from src.predict360.dashboard_contract import SAMPLE_PATH, validate_dashboard_data
+
+TOP_LEVEL = ["meta", "exposure", "gates", "quality", "lineage", "models", "assumptions", "management", "handover"]
+
+
+@pytest.fixture(scope="module")
+def sample():
+    return json.loads(SAMPLE_PATH.read_text(encoding="utf-8"))
+
+
+def _errors(data):
+    return validate_dashboard_data(data)
+
+
+def _evaluated(data):
+    return next(e for e in data["models"]["evaluations"] if e["status"] == "evaluated")
+
+
+# --- the fixture ----------------------------------------------------------------------
+
+def test_fixture_meets_the_contract(sample):
+    assert _errors(sample) == []
+
+
+def test_fixture_is_marked_as_sample_and_synthetic(sample):
+    assert SAMPLE_PATH == ROOT / "dashboard" / "dashboard_data.sample.json"
+    assert sample["meta"]["sample"] is True
+    assert sample["meta"]["synthetic"] is True and sample["meta"]["scores_simulated"] is True
+    assert list(sample) == TOP_LEVEL
+
+
+def test_fixture_assumptions_are_the_real_ones_with_their_type(sample):
+    items = load_assumptions()["items"]
+    assert [(a["id"], a["type"]) for a in sample["assumptions"]] == [(i["id"], i["type"]) for i in items]
+
+
+def test_a_rejected_card_does_not_turn_gate2_red(sample):
+    assert any(c["decision"] == "REJECTED" for c in sample["models"]["cards"])
+    assert sample["gates"]["gate2"]["status"] == "PASS" and sample["gates"]["gate2"]["failures"] == []
+
+
+def test_fixture_covers_the_cases_the_dashboard_must_show(sample):
+    decisions = {c["decision"] for c in sample["models"]["cards"]}
+    assert decisions == {"ADMITTED", "REJECTED", "SKIPPED"}
+    assert any(r["message"] == "retired" for c in sample["models"]["cards"] for r in c["reasons"])
+    statuses = {e["status"] for e in sample["models"]["evaluations"]}
+    assert statuses == {"evaluated", "not_evaluated"}
+    steps = [s for f in sample["quality"]["labeling_funnel"].values() for s in f["steps"]]
+    assert sum(s.get("status") == "not_verifiable" for s in steps) == 2
+    assert {s["hours_estimated"] for s in sample["management"]["sprints"]} == {True, False}
+    assert any(s["mgmt_hours"] > 0 for s in sample["management"]["sprints"])
+
+
+# --- schema rules ---------------------------------------------------------------------
+
+@pytest.mark.parametrize("key", TOP_LEVEL)
+def test_every_section_is_required(sample, key):
+    data = copy.deepcopy(sample)
+    del data[key]
+    assert any(key in e for e in _errors(data))
+
+
+def test_unknown_fields_fail_so_nobody_invents_them(sample):
+    data = copy.deepcopy(sample)
+    data["models"]["leaderboard"] = []
+    assert any("leaderboard" in e for e in _errors(data))
+
+
+def test_not_verifiable_step_cannot_carry_numbers(sample):
+    data = copy.deepcopy(sample)
+    step = next(s for s in data["quality"]["labeling_funnel"]["delinquency"]["steps"]
+                if s.get("status") == "not_verifiable")
+    step["rows"] = 0
+    assert _errors(data)
+
+
+@pytest.mark.parametrize("verdict", ["production", "approved", "goes_to_production"])
+def test_verdict_never_goes_beyond_shadow_deployment(sample, verdict):
+    data = copy.deepcopy(sample)
+    data["models"]["decisions"][0]["verdict"] = verdict
+    assert any("verdict" in e for e in _errors(data))
+
+
+@pytest.mark.parametrize("commit,ok", [
+    ("a" * 40, True), ("a" * 40 + "-dirty", True), ("unknown", True), ("main", False), ("abc", False),
+])
+def test_commit_is_a_sha_dirty_or_unknown(sample, commit, ok):
+    data = copy.deepcopy(sample)
+    data["meta"]["commit"] = commit
+    assert (_errors(data) == []) is ok
+
+
+def test_assumption_type_must_be_business_design_or_simulation(sample):
+    data = copy.deepcopy(sample)
+    data["assumptions"][0]["type"] = "guess"
+    assert any("assumptions" in e for e in _errors(data))
+
+
+def test_figure_id_must_be_dotted(sample):
+    data = copy.deepcopy(sample)
+    data["lineage"]["figures"][0]["figure_id"] = "NetValue"
+    assert any("figure_id" in e for e in _errors(data))
+
+
+# --- semantic rules -------------------------------------------------------------------
+
+def test_figure_carries_the_path_gate3_reads(sample):
+    data = copy.deepcopy(sample)
+    del data["lineage"]["figures"][0]["path"]
+    assert any("path" in e for e in _errors(data))
+
+
+def test_figure_must_point_to_an_output(sample):
+    data = copy.deepcopy(sample)
+    data["lineage"]["figures"][0]["file"] = "not_an_output.json"
+    assert any("outputs" in e for e in _errors(data))
+
+
+def test_figure_ids_are_unique(sample):
+    data = copy.deepcopy(sample)
+    data["lineage"]["figures"].append(copy.deepcopy(data["lineage"]["figures"][0]))
+    assert any("duplicate" in e for e in _errors(data))
+
+
+def test_curve_points_are_at_least_30_clients_apart(sample):
+    data = copy.deepcopy(sample)
+    curve = _evaluated(data)["curve"]
+    curve.insert(1, {**curve[1], "k": curve[0]["k"] + 10})
+    assert any("30 clients" in e for e in _errors(data))
+
+
+def test_k_star_is_a_point_of_the_published_curve(sample):
+    data = copy.deepcopy(sample)
+    evaluation = _evaluated(data)
+    evaluation["k_star"] = {**evaluation["k_star"], "k": evaluation["k_star"]["k"] + 1}
+    assert any("k_star" in e for e in _errors(data))
+
+
+def test_k_applied_never_exceeds_k_requested(sample):
+    data = copy.deepcopy(sample)
+    evaluation = _evaluated(data)
+    evaluation["k_applied"] = evaluation["k_requested"] + 1
+    assert any("k_applied" in e for e in _errors(data))
+
+
+def test_calibration_cells_are_never_under_30_clients(sample):
+    data = copy.deepcopy(sample)
+    _evaluated(data)["metrics"]["calibration"][0]["n_clients"] = 29.0
+    assert any("calibration" in e for e in _errors(data))
+
+
+def _authorized(data):
+    decision = data["models"]["decisions"][0]
+    decision.update(verdict="authorized_for_shadow_deployment", reason_code="authorized", model_id="model_a")
+    return decision
+
+
+def test_contract_accepts_both_verdicts(sample):
+    data = copy.deepcopy(sample)
+    _authorized(data)
+    assert _errors(data) == []
+
+
+def test_authorized_verdict_names_a_model(sample):
+    data = copy.deepcopy(sample)
+    _authorized(data)["model_id"] = None
+    assert any("decisions" in e for e in _errors(data))
+
+
+@pytest.mark.parametrize("verdict,code", [
+    ("authorized_for_shadow_deployment", "insufficient_evidence"),
+    ("not_authorized", "authorized"),
+])
+def test_reason_code_matches_the_verdict(sample, verdict, code):
+    data = copy.deepcopy(sample)
+    decision = _authorized(data)
+    decision.update(verdict=verdict, reason_code=code)
+    if verdict == "not_authorized":
+        decision["model_id"] = None
+    assert any("reason_code" in e for e in _errors(data))
+
+
+def test_not_authorized_verdict_names_no_model(sample):
+    data = copy.deepcopy(sample)
+    data["models"]["decisions"][0]["model_id"] = "model_a"
+    assert any("decisions" in e for e in _errors(data))
+
+
+def test_fixture_decisions_come_from_the_real_promotion_rule(sample):
+    decisions = sample["models"]["decisions"]
+    assert not any(d["reason"].startswith("SAMPLE") for d in decisions)
+    assert {d["reason_code"] for d in decisions} == {"insufficient_evidence", "no_baseline"}
+
+
+def test_gate2_counts_match_the_cards(sample):
+    data = copy.deepcopy(sample)
+    data["gates"]["gate2"]["counts"]["ADMITTED"] += 1
+    assert any("gate2" in e for e in _errors(data))
+
+
+def test_budget_lines_add_up(sample):
+    data = copy.deepcopy(sample)
+    data["management"]["baseline"]["reserve_remaining_cop_m"] = 20.0   # CR-01 not discounted
+    assert any("reserve" in e for e in _errors(data))
+
+
+# --- the real output ------------------------------------------------------------------
+
+@pytest.mark.skip(reason="B11b: export_dashboard_data.py does not exist yet; it must enable this test")
+def test_pipeline_output_meets_the_same_contract():
+    from src.predict360.export_dashboard_data import build_dashboard_data  # noqa: F401  (B11b)

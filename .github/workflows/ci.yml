@@ -26,3 +26,8 @@ jobs:
       - name: Run TDD Unit Tests (Pytest)
         run: |
           python -m pytest tests/ -v --tb=short
+
+      # A test run only: it is not versioned and Pages publishes the official run, not this one
+      - name: Run the synthetic pipeline end to end
+        run: |
+          PYTHONPATH=. python -m src.predict360.run_pipeline --config config/synthetic.yaml

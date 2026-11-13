@@ -1,0 +1,464 @@
+# Contract for dashboard_data.json (technical spec, section 11). Both the pipeline output
+# (export_dashboard_data.py, B11b) and the fixture dashboard/dashboard_data.sample.json must
+# meet it; tests/test_dashboard_contract.py checks both in CI.
+#
+# Schema language (validated by src/predict360/dashboard_contract.py, no extra library):
+#   type: object | array | string | number | integer | boolean | null | any   (a list = any of them)
+#   object: `fields` are required unless the child says `optional: true`; unknown keys fail,
+#           so nobody invents a field while building the dashboard. `values` = map with free keys.
+#   array: `items`, `min_items`.   Scalars: `enum`, `pattern`, `min`, `max`.
+#   ref: a name in `definitions`.  one_of: exactly one of the listed specs must match.
+# Semantic rules that a schema cannot express live in dashboard_contract.py (see its docstring).
+name: dashboard_data_v1
+version: v1
+table: dashboard_data
+
+definitions:
+  cop_m: {type: number}
+  cop_m_or_null: {type: [number, "null"]}
+  share_or_null: {type: [number, "null"], min: 0, max: 1}
+  date: {type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$"}
+  datetime: {type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"}
+  sha256: {type: string, pattern: "^[0-9a-f]{64}$"}
+  gate_status: {type: string, enum: [PASS, PASS_WITH_WAIVERS, FAIL, NOT_RUN]}
+
+  reconciliation:                         # reconcile.reconcile_exposure, per portfolio
+    type: object
+    fields:
+      expected_cop_m: {ref: cop_m}
+      actual_cop_m: {ref: cop_m}
+      difference_cop_m: {ref: cop_m}
+      tolerance_cop_m: {type: number, min: 0}
+      status: {type: string, enum: [PASS, FAIL]}
+
+  file_entry:
+    type: object
+    fields:
+      file: {type: string}
+      sha256: {ref: sha256}
+      rows: {type: [integer, "null"], min: 0}
+      bytes: {type: integer, min: 0}
+  source_entry:
+    type: object
+    fields:
+      name: {type: string}
+      file: {type: string}
+      sha256: {ref: sha256}
+      rows: {type: [integer, "null"], min: 0}
+      bytes: {type: integer, min: 0}
+
+  # Same format as lineage.register_figure: dotted id, full-precision value, file in outputs
+  figure:
+    type: object
+    fields:
+      figure_id: {type: string, pattern: "^[a-z0-9_]+(\\.[a-z0-9_]+)+$"}
+      value: {type: number}
+      unit: {type: string, enum: [COP_m, share, ratio, count]}
+      file: {type: string}
+      script: {type: string}
+      path: {type: string}                  # keys and [field=value] selectors, never list positions
+
+  waiver:
+    type: object
+    fields:
+      id: {type: string}
+      table: {type: string}
+      column: {type: string}
+      rule: {type: string}
+      risk: {type: string}
+      reason: {type: string}
+      approved_by: {type: string}
+      date: {ref: date}
+      expires: {ref: date}
+
+  # precision, recall and lift count clients; precision and lift are null at K = 0
+  curve_point:
+    type: object
+    fields:
+      k: {type: number, min: 0}
+      capture: {ref: share_or_null}
+      captured_cop_m: {ref: cop_m}
+      net_value_cop_m: {ref: cop_m}
+      precision: {ref: share_or_null}
+      recall: {ref: share_or_null}
+      lift: {type: [number, "null"], min: 0}
+  result_at_k:
+    type: object
+    fields:
+      capture: {ref: share_or_null}
+      captured_cop_m: {ref: cop_m}
+      net_value_cop_m: {ref: cop_m}
+      precision: {ref: share_or_null}
+      recall: {ref: share_or_null}
+      lift: {type: [number, "null"], min: 0}
+
+  # Paired bootstrap of the net value difference (model - baseline rule) at the same K (A16)
+  vs_baseline:
+    type: object
+    fields:
+      baseline_model: {type: string}
+      k_clients: {type: number, min: 0}
+      difference_cop_m: {ref: cop_m}
+      ci_low_cop_m: {ref: cop_m}
+      ci_high_cop_m: {ref: cop_m}
+      confidence_level: {type: number, min: 0, max: 1}
+      margin_cop_m: {type: number, min: 0}
+      beats: {type: boolean}
+      outcome: {type: string, enum: [beats, insufficient_evidence, does_not_beat_baseline]}
+
+  # Calibration by score decile; no cell under evaluation.min_cell_clients (semantic rule)
+  calibration_cell:
+    type: object
+    fields:
+      bin: {type: integer, min: 1}
+      n_clients: {type: number, min: 0}
+      mean_score: {type: number, min: 0, max: 1}
+      observed_rate: {type: number, min: 0, max: 1}
+
+  # Labeling funnel step: counted, or not verifiable WITHOUT numbers (never 0 excluded)
+  funnel_step:
+    one_of:
+      - type: object
+        fields:
+          step: {type: string}
+          rows: {type: integer, min: 0}
+          clients: {type: number, min: 0}
+      - type: object
+        fields:
+          step: {type: string}
+          status: {type: string, enum: [not_verifiable]}
+          missing_column: {type: string}
+  funnel:
+    type: object
+    fields:
+      table: {type: string, enum: [delinquency, churn]}
+      snapshot_date: {ref: date}
+      steps: {type: array, min_items: 1, items: {ref: funnel_step}}
+      horizons:
+        type: object
+        values:
+          type: object
+          fields:
+            horizon_days: {type: integer, min: 1}
+            mature_rows: {type: integer, min: 0}
+            mature_clients: {type: number, min: 0}
+            immature_rows: {type: integer, min: 0}
+            positive_rows: {type: integer, min: 0}
+            positive_clients: {type: number, min: 0}
+            base_rate: {ref: share_or_null}
+
+type: object
+fields:
+  meta:
+    type: object
+    fields:
+      run_id: {type: string, pattern: "^\\d{8}T\\d{4}-[0-9a-f]{6}$"}
+      generated_at: {ref: datetime}
+      synthetic: {type: boolean}            # true: the dashboard shows the synthetic-data banner
+      sample: {type: boolean}               # true only in the fixture: not produced by a pipeline run
+      scores_simulated: {type: boolean}     # demo scores are simulated, never trained models
+      commit: {type: string, pattern: "^([0-9a-f]{40}(-dirty)?|unknown)$"}   # warn on -dirty / unknown
+      code_version: {type: string}
+      config: {type: string}
+      snapshot_date: {ref: date}
+      contract_versions: {type: object, values: {type: string}}
+
+  exposure:
+    type: object
+    fields:
+      status: {type: string, enum: [PASS, FAIL]}
+      tables:
+        type: object
+        fields:
+          delinquency: {ref: reconciliation}
+          churn: {ref: reconciliation}
+
+  gates:
+    type: object
+    fields:
+      gate1:
+        type: object
+        fields:
+          status: {ref: gate_status}
+          tables:
+            type: object
+            values:
+              type: object
+              fields:
+                status: {ref: gate_status}
+                rows: {type: integer, min: 0}
+                failed_rules:
+                  type: array
+                  items:
+                    type: object
+                    fields:
+                      rule: {type: string}
+                      column: {type: [string, "null"]}
+                      critical: {type: boolean}
+                      unexpected_count: {type: [integer, "null"], min: 0}
+                      unexpected_pct: {type: [number, "null"], min: 0}
+                      waived_by: {type: [string, "null"]}
+      gate2:
+        type: object
+        fields:
+          status: {ref: gate_status}
+          counts:
+            type: object
+            fields:
+              ADMITTED: {type: integer, min: 0}
+              REJECTED: {type: integer, min: 0}
+              SKIPPED: {type: integer, min: 0}
+          # A REJECTED card is not a gate failure; FAIL only if the gate could not run or the
+          # baseline of a target was not admitted (then nothing can be compared)
+          failures: {type: array, items: {type: string}}
+      gate3:
+        type: object
+        fields:
+          status: {ref: gate_status}
+          checked: {type: integer, min: 0}            # figures + citations
+          figures_checked: {type: integer, min: 0}
+          citations_checked: {type: integer, min: 0}
+          require_citations: {type: boolean}          # true for the official demo run
+          warnings: {type: array, items: {type: string}}
+          mismatches:
+            type: array
+            items:
+              type: object
+              fields:
+                figure_id: {type: [string, "null"]}
+                source: {type: string, enum: [output_file, citation, citations]}
+                where: {type: [string, "null"]}
+                expected: {type: any}
+                found: {type: any}
+                reason:
+                  type: string
+                  enum: [output_missing, output_altered, path_not_found, value_differs,
+                         invalid_citation, unknown_figure, text_differs, no_citations]
+
+  quality:
+    type: object
+    fields:
+      missing:
+        type: object
+        values:
+          type: object
+          values:
+            type: object
+            fields:
+              count: {type: integer, min: 0}
+              pct: {type: number, min: 0}
+              limit_pct: {type: [number, "null"]}
+      waivers: {type: array, items: {ref: waiver}}
+      labeling_funnel:
+        type: object
+        fields:
+          delinquency: {ref: funnel}
+          churn: {ref: funnel}
+
+  lineage:
+    type: object
+    fields:
+      manifest:
+        type: object
+        fields:
+          run_id: {type: string}
+          created_at: {ref: datetime}
+          closed_at: {ref: datetime}
+          lineage_head_sha256: {type: [string, "null"], pattern: "^[0-9a-f]{64}$"}
+          scores_sha256: {ref: sha256}
+          sources: {type: array, items: {ref: source_entry}}
+          outputs: {type: array, items: {ref: file_entry}}
+      log_status: {type: string, enum: [OK, TAMPERED, NOT_CHECKED]}
+      figures: {type: array, items: {ref: figure}}
+
+  models:
+    type: object
+    fields:
+      cards:
+        type: array
+        items:
+          type: object
+          fields:
+            file: {type: string}
+            model_id: {type: [string, "null"]}
+            target: {type: [string, "null"]}
+            status: {type: [string, "null"]}
+            decision: {type: string, enum: [ADMITTED, REJECTED, SKIPPED]}   # retired = SKIPPED
+            reasons:
+              type: array
+              items:
+                type: object
+                fields:
+                  rule: {type: string}
+                  severity: {type: string, enum: [reject, warning, skip]}
+                  message: {type: string}
+      evaluations:
+        type: array
+        items:
+          one_of:
+            - type: object
+              fields:
+                target: {type: string, enum: [delinquency, churn]}
+                horizon_days: {type: integer, min: 1}
+                label: {type: string}
+                model_id: {type: string}
+                status: {type: string, enum: [evaluated]}
+                n_rows: {type: integer, min: 0}
+                n_clients: {type: number, min: 0}
+                scores_dropped_rows: {type: integer, min: 0}
+                event_clients: {type: number, min: 0}
+                event_exposure_cop_m: {ref: cop_m}
+                k_requested: {type: number, min: 0}
+                k_applied: {type: number, min: 0}
+                at_k: {ref: result_at_k}
+                random_at_k: {ref: result_at_k}
+                k_star: {ref: curve_point}            # a point of the published curve
+                curve: {type: array, min_items: 2, items: {ref: curve_point}}   # published grid only
+                metrics:
+                  type: object
+                  fields:
+                    pr_auc: {ref: share_or_null}
+                    brier: {type: number, min: 0, max: 1}
+                    calibration: {type: array, items: {ref: calibration_cell}}
+                vs_baseline: {type: [object, "null"], ref: vs_baseline}   # null for the baseline itself
+            - type: object
+              fields:
+                target: {type: string, enum: [delinquency, churn]}
+                horizon_days: {type: integer, min: 1}
+                label: {type: string}
+                model_id: {type: string}
+                status: {type: string, enum: [not_evaluated]}
+                reason: {type: string}
+                n_rows: {type: integer, min: 0}
+                n_clients: {type: number, min: 0}
+                scores_dropped_rows: {type: integer, min: 0}
+                missing_score_rows: {type: integer, min: 0}
+      decisions:                            # B8b; the strongest verdict is shadow deployment
+        type: array
+        items:
+          type: object
+          fields:
+            target: {type: string, enum: [delinquency, churn]}
+            verdict: {type: string, enum: [authorized_for_shadow_deployment, not_authorized]}
+            # authorized only with the shadow verdict; the others explain a not_authorized one
+            reason_code:
+              type: string
+              enum: [authorized, insufficient_evidence, does_not_beat_baseline, no_baseline, no_candidate]
+            model_id: {type: [string, "null"]}
+            also_beat_baseline: {type: array, items: {type: string}}
+            runner_up:
+              type: [object, "null"]
+              fields:
+                model_id: {type: string}
+                difference_cop_m: {ref: cop_m}
+                ci_low_cop_m: {ref: cop_m}
+                ci_high_cop_m: {ref: cop_m}
+                conclusive: {type: boolean}
+            reason: {type: string}
+
+  assumptions:
+    type: array
+    min_items: 1
+    items:
+      type: object
+      fields:
+        id: {type: string}
+        name: {type: string}
+        type: {type: string, enum: [business, design, simulation]}
+        value: {type: object, values: {type: any}}   # dotted keys, as in assumptions.yaml
+        rationale: {type: string}
+
+  management:
+    type: object
+    fields:
+      baseline:
+        type: object
+        fields:
+          ceiling_cop_m: {ref: cop_m}
+          contingency_cop_m: {ref: cop_m}
+          bac_cop_m: {ref: cop_m}
+          reserve_remaining_cop_m: {ref: cop_m}
+          change_requests:
+            type: array
+            items:
+              type: object
+              fields:
+                id: {type: string}
+                sprint: {type: integer, min: 1}
+                approved_cop_m: {ref: cop_m}
+          pv_by_sprint_cop_m: {type: object, values: {ref: cop_m}}
+          k_scale: {type: number}
+          rate_cop: {type: number}
+          logged_hour_cop_m: {ref: cop_m}
+      sprints:
+        type: array
+        items:
+          type: object
+          fields:
+            sprint: {type: integer, min: 1}
+            committed_sp: {type: integer, min: 0}
+            done_sp: {type: integer, min: 0}
+            pv_cop_m: {ref: cop_m}
+            ev_cop_m: {ref: cop_m}
+            ac_cop_m: {ref: cop_m}
+            spi: {type: [number, "null"]}
+            cpi: {type: [number, "null"]}
+            logged_hours: {type: number, min: 0}
+            estimated_hours: {type: number, min: 0}
+            hours_estimated: {type: boolean}
+            mgmt_hours: {type: number, min: 0}
+            mgmt_ac_cop_m: {ref: cop_m}
+            change_requests_cop_m: {ref: cop_m}
+      cumulative:
+        type: object
+        fields:
+          sprints: {type: array, items: {type: integer}}
+          pv_cop_m: {ref: cop_m}
+          ev_cop_m: {ref: cop_m}
+          ac_cop_m: {ref: cop_m}
+          spi: {type: [number, "null"]}
+          cpi: {type: [number, "null"]}
+          bac_cop_m: {ref: cop_m}
+          eac_cop_m: {ref: cop_m_or_null}
+          ceiling_cop_m: {ref: cop_m}
+          eac_minus_ceiling_cop_m: {ref: cop_m_or_null}
+          eac_over_ceiling: {type: [boolean, "null"]}
+          estimated_hours: {type: number, min: 0}
+          mgmt_hours: {type: number, min: 0}
+      hours_outside_reported_sprints: {type: object, values: {type: number}}
+      velocity:
+        type: array
+        items:
+          type: object
+          fields:
+            sprint: {type: integer, min: 1}
+            planned_sp: {type: number, min: 0}
+            completed_sp: {type: number, min: 0}
+            completion_rate_pct: {type: number, min: 0}
+      risks:
+        type: array
+        items:
+          type: object
+          fields:
+            risk_id: {type: string}
+            category: {type: string}
+            description: {type: string}
+            probability: {type: string}
+            impact: {type: string}
+            owner: {type: string}
+            status: {type: string}
+
+  handover:
+    type: object
+    fields:
+      steps:
+        type: array
+        items:
+          type: object
+          fields:
+            step: {type: integer, min: 1}
+            title: {type: string}
+            status: {type: string, enum: [done, pending]}
+      finbank_todo:                         # e.g. current_dpd and maturity_date for contract v2
+        type: array
+        items: {type: string}

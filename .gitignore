@@ -14,3 +14,14 @@ env/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Real FinBank data never leaves the bank
+data/real/
+
+# Defective demo variants (regenerate with make_synthetic --defect)
+data/synthetic/defects/
+
+# Pipeline runs stay local; only the official demo run (aggregates) is versioned
+# Ad-hoc gate reports live in runs/adhoc/ (copy to docs/evidence/ with --evidence)
+runs/*
+!runs/official/

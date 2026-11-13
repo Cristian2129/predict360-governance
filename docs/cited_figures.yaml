@@ -1,0 +1,14 @@
+# Figures quoted in the report and the presentation, checked by Gate 3 (consistency.py).
+# Written by people; every figure_id must exist in the manifest of the official run.
+# text: exactly as it appears in the document; locale: es (presentation) or en (report).
+#   es: COP 58.800 M · 27,9 % · 0,76      en: COP 58,800 M · 27.9% · 0.76
+# Empty list: Gate 3 passes with a warning while we work. The official demo run uses
+# --require-citations and fails until this list is filled.
+#
+# Example:
+#   - figure_id: exposure.delinquency.observed_cop_m
+#     text: COP 58.800 M
+#     locale: es
+#     where: presentation, slide 2
+version: v1
+citations: []
