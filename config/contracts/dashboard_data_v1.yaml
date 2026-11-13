@@ -70,6 +70,7 @@ definitions:
       date: {ref: date}
       expires: {ref: date}
 
+  # precision, recall and lift count clients; precision and lift are null at K = 0
   curve_point:
     type: object
     fields:
@@ -77,12 +78,41 @@ definitions:
       capture: {ref: share_or_null}
       captured_cop_m: {ref: cop_m}
       net_value_cop_m: {ref: cop_m}
+      precision: {ref: share_or_null}
+      recall: {ref: share_or_null}
+      lift: {type: [number, "null"], min: 0}
   result_at_k:
     type: object
     fields:
       capture: {ref: share_or_null}
       captured_cop_m: {ref: cop_m}
       net_value_cop_m: {ref: cop_m}
+      precision: {ref: share_or_null}
+      recall: {ref: share_or_null}
+      lift: {type: [number, "null"], min: 0}
+
+  # Paired bootstrap of the net value difference (model - baseline rule) at the same K (A16)
+  vs_baseline:
+    type: object
+    fields:
+      baseline_model: {type: string}
+      k_clients: {type: number, min: 0}
+      difference_cop_m: {ref: cop_m}
+      ci_low_cop_m: {ref: cop_m}
+      ci_high_cop_m: {ref: cop_m}
+      confidence_level: {type: number, min: 0, max: 1}
+      margin_cop_m: {type: number, min: 0}
+      beats: {type: boolean}
+      outcome: {type: string, enum: [beats, insufficient_evidence, does_not_beat_baseline]}
+
+  # Calibration by score decile; no cell under evaluation.min_cell_clients (semantic rule)
+  calibration_cell:
+    type: object
+    fields:
+      bin: {type: integer, min: 1}
+      n_clients: {type: number, min: 0}
+      mean_score: {type: number, min: 0, max: 1}
+      observed_rate: {type: number, min: 0, max: 1}
 
   # Labeling funnel step: counted, or not verifiable WITHOUT numbers (never 0 excluded)
   funnel_step:
@@ -269,6 +299,13 @@ fields:
                 random_at_k: {ref: result_at_k}
                 k_star: {ref: curve_point}            # a point of the published curve
                 curve: {type: array, min_items: 2, items: {ref: curve_point}}   # published grid only
+                metrics:
+                  type: object
+                  fields:
+                    pr_auc: {ref: share_or_null}
+                    brier: {type: number, min: 0, max: 1}
+                    calibration: {type: array, items: {ref: calibration_cell}}
+                vs_baseline: {type: [object, "null"], ref: vs_baseline}   # null for the baseline itself
             - type: object
               fields:
                 target: {type: string, enum: [delinquency, churn]}
@@ -288,7 +325,20 @@ fields:
           fields:
             target: {type: string, enum: [delinquency, churn]}
             verdict: {type: string, enum: [authorized_for_shadow_deployment, not_authorized]}
+            # authorized only with the shadow verdict; the others explain a not_authorized one
+            reason_code:
+              type: string
+              enum: [authorized, insufficient_evidence, does_not_beat_baseline, no_baseline, no_candidate]
             model_id: {type: [string, "null"]}
+            also_beat_baseline: {type: array, items: {type: string}}
+            runner_up:
+              type: [object, "null"]
+              fields:
+                model_id: {type: string}
+                difference_cop_m: {ref: cop_m}
+                ci_low_cop_m: {ref: cop_m}
+                ci_high_cop_m: {ref: cop_m}
+                conclusive: {type: boolean}
             reason: {type: string}
 
   assumptions:

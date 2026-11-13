@@ -58,6 +58,11 @@ TARGET_NAMES = {"delinquency": "Mora temprana", "churn": "Fuga de clientes prefe
 GATE_NAMES = {"gate1": "Gate 1 · Datos", "gate2": "Gate 2 · Fichas de modelo", "gate3": "Gate 3 · Consistencia"}
 VERDICTS = {"authorized_for_shadow_deployment": ("Autorizado a despliegue en sombra", "ok"),
             "not_authorized": ("No autorizado", "bad")}
+REASON_CODES = {"authorized": "", "insufficient_evidence": "Evidencia insuficiente",
+                "does_not_beat_baseline": "No supera la regla", "no_baseline": "Sin regla base comparable",
+                "no_candidate": "Sin modelo candidato"}
+OUTCOMES = {"beats": ("Supera la regla", "ok"), "insufficient_evidence": ("Evidencia insuficiente", "warn"),
+            "does_not_beat_baseline": ("No supera la regla", "bad")}
 DASH = "—"
 
 
@@ -154,19 +159,45 @@ def _gates_card(gates: dict) -> str:
     return f'<div class="card"><h3>Estado de los gates</h3><dl class="kv">{rows}</dl></div>'
 
 
-def _decisions_card(decisions: list) -> str:
+def _comparisons(target: str, evaluations: list) -> str:
+    """Point difference next to the paired interval, per model and label, against the rule."""
+    rows = ""
+    for e in sorted((e for e in evaluations if e["target"] == target and e["status"] == "evaluated"
+                     and e["vs_baseline"]), key=lambda e: (e["model_id"], e["label"])):
+        vs = e["vs_baseline"]
+        text, cls = OUTCOMES[vs["outcome"]]
+        rows += (f'<tr data-comparison="{_e(target)}.{_e(e["label"])}.{_e(e["model_id"])}">'
+                 f'<td>{_e(e["model_id"])}</td><td>{_e(e["label"])}</td>'
+                 f'<td>{format_cop_m(vs["difference_cop_m"])}</td>'
+                 f'<td>{format_cop_m(vs["ci_low_cop_m"])} a {format_cop_m(vs["ci_high_cop_m"])}</td>'
+                 f'<td><span class="status {cls}">{text}</span></td></tr>')
+    if not rows:
+        return ""
+    return ('<table class="compare"><thead><tr><th>Modelo</th><th>Etiqueta</th>'
+            '<th>Diferencia en K</th><th>IC pareado</th><th>Resultado</th></tr></thead>'
+            f'<tbody>{rows}</tbody></table>')
+
+
+def _decisions_card(models: dict) -> str:
+    decisions = models["decisions"]
     if not decisions:
         body = '<p class="label-sm">Sin dictamen: la regla de promoción no se ha ejecutado.</p>'
     else:
-        body = '<dl class="kv">'
+        body = ""
         for d in decisions:
             text, cls = VERDICTS[d["verdict"]]
             model = f' · {_e(d["model_id"])}' if d["model_id"] else ""
-            body += (f'<dt>{TARGET_NAMES[d["target"]]}</dt><dd><span class="status {cls}">{text}</span>{model}'
-                     f'<div class="label-sm">{_e(d["reason"])}</div></dd>')
-        body += "</dl>"
+            code = REASON_CODES[d["reason_code"]]
+            code = f' <span class="status warn">{code}</span>' if code else ""
+            body += (f'<div class="decision" data-decision="{_e(d["target"])}">'
+                     f'<h4>{TARGET_NAMES[d["target"]]}</h4>'
+                     f'<span class="status {cls}">{text}</span>{code}{model}'
+                     f'{_comparisons(d["target"], models["evaluations"])}'
+                     f'<div class="label-sm">{_e(d["reason"])}</div></div>')
     return ('<div class="card"><h3>Dictamen del comité</h3>' + body +
-            '<p class="note">El dictamen más alto posible es «autorizado a despliegue en sombra».</p></div>')
+            '<p class="note">Diferencia de valor neto (modelo − regla base) en la misma K, con su intervalo '
+            'bootstrap pareado. Se autoriza solo si todo el intervalo supera el margen. El dictamen más alto '
+            'posible es «autorizado a despliegue en sombra».</p></div>')
 
 
 def _run_card(meta: dict) -> str:
@@ -190,8 +221,8 @@ def _summary(data: dict) -> str:
         f'<div class="grid">{_exposure_card("delinquency", tables["delinquency"])}'
         f'{_exposure_card("churn", tables["churn"])}</div>'
         '<p class="note">Son exposición en riesgo, no pérdida. Las cifras del cliente se concilian en cada corrida.</p>'
-        f'<div class="grid">{_gates_card(data["gates"])}{_decisions_card(data["models"]["decisions"])}'
-        f'{_run_card(data["meta"])}</div></section>'
+        f'<div class="grid">{_gates_card(data["gates"])}{_run_card(data["meta"])}</div>'
+        f'<div class="stack">{_decisions_card(data["models"])}</div></section>'
     )
 
 

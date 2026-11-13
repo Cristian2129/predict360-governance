@@ -12,7 +12,9 @@ express are checked here:
   ``MIN_PUBLISHED_CLIENTS`` apart; ``k_star`` is one of its points; k_applied <= k_requested;
 - gate 2 counts match the decisions of the cards;
 - budget lines add up: PV per sprint sums to the BAC, and the reserve is the contingency
-  minus the approved change requests.
+  minus the approved change requests;
+- no calibration cell describes fewer than ``MIN_PUBLISHED_CLIENTS`` clients;
+- the decision's reason_code matches its verdict, and only an authorized verdict names a model.
 """
 from __future__ import annotations
 
@@ -118,6 +120,20 @@ def _semantic(data: dict) -> list[str]:
             errors.append(f"{where}.k_star: must be a point of the published curve")
         if evaluation["k_applied"] > evaluation["k_requested"] + _EPS:
             errors.append(f"{where}.k_applied: exceeds k_requested")
+        if any(cell["n_clients"] < MIN_PUBLISHED_CLIENTS - _EPS for cell in evaluation["metrics"]["calibration"]):
+            errors.append(f"{where}.metrics.calibration: no cell may describe fewer than "
+                          f"{MIN_PUBLISHED_CLIENTS} clients")
+
+    for i, decision in enumerate(data["models"]["decisions"]):
+        where = f"models.decisions[{i}]"
+        authorized = decision["verdict"] == "authorized_for_shadow_deployment"
+        if authorized != (decision["reason_code"] == "authorized"):
+            errors.append(f"{where}.reason_code: {decision['reason_code']} does not match the verdict "
+                          f"{decision['verdict']}")
+        if authorized and not decision["model_id"]:
+            errors.append(f"{where}.model_id: an authorized verdict must name the model")
+        if not authorized and decision["model_id"]:
+            errors.append(f"{where}.model_id: a not_authorized verdict names no model")
 
     counts = {d: sum(c["decision"] == d for c in data["models"]["cards"]) for d in ("ADMITTED", "REJECTED", "SKIPPED")}
     if counts != data["gates"]["gate2"]["counts"]:

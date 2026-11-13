@@ -9,10 +9,15 @@ import yaml
 from src.predict360.config import CONFIG_DIR, ROOT, load_assumptions, load_config
 from src.predict360.evaluator import (
     MIN_PUBLISHED_CLIENTS,
+    bootstrap_net_values,
+    brier_score,
+    calibration_table,
     capture_curve,
     evaluate_at_k,
     evaluate_models,
+    interval,
     k_star,
+    pr_auc,
     random_baseline,
 )
 from src.predict360.labeling import label_all
@@ -246,3 +251,266 @@ def test_published_k_star_is_a_point_of_the_published_curve(synthetic, assumptio
     for e in report["evaluations"]:
         assert e["k_star"] in e["curve"], (e["model_id"], e["label"])
         assert e["k_star"]["net_value_cop_m"] == max(p["net_value_cop_m"] for p in e["curve"])
+
+
+# --- B8b: ranking metrics at K and on the published grid ---------------------------------
+
+@pytest.mark.parametrize("events_in_top_100,precision,recall,lift", [
+    (15, 0.15, 0.30, 3.0),    # rule: 15 of 100 contacted are events; prevalence 50/1000
+    (30, 0.30, 0.60, 6.0),    # model
+])
+def test_precision_recall_and_lift_at_k(assumptions, events_in_top_100, precision, recall, lift):
+    result = evaluate_at_k(_spec_case(events_in_top_100), 100, assumptions)
+    assert result["precision"] == pytest.approx(precision)
+    assert result["recall"] == pytest.approx(recall)
+    assert result["lift"] == pytest.approx(lift)
+
+
+def test_random_baseline_rates(assumptions):
+    result = random_baseline(_spec_case(30), 100, assumptions)
+    assert result["precision"] == pytest.approx(0.05)
+    assert result["recall"] == pytest.approx(0.10)
+    assert result["lift"] == pytest.approx(1.0)
+
+
+def test_rates_are_weighted_by_clients(assumptions):
+    df = pd.DataFrame({"client_id": ["a", "b", "c"], "score": [0.9, 0.5, 0.1], "y": [1, 0, 1],
+                       "exposure_cop_m": [1.0, 1.0, 1.0], "weight": [3.0, 1.0, 1.0]})
+    result = evaluate_at_k(df, 4, assumptions)          # rows a and b: 4 clients, 3 events of 4
+    assert result["precision"] == pytest.approx(0.75)
+    assert result["recall"] == pytest.approx(0.75)
+    assert result["lift"] == pytest.approx(0.75 / 0.8)
+
+
+def test_curve_starts_without_precision_or_lift(assumptions):
+    first = capture_curve(_spec_case(30), assumptions).iloc[0]
+    assert first["recall"] == 0.0
+    assert pd.isna(first["precision"]) and pd.isna(first["lift"])
+
+
+# --- B8b: PR-AUC and calibration -----------------------------------------------------------
+
+def _tiny(weights=(1.0, 1.0, 1.0, 1.0)):
+    return pd.DataFrame({"client_id": ["a", "b", "c", "d"], "score": [0.9, 0.8, 0.7, 0.6],
+                         "y": [1, 0, 1, 0], "exposure_cop_m": [1.0] * 4, "weight": list(weights)})
+
+
+def test_pr_auc_by_hand():
+    assert pr_auc(_tiny()) == pytest.approx(0.5 * 1 + 0.5 * 2 / 3)
+    assert pr_auc(_tiny((2.0, 1.0, 1.0, 1.0))) == pytest.approx(2 / 3 * 1 + 1 / 3 * 3 / 4)
+
+
+def test_pr_auc_of_a_perfect_model_is_one_and_without_events_is_none():
+    df = _spec_case(30)
+    df["score"] = df["y"].astype(float)
+    assert pr_auc(df) == pytest.approx(1.0)
+    assert pr_auc(df.assign(y=0)) is None
+
+
+def test_brier_score_by_hand():
+    assert brier_score(_tiny()) == pytest.approx((0.01 + 0.64 + 0.09 + 0.36) / 4)
+    assert brier_score(_tiny((2.0, 1.0, 1.0, 1.0))) == pytest.approx((0.02 + 0.64 + 0.09 + 0.36) / 5)
+
+
+def test_calibration_has_ten_deciles_that_add_up(assumptions):
+    df = _spec_case(30)
+    df["score"] = [i / 1000 for i in range(1000)]
+    table = calibration_table(df, assumptions)
+    assert len(table) == 10
+    assert [cell["n_clients"] for cell in table] == [100.0] * 10
+    assert sum(cell["observed_rate"] * cell["n_clients"] for cell in table) == pytest.approx(50)
+    assert table[0]["mean_score"] < table[-1]["mean_score"]
+
+
+def test_calibration_merges_cells_below_the_configured_minimum(assumptions):
+    df = _spec_case(30)
+    df["score"] = [i / 1000 for i in range(1000)]
+    strict = {**assumptions, "evaluation": {**assumptions["evaluation"], "min_cell_clients": 150}}
+    table = calibration_table(df, strict)
+    assert all(cell["n_clients"] >= 150 for cell in table)
+    assert sum(cell["n_clients"] for cell in table) == 1000
+    assert [cell["bin"] for cell in table] == list(range(1, len(table) + 1))
+
+
+def test_calibration_publishes_nothing_under_the_minimum(assumptions):
+    assert calibration_table(_tiny(), assumptions) == []
+
+
+# --- B8b: paired bootstrap of net value at a fixed K -------------------------------------------
+
+def _ranking(events_in_top_100):
+    """Scores over the population of _spec_case(30): `events_in_top_100` of its 50 events lead the top 100."""
+    case = _spec_case(30)
+    events = case.loc[case["y"] == 1, "client_id"].tolist()
+    others = case.loc[case["y"] == 0, "client_id"].tolist()
+    top = set(events[:events_in_top_100] + others[:100 - events_in_top_100])
+    return case["client_id"].map(lambda cid: 0.99 if cid in top else 0.01).to_numpy()
+
+
+def _models_on_spec_case(**events_in_top_100):
+    rows = _spec_case(30).drop(columns="score")    # same events for every model, only the ranking changes
+    return rows, {model_id: _ranking(events) for model_id, events in events_in_top_100.items()}
+
+
+def test_bootstrap_is_reproducible_and_keeps_the_number_of_rows(assumptions):
+    rows, scores = _models_on_spec_case(rule=15, model=30)
+    first = bootstrap_net_values(rows, scores, 100, assumptions, samples=50, seed=42)
+    second = bootstrap_net_values(rows, scores, 100, assumptions, samples=50, seed=42)
+    assert set(first) == {"rule", "model"} and len(first["model"]) == 50
+    assert (first["model"] == second["model"]).all() and (first["rule"] == second["rule"]).all()
+
+
+def test_bootstrap_is_paired(assumptions):
+    rows, scores = _models_on_spec_case(model=30)
+    scores["copy"] = scores["model"].copy()
+    draws = bootstrap_net_values(rows, scores, 100, assumptions, samples=50, seed=42)
+    assert (draws["model"] - draws["copy"] == 0).all()     # same resamples, same K
+
+
+def test_interval_is_a_percentile_interval():
+    low, high = interval(pd.Series(range(101)).to_numpy(), 0.95)
+    assert low == pytest.approx(2.5) and high == pytest.approx(97.5)
+
+
+# --- B8b: promotion and verdict per target ---------------------------------------------------
+
+def _labeled_delinquency():
+    case = _spec_case(30)
+    table = case[["client_id", "exposure_cop_m", "weight"]].copy()
+    table["delinquency_30"] = case["y"].astype("Int8")
+    table["delinquency_60"] = case["y"].astype("Int8")
+    return {"delinquency": {"table": table}}
+
+
+def _scores_long(models: dict) -> pd.DataFrame:
+    """models: model_id -> (events in the top 100 at 30 days, at 60 days)."""
+    frames = []
+    for model_id, per_horizon in models.items():
+        for horizon, events in zip((30, 60), per_horizon):
+            frames.append(pd.DataFrame({"client_id": _spec_case(30)["client_id"], "model_id": model_id,
+                                        "horizon_days": horizon, "score": _ranking(events)}))
+    return pd.concat(frames, ignore_index=True)
+
+
+def _gate2(*model_ids):
+    return {"cards": [{"target": "delinquency", "model_id": m, "decision": "ADMITTED"} for m in model_ids]}
+
+
+def _decision(report, target="delinquency"):
+    matches = [d for d in report["decisions"] if d["target"] == target]
+    assert len(matches) == 1
+    return matches[0]
+
+
+def test_model_that_beats_the_rule_on_both_horizons_is_authorized_for_shadow(assumptions):
+    models = {"baseline_rule": (15, 15), "model_a": (30, 30)}
+    report = evaluate_models(_labeled_delinquency(), _scores_long(models), _gate2(*models), assumptions)
+    decision = _decision(report)
+    assert decision["verdict"] == "authorized_for_shadow_deployment" and decision["model_id"] == "model_a"
+    for label in ("delinquency_30", "delinquency_60"):
+        vs = _find(report, "model_a", label)["vs_baseline"]
+        assert vs["baseline_model"] == "baseline_rule" and vs["beats"] is True
+        assert vs["difference_cop_m"] == pytest.approx(60.0)       # 118 - 58 at K = 100
+        assert vs["ci_low_cop_m"] > vs["margin_cop_m"]
+        assert vs["k_clients"] == 100
+    assert _find(report, "baseline_rule", "delinquency_30")["vs_baseline"] is None
+
+
+def test_winning_only_one_delinquency_horizon_is_not_enough(assumptions):
+    models = {"baseline_rule": (15, 15), "model_c": (30, 5)}
+    report = evaluate_models(_labeled_delinquency(), _scores_long(models), _gate2(*models), assumptions)
+    decision = _decision(report)
+    assert decision["verdict"] == "not_authorized" and decision["model_id"] is None
+    assert _find(report, "model_c", "delinquency_30")["vs_baseline"]["beats"] is True
+    assert _find(report, "model_c", "delinquency_60")["vs_baseline"]["beats"] is False
+    assert "delinquency_60" in decision["reason"]
+
+
+def test_margin_comes_from_the_assumptions(assumptions):
+    models = {"baseline_rule": (15, 15), "model_a": (30, 30)}
+    strict = {**assumptions, "promotion": {**assumptions["promotion"], "margin_cop_m": 1_000.0}}
+    report = evaluate_models(_labeled_delinquency(), _scores_long(models), _gate2(*models), strict)
+    decision = _decision(report)
+    assert decision["verdict"] == "not_authorized"
+    assert decision["reason_code"] == "does_not_beat_baseline"     # 60 M point difference <= 1,000 M margin
+
+
+def test_point_difference_above_margin_with_a_wide_interval_is_insufficient_evidence(assumptions):
+    models = {"baseline_rule": (15, 15), "model_a": (30, 30)}
+    tight = {**assumptions, "promotion": {**assumptions["promotion"], "margin_cop_m": 59.0}}
+    report = evaluate_models(_labeled_delinquency(), _scores_long(models), _gate2(*models), tight)
+    vs = _find(report, "model_a", "delinquency_30")["vs_baseline"]
+    assert vs["difference_cop_m"] > 59.0 >= vs["ci_low_cop_m"]
+    assert vs["outcome"] == "insufficient_evidence" and vs["beats"] is False
+    decision = _decision(report)
+    assert decision["verdict"] == "not_authorized" and decision["reason_code"] == "insufficient_evidence"
+
+
+def test_outcome_of_each_comparison(assumptions):
+    models = {"baseline_rule": (15, 15), "model_c": (30, 5)}
+    report = evaluate_models(_labeled_delinquency(), _scores_long(models), _gate2(*models), assumptions)
+    assert _find(report, "model_c", "delinquency_30")["vs_baseline"]["outcome"] == "beats"
+    assert _find(report, "model_c", "delinquency_60")["vs_baseline"]["outcome"] == "does_not_beat_baseline"
+    assert _find(report, "model_c", "delinquency_30")["vs_baseline"]["confidence_level"] == 0.95
+    assert _decision(report)["reason_code"] == "does_not_beat_baseline"
+
+
+def test_authorized_decision_has_its_reason_code(assumptions):
+    models = {"baseline_rule": (15, 15), "model_a": (30, 30)}
+    report = evaluate_models(_labeled_delinquency(), _scores_long(models), _gate2(*models), assumptions)
+    assert _decision(report)["reason_code"] == "authorized"
+
+
+def test_without_an_evaluated_baseline_nothing_is_authorized(assumptions):
+    models = {"baseline_rule": (15, 15), "model_a": (30, 30)}
+    scores = _scores_long(models)
+    scores = scores.drop(scores.index[(scores["model_id"] == "baseline_rule") & (scores["horizon_days"] == 60)][:1])
+    report = evaluate_models(_labeled_delinquency(), scores, _gate2(*models), assumptions)
+    decision = _decision(report)
+    assert decision["verdict"] == "not_authorized" and decision["model_id"] is None
+    assert decision["reason_code"] == "no_baseline"
+    assert "baseline_rule" in decision["reason"]
+
+
+def test_highest_net_value_is_recommended_and_close_runner_up_is_inconclusive(assumptions):
+    models = {"baseline_rule": (15, 15), "model_a": (30, 30), "model_b": (30, 30), "model_d": (25, 25)}
+    report = evaluate_models(_labeled_delinquency(), _scores_long(models), _gate2(*models), assumptions)
+    decision = _decision(report)
+    assert decision["model_id"] == "model_a"                       # ties go to the first model_id
+    assert decision["also_beat_baseline"] == ["model_b", "model_d"]
+    runner_up = decision["runner_up"]
+    assert runner_up["model_id"] == "model_b" and runner_up["conclusive"] is False
+    assert runner_up["ci_low_cop_m"] <= 0 <= runner_up["ci_high_cop_m"]
+    assert "inconclusive" in decision["reason"]
+
+
+def test_single_authorized_model_has_no_runner_up(assumptions):
+    models = {"baseline_rule": (15, 15), "model_a": (30, 30)}
+    report = evaluate_models(_labeled_delinquency(), _scores_long(models), _gate2(*models), assumptions)
+    decision = _decision(report)
+    assert decision["also_beat_baseline"] == [] and decision["runner_up"] is None
+
+
+def test_decisions_never_mention_production(synthetic, assumptions):
+    report = evaluate_models(*synthetic, assumptions)
+    assert {d["target"] for d in report["decisions"]} == {"delinquency", "churn"}
+    assert "production" not in json.dumps(report["decisions"]).lower()
+    codes = {"authorized", "insufficient_evidence", "does_not_beat_baseline", "no_baseline", "no_candidate"}
+    assert all(d["reason_code"] in codes for d in report["decisions"])
+
+
+def test_synthetic_evaluations_carry_metrics(synthetic, assumptions):
+    report = evaluate_models(*synthetic, assumptions)
+    for e in report["evaluations"]:
+        metrics = e["metrics"]
+        assert 0 < metrics["pr_auc"] <= 1 and 0 <= metrics["brier"] <= 1
+        assert all(cell["n_clients"] >= assumptions["evaluation"]["min_cell_clients"]
+                   for cell in metrics["calibration"])
+        assert {"precision", "recall", "lift"} <= set(e["at_k"]) and {"precision", "recall", "lift"} <= set(e["curve"][1])
+
+
+def test_report_declares_the_promotion_assumptions(synthetic, assumptions):
+    report = evaluate_models(*synthetic, assumptions)
+    declared = report["assumptions"]
+    assert declared["margin_cop_m"] == 0 and declared["bootstrap_samples"] == 500
+    assert declared["bootstrap_seed"] == 42 and declared["confidence_level"] == 0.95

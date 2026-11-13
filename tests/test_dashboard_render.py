@@ -141,8 +141,46 @@ def test_summary_shows_gates_run_and_verdicts(sample, html):
     assert sample["meta"]["commit"][:12] in html
     for gate in ("gate1", "gate2", "gate3"):
         assert f'data-gate="{gate}"' in html
+    for decision in sample["models"]["decisions"]:
+        assert f'data-decision="{decision["target"]}"' in html
+    assert "No autorizado" in html
+    assert "producción" not in html.lower()
+
+
+def _authorized(sample):
+    data = copy.deepcopy(sample)
+    data["models"]["decisions"][0].update(verdict="authorized_for_shadow_deployment",
+                                          reason_code="authorized", model_id="model_a")
+    return data
+
+
+def test_authorized_verdict_is_shown_as_shadow_deployment(sample):
+    html = render(_authorized(sample))
     assert "Autorizado a despliegue en sombra" in html
     assert "producción" not in html.lower()
+
+
+@pytest.mark.parametrize("code,label", [
+    ("insufficient_evidence", "Evidencia insuficiente"),
+    ("does_not_beat_baseline", "No supera la regla"),
+    ("no_baseline", "Sin regla base comparable"),
+])
+def test_reason_code_label(sample, code, label):
+    data = copy.deepcopy(sample)
+    data["models"]["decisions"][0]["reason_code"] = code
+    assert label in render(data)
+
+
+def test_decision_shows_point_difference_next_to_the_paired_interval(sample, html):
+    compared = [e for e in sample["models"]["evaluations"] if e["status"] == "evaluated" and e["vs_baseline"]]
+    assert compared
+    for e in compared:
+        vs = e["vs_baseline"]
+        row = f'data-comparison="{e["target"]}.{e["label"]}.{e["model_id"]}"'
+        assert row in html
+        fragment = html[html.index(row):html.index("</tr>", html.index(row))]
+        for value in (vs["difference_cop_m"], vs["ci_low_cop_m"], vs["ci_high_cop_m"]):
+            assert format_cop_m(value) in fragment
 
 
 def test_renderer_source_has_no_hand_written_figures():

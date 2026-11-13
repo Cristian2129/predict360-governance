@@ -139,6 +139,55 @@ def test_k_applied_never_exceeds_k_requested(sample):
     assert any("k_applied" in e for e in _errors(data))
 
 
+def test_calibration_cells_are_never_under_30_clients(sample):
+    data = copy.deepcopy(sample)
+    _evaluated(data)["metrics"]["calibration"][0]["n_clients"] = 29.0
+    assert any("calibration" in e for e in _errors(data))
+
+
+def _authorized(data):
+    decision = data["models"]["decisions"][0]
+    decision.update(verdict="authorized_for_shadow_deployment", reason_code="authorized", model_id="model_a")
+    return decision
+
+
+def test_contract_accepts_both_verdicts(sample):
+    data = copy.deepcopy(sample)
+    _authorized(data)
+    assert _errors(data) == []
+
+
+def test_authorized_verdict_names_a_model(sample):
+    data = copy.deepcopy(sample)
+    _authorized(data)["model_id"] = None
+    assert any("decisions" in e for e in _errors(data))
+
+
+@pytest.mark.parametrize("verdict,code", [
+    ("authorized_for_shadow_deployment", "insufficient_evidence"),
+    ("not_authorized", "authorized"),
+])
+def test_reason_code_matches_the_verdict(sample, verdict, code):
+    data = copy.deepcopy(sample)
+    decision = _authorized(data)
+    decision.update(verdict=verdict, reason_code=code)
+    if verdict == "not_authorized":
+        decision["model_id"] = None
+    assert any("reason_code" in e for e in _errors(data))
+
+
+def test_not_authorized_verdict_names_no_model(sample):
+    data = copy.deepcopy(sample)
+    data["models"]["decisions"][0]["model_id"] = "model_a"
+    assert any("decisions" in e for e in _errors(data))
+
+
+def test_fixture_decisions_come_from_the_real_promotion_rule(sample):
+    decisions = sample["models"]["decisions"]
+    assert not any(d["reason"].startswith("SAMPLE") for d in decisions)
+    assert {d["reason_code"] for d in decisions} == {"insufficient_evidence", "no_baseline"}
+
+
 def test_gate2_counts_match_the_cards(sample):
     data = copy.deepcopy(sample)
     data["gates"]["gate2"]["counts"]["ADMITTED"] += 1
