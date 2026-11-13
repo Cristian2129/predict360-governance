@@ -106,6 +106,12 @@ def test_figure_id_must_be_dotted(sample):
 
 # --- semantic rules -------------------------------------------------------------------
 
+def test_figure_carries_the_path_gate3_reads(sample):
+    data = copy.deepcopy(sample)
+    del data["lineage"]["figures"][0]["path"]
+    assert any("path" in e for e in _errors(data))
+
+
 def test_figure_must_point_to_an_output(sample):
     data = copy.deepcopy(sample)
     data["lineage"]["figures"][0]["file"] = "not_an_output.json"

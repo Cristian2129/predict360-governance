@@ -15,6 +15,7 @@ from src.predict360.lineage import (
     new_run_id,
     record_gate,
     register_figure,
+    resolve_figure_path,
     start_manifest,
     verify_lineage_log,
     write_manifest,
@@ -130,9 +131,10 @@ def test_figure_points_to_an_output_and_keeps_full_precision(cfg, tmp_path):
     manifest = _manifest(cfg)
     out = add_output(manifest, _output(tmp_path), base=tmp_path)
     figure = register_figure(manifest, "exposure.delinquency.observed_cop_m", 58800.000123, "COP_m",
-                             out["file"], "src/predict360/reconcile.py")
+                             out["file"], "src/predict360/reconcile.py", "tables.delinquency.actual_cop_m")
     assert figure == {"figure_id": "exposure.delinquency.observed_cop_m", "value": 58800.000123,
-                      "unit": "COP_m", "file": "evaluation.json", "script": "src/predict360/reconcile.py"}
+                      "unit": "COP_m", "file": "evaluation.json", "script": "src/predict360/reconcile.py",
+                      "path": "tables.delinquency.actual_cop_m"}
     assert "sha256" not in figure   # the hash lives in outputs
 
 
@@ -141,17 +143,64 @@ def test_figure_ids_are_dotted_lowercase(cfg, tmp_path, figure_id):
     manifest = _manifest(cfg)
     out = add_output(manifest, _output(tmp_path), base=tmp_path)
     with pytest.raises(ValueError, match="figure_id"):
-        register_figure(manifest, figure_id, 1.0, "COP_m", out["file"], "x.py")
+        register_figure(manifest, figure_id, 1.0, "COP_m", out["file"], "x.py", "net_value_cop_m")
 
 
 def test_figure_must_reference_a_registered_output_and_be_unique(cfg, tmp_path):
     manifest = _manifest(cfg)
     out = add_output(manifest, _output(tmp_path), base=tmp_path)
     with pytest.raises(ValueError, match="outputs"):
-        register_figure(manifest, "models.model_a.net_value_cop_m", 118.0, "COP_m", "other.json", "x.py")
-    register_figure(manifest, "models.model_a.net_value_cop_m", 118.0, "COP_m", out["file"], "x.py")
+        register_figure(manifest, "models.model_a.net_value_cop_m", 118.0, "COP_m", "other.json", "x.py",
+                        "net_value_cop_m")
+    register_figure(manifest, "models.model_a.net_value_cop_m", 118.0, "COP_m", out["file"], "x.py",
+                    "net_value_cop_m")
     with pytest.raises(ValueError, match="already"):
-        register_figure(manifest, "models.model_a.net_value_cop_m", 118.0, "COP_m", out["file"], "x.py")
+        register_figure(manifest, "models.model_a.net_value_cop_m", 118.0, "COP_m", out["file"], "x.py",
+                        "net_value_cop_m")
+
+
+# --- figure paths: selectors by identifier, never list positions ------------------------
+
+EVALUATION = {"evaluations": [
+    {"model_id": "model_a", "label": "delinquency_60", "horizon_days": 60, "at_k": {"net_value_cop_m": 177.1}},
+    {"model_id": "model_b", "label": "delinquency_60", "horizon_days": 60, "at_k": {"net_value_cop_m": 852.6}},
+    {"model_id": "model_b", "label": "delinquency_30", "horizon_days": 30, "at_k": {"net_value_cop_m": 271.9}},
+], "pv_by_sprint_cop_m": {"3": 35.0}}
+SELECTOR = "evaluations[model_id=model_b,label=delinquency_60].at_k.net_value_cop_m"
+
+
+def test_selector_finds_the_item_by_its_identifiers():
+    assert resolve_figure_path(EVALUATION, SELECTOR) == 852.6
+    assert resolve_figure_path(EVALUATION, "evaluations[model_id=model_b,horizon_days=30].at_k.net_value_cop_m") == 271.9
+    assert resolve_figure_path(EVALUATION, "pv_by_sprint_cop_m.3") == 35.0   # numeric KEY of a mapping
+
+
+def test_reordering_the_list_does_not_change_the_figure():
+    reordered = {**EVALUATION, "evaluations": list(reversed(EVALUATION["evaluations"]))}
+    assert resolve_figure_path(reordered, SELECTOR) == resolve_figure_path(EVALUATION, SELECTOR)
+
+
+def test_list_positions_are_refused():
+    with pytest.raises(ValueError, match="selector"):
+        resolve_figure_path(EVALUATION, "evaluations.1.at_k.net_value_cop_m")
+
+
+@pytest.mark.parametrize("path", [
+    "evaluations[model_id=model_b].at_k.net_value_cop_m",       # two matches
+    "evaluations[model_id=model_z].at_k.net_value_cop_m",       # none
+    "evaluations[model_id=model_a].at_k.capture",               # missing key
+])
+def test_selector_must_match_exactly_one_item_and_existing_keys(path):
+    with pytest.raises((KeyError, ValueError)):
+        resolve_figure_path(EVALUATION, path)
+
+
+@pytest.mark.parametrize("path", ["", "evaluations[model_id]", "a..b", "evaluations[=x].y"])
+def test_malformed_paths_are_refused_at_registration(cfg, tmp_path, path):
+    manifest = _manifest(cfg)
+    out = add_output(manifest, _output(tmp_path), base=tmp_path)
+    with pytest.raises(ValueError, match="path"):
+        register_figure(manifest, "models.model_a.net_value_cop_m", 118.0, "COP_m", out["file"], "x.py", path)
 
 
 # --- written manifest is immutable ------------------------------------------------
@@ -164,7 +213,8 @@ def test_manifest_cannot_be_overwritten_or_changed_after_writing(cfg, tmp_path):
     assert path == runs / manifest["run_id"] / "manifest.json"
     assert json.loads(path.read_text(encoding="utf-8"))["closed_at"] == "2026-11-12T15:30:00Z"
     with pytest.raises(ValueError, match="closed"):
-        register_figure(manifest, "models.model_a.net_value_cop_m", 118.0, "COP_m", out["file"], "x.py")
+        register_figure(manifest, "models.model_a.net_value_cop_m", 118.0, "COP_m", out["file"], "x.py",
+                        "net_value_cop_m")
     with pytest.raises(ValueError, match="closed"):
         add_output(manifest, _output(tmp_path, "late.json"), base=tmp_path)
     again = _with_sources(cfg)   # same run_id
