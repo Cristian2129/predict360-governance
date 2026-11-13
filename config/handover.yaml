@@ -1,0 +1,16 @@
+# Handover to FinBank: the runbook steps, written by people (export_dashboard_data.py, B11b).
+# Step numbers follow the order of the list. status: pending | done.
+#
+# Not here on purpose: the columns FinBank must add for contract v2. They come from the
+# not_verifiable steps of the labeling funnel (labeling_funnel.json) of each run, so they
+# live in one place only and cannot drift from what the pipeline actually checks.
+version: v1
+steps:
+  - title: Clone the repository inside FinBank and install requirements
+    status: pending
+  - title: Set PREDICT360_HMAC_KEY and fill the TODO(FinBank) fields of config/real.yaml
+    status: pending
+  - title: Export scores (scores_v1) and model cards (model_card_v1)
+    status: pending
+  - title: Run run_pipeline.py --config config/real.yaml and review the three gates
+    status: pending

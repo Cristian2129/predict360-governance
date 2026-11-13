@@ -2863,6 +2863,7 @@
     }
   ],
   "management": {
+    "status": "RUN",
     "baseline": {
       "ceiling_cop_m": 180,
       "contingency_cop_m": 20,
@@ -3032,7 +3033,8 @@
         "owner": "Marco Jimenez",
         "status": "Mitigating"
       }
-    ]
+    ],
+    "risk_reviews_count": 0
   },
   "handover": {
     "steps": [

@@ -12,6 +12,7 @@ import pytest
 import yaml
 
 from src.predict360.config import CONFIG_DIR, ROOT, load_assumptions
+from src.predict360.export_dashboard_data import DASHBOARD_OUTPUTS
 from src.predict360.make_synthetic import generate_synthetic_data
 from src.predict360.run_pipeline import AGGREGATE_OUTPUTS, OfficialRunRefused, main, run_pipeline
 
@@ -72,7 +73,7 @@ def ordinary(tmp_path_factory):
 
 def test_run_completes_and_writes_only_aggregates(ordinary):
     assert ordinary["exit_code"] == 0 and ordinary["official"] is False
-    assert _files(ordinary["run_dir"]) == set(AGGREGATE_OUTPUTS) | {"manifest.json"}
+    assert _files(ordinary["run_dir"]) == set(AGGREGATE_OUTPUTS) | set(DASHBOARD_OUTPUTS) | {"manifest.json"}
     assert "labeled" not in " ".join(AGGREGATE_OUTPUTS) and "curated" not in " ".join(AGGREGATE_OUTPUTS)
 
 
@@ -88,7 +89,7 @@ def test_no_client_identifier_reaches_any_output(ordinary):
 def test_manifest_is_closed_with_outputs_figures_and_gate_detail(ordinary):
     manifest = json.loads((ordinary["run_dir"] / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["closed_at"] and manifest["commit"] == COMMIT
-    assert {o["file"] for o in manifest["outputs"]} == set(AGGREGATE_OUTPUTS)
+    assert {o["file"] for o in manifest["outputs"]} == set(AGGREGATE_OUTPUTS) | set(DASHBOARD_OUTPUTS)
     assert manifest["gates"]["gate1"]["status"] == "PASS_WITH_WAIVERS"
     assert manifest["gates"]["gate1"]["tables"] == {"delinquency": "PASS", "churn": "PASS_WITH_WAIVERS",
                                                     "scores": "PASS", "hours_log": "PASS"}
@@ -201,7 +202,7 @@ def test_official_run_goes_to_its_own_folder_and_log(tmp_path):
     official = tmp_path / "runs" / "official"
     assert result["exit_code"] == 0 and result["official"] is True
     assert result["run_dir"] == official / result["run_id"]
-    assert _files(result["run_dir"]) == set(AGGREGATE_OUTPUTS) | {"manifest.json"}
+    assert _files(result["run_dir"]) == set(AGGREGATE_OUTPUTS) | set(DASHBOARD_OUTPUTS) | {"manifest.json"}
     assert (official / "lineage_log.jsonl").exists()
     assert not (tmp_path / "runs" / "lineage_log.jsonl").exists()      # the local log stays separate
     assert not (tmp_path / "runs" / result["run_id"]).exists()

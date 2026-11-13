@@ -51,6 +51,13 @@ a { color: var(--accent); }
 .banner.info { background: var(--info-bg); }
 .banner.warn { background: var(--warn-bg); color: var(--warn); }
 .banner.bad { background: var(--bad-bg); color: var(--bad); }
+/* The fixture on Pages: impossible to take for a pipeline run */
+.banner.loud {
+  padding: 14px 16px; font-size: 1.15rem; text-align: center; letter-spacing: .01em;
+  border-top: 4px solid var(--warn); border-bottom: 4px solid var(--warn);
+  background: repeating-linear-gradient(-45deg, var(--warn-bg) 0 14px,
+                                        color-mix(in srgb, var(--warn) 18%, var(--warn-bg)) 14px 28px);
+}
 
 header.top {
   display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: baseline;

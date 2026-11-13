@@ -2,7 +2,8 @@
 
 Stations, in order: load the config, hash the sources, Gate 1, reconciliation, labeling
 (funnel only), Gate 2, evaluation and verdict, project management, figure registry,
-Gate 3, evidence record (acta), and closing the manifest with its lineage log entry.
+Gate 3, evidence record (acta), dashboard data and page (``dashboard_data.json``,
+``index.html``), and closing the manifest with its lineage log entry.
 Everything goes to ``runs/<run_id>/`` and only aggregates are written: the curated and
 labeled tables are client rows and never leave memory, not even synthetic ones.
 
@@ -38,7 +39,10 @@ import pandas as pd
 
 from src.predict360.config import CONFIG_DIR, ROOT, load_assumptions, load_config
 from src.predict360.consistency import CITATIONS_PATH, run_gate3
+from src.predict360.dashboard_render import write as render_dashboard
 from src.predict360.evaluator import evaluate_models
+from src.predict360.export_dashboard_data import HANDOVER_PATH, build_dashboard_data, write_dashboard_data
+from src.predict360.risk_register import DEFAULT_REGISTER, DEFAULT_REVIEWS
 from src.predict360.labeling import label_all
 from src.predict360.budget_schedule import budget_schedule
 from src.predict360.lineage import (add_output, add_source, git_commit, record_gate, register_figure,
@@ -170,6 +174,14 @@ def run_pipeline(config_path: str | Path = CONFIG_DIR / "synthetic.yaml", *, off
     add_source(manifest, "assumptions", ASSUMPTIONS_PATH)
     if Path(citations_path).exists():
         add_source(manifest, "citations", citations_path)
+    # What the management and handover views read, written by people
+    management_cfg = cfg.get("management") or {}
+    sprint_log = ROOT / management_cfg["sprint_log"] if management_cfg.get("sprint_log") else None
+    for name, path in (("hours_log", management_cfg.get("hours_log")), ("sprint_log", management_cfg.get("sprint_log")),
+                       ("risk_register", DEFAULT_REGISTER), ("risk_reviews", DEFAULT_REVIEWS),
+                       ("handover", HANDOVER_PATH)):
+        if path and (ROOT / path).exists():
+            add_source(manifest, name, ROOT / path)
     result = {"run_id": manifest["run_id"], "official": False, "stopped_at": None, "refused": []}
 
     gate1 = run_gate1(cfg, data_dir, as_of)
@@ -214,6 +226,15 @@ def run_pipeline(config_path: str | Path = CONFIG_DIR / "synthetic.yaml", *, off
     manifest["official"] = is_official
     _write(manifest, run_dir, "evidence_record.json",
            _evidence_record(manifest, cfg, values, gates, evaluation, is_official))
+
+    # Station 12: dashboard data and page, from the outputs above, before the manifest closes
+    log_dir = runs_dir / OFFICIAL_DIR if is_official else runs_dir
+    data = build_dashboard_data(run_dir, manifest, cfg, log_path=log_dir / LOG_NAME,
+                                verify_runs_dir=log_dir if is_official else None, now=now,
+                                assumptions_path=ASSUMPTIONS_PATH, sprint_log=sprint_log,
+                                handover_path=HANDOVER_PATH)
+    add_output(manifest, write_dashboard_data(data, run_dir / "dashboard_data.json"), base=run_dir)
+    add_output(manifest, render_dashboard(data, run_dir / "index.html", publish=is_official), base=run_dir)
 
     if is_official:
         official_dir = runs_dir / OFFICIAL_DIR

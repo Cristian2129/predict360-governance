@@ -79,14 +79,15 @@ def _status(value: str) -> str:
 
 def _banners(meta: dict) -> str:
     items = []
+    if meta["sample"]:   # first and loud: Pages shows the fixture until the official run exists
+        items.append(("banner-sample", "warn loud",
+                      "DATOS DE EJEMPLO · Fixture de desarrollo: no proviene de una corrida del pipeline. "
+                      "Ninguna cifra de esta página es un resultado."))
     if meta["synthetic"]:
         items.append(("banner-synthetic", "info",
                       "Datos sintéticos: ninguna cifra corresponde a clientes reales de FinBank."))
     else:
         items.append(("banner-real", "bad", "Datos reales de FinBank: uso interno del banco, no publicar."))
-    if meta["sample"]:
-        items.append(("banner-sample", "warn",
-                      "Datos de ejemplo (fixture de desarrollo): no provienen de una corrida del pipeline."))
     if meta["scores_simulated"]:
         items.append(("banner-simulated", "info", "Los scores de los modelos son simulados, no entrenados."))
     commit = meta["commit"]

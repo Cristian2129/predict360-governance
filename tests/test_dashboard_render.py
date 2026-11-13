@@ -85,6 +85,16 @@ def test_sample_synthetic_and_simulated_banners(html):
     assert 'id="banner-simulated"' in html
 
 
+def test_the_sample_banner_is_loud_and_comes_first(html):
+    # Pages publishes the fixture until the official run exists: nobody may take it for a run
+    banner = re.search(r'<div class="([^"]*)" id="banner-sample"[^>]*>(.*?)</div>', html)
+    assert banner and "loud" in banner.group(1).split()
+    assert "DATOS DE EJEMPLO" in banner.group(2)
+    assert html.index('id="banner-sample"') < html.index('id="banner-synthetic"')
+    css = re.search(r"<style>(.*?)</style>", html, re.S).group(1)
+    assert ".banner.loud" in css
+
+
 def test_no_sample_banner_for_a_real_pipeline_run(sample):
     run = copy.deepcopy(sample)
     run["meta"]["sample"] = False
@@ -229,7 +239,14 @@ def test_cli_renders_the_fixture(tmp_path):
     assert out.exists()
 
 
-def test_pages_workflow_publishes_with_the_publish_guard():
+def test_pages_workflow_publishes_with_the_publish_guard(sample, tmp_path):
+    # B11b: the workflow goes through publish_pages, which renders the fixture with publish=True
+    from src.predict360.publish_pages import publish_pages
     workflow = (ROOT / ".github" / "workflows" / "pages.yml").read_text(encoding="utf-8")
-    assert "src.predict360.dashboard_render" in workflow and "--publish" in workflow
-    assert "actions/deploy-pages" in workflow
+    assert "src.predict360.publish_pages" in workflow and "actions/deploy-pages" in workflow
+    real = copy.deepcopy(sample)
+    real["meta"]["synthetic"] = False
+    path = tmp_path / "real.json"
+    path.write_text(json.dumps(real), encoding="utf-8")
+    with pytest.raises(ValueError, match="synthetic"):
+        publish_pages(tmp_path / "_site", official_dir=tmp_path / "none", sample_path=path)

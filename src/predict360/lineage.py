@@ -202,6 +202,12 @@ def _last_line(log_path: Path) -> str | None:
     return lines[-1] if lines else None
 
 
+def log_head_sha256(log_path: str | Path) -> str | None:
+    """Hash of the last line of the log: what the next manifest anchors to (None if empty)."""
+    head_line = _last_line(Path(log_path))
+    return None if head_line is None else _sha256_bytes(head_line.encode("utf-8"))
+
+
 def write_manifest(manifest: dict, runs_dir: str | Path, log_path: str | Path,
                    now: datetime | None = None) -> Path:
     """Closes the manifest, writes it (never over an existing one) and appends the log entry."""
@@ -210,8 +216,7 @@ def write_manifest(manifest: dict, runs_dir: str | Path, log_path: str | Path,
     path = runs_dir / manifest["run_id"] / MANIFEST_NAME
     if path.exists():
         raise FileExistsError(f"{path} already exists: a manifest is never overwritten")
-    head_line = _last_line(log_path)
-    manifest["lineage_head_sha256"] = None if head_line is None else _sha256_bytes(head_line.encode("utf-8"))
+    manifest["lineage_head_sha256"] = log_head_sha256(log_path)
     manifest["closed_at"] = _iso(_utc(now))
 
     text = json.dumps(manifest, indent=2, ensure_ascii=False, default=str) + "\n"
