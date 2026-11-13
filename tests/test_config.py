@@ -177,10 +177,10 @@ def test_unknown_contract_raises():
 
 # --- assumptions ----------------------------------------------------------
 
-def test_assumptions_has_fifteen_typed_entries():
+def test_assumptions_has_seventeen_typed_entries():
     data = load_assumptions(CONFIG_DIR / "assumptions.yaml")
     items = data["items"]
-    assert len(items) == 15
+    assert len(items) == 17
     for item in items:
         assert {"id", "name", "value", "type", "rationale"} <= set(item)
         assert item["type"] in {"business", "design", "simulation"}
@@ -207,6 +207,20 @@ def test_assumption_values_match_team_decisions():
     assert values["value"]["default_capacity_share"] == 0.10
     assert values["reconciliation"]["tolerance_cop_m"] == 0.01
     assert values["retention"]["raw_retention_days"] is None
+
+
+def test_promotion_and_publication_assumptions_are_design_decisions():
+    data = load_assumptions(CONFIG_DIR / "assumptions.yaml")
+    assert data["values"]["promotion"] == {
+        "beat_baseline_rule": "higher_net_value_at_K",
+        "margin_cop_m": 0,
+        "bootstrap_samples": 500,
+        "bootstrap_seed": 42,
+        "confidence_level": 0.95,
+    }
+    assert data["values"]["evaluation"] == {"min_cell_clients": 30}
+    for key in ("promotion.margin_cop_m", "evaluation.min_cell_clients"):
+        assert [i["type"] for i in data["items"] if key in i["value"]] == ["design"]
 
 
 def test_budget_assumptions_follow_the_charter():
