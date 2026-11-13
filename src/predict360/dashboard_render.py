@@ -6,8 +6,8 @@ so it opens with a double click without network, from GitHub Pages, and inside F
 - CSS is inlined from ``dashboard_assets/styles.css``; no external resources.
 - Views and the 6-step guided mode are anchors (``#resumen``, ``#guia-1``) shown with
   CSS ``:target``; no JavaScript is needed to navigate.
-- Every figure comes from the JSON and is only formatted here (es-CO notation); the
-  source has no hand-written figures. Text from the JSON is HTML-escaped.
+- Every figure comes from the JSON and is only formatted, in Spanish, by ``formatting.py``
+  (the same formatter Gate 3 uses); the source has no hand-written figures. Text from the JSON is HTML-escaped.
 - ``write(..., publish=True)`` refuses non-synthetic data: only the synthetic demo run is
   published; a real FinBank run is rendered for local use inside the bank only.
 
@@ -27,6 +27,7 @@ from html import escape
 from pathlib import Path
 
 from src.predict360.dashboard_contract import validate_dashboard_data
+from src.predict360.formatting import format_cop_m, format_pct
 
 ASSETS_DIR = Path(__file__).resolve().parent / "dashboard_assets"
 
@@ -63,25 +64,7 @@ REASON_CODES = {"authorized": "", "insufficient_evidence": "Evidencia insuficien
                 "no_candidate": "Sin modelo candidato"}
 OUTCOMES = {"beats": ("Supera la regla", "ok"), "insufficient_evidence": ("Evidencia insuficiente", "warn"),
             "does_not_beat_baseline": ("No supera la regla", "bad")}
-DASH = "—"
-
-
-# --- formatting (display only; values keep full precision in the JSON) ---------------------
-
-def _es_number(value: float, decimals: int) -> str:
-    text = f"{value:,.{decimals}f}"
-    return text.replace(",", "_").replace(".", ",").replace("_", ".")
-
-
-def format_cop_m(value) -> str:
-    """COP millions in Colombian notation: whole millions from a thousand up, one decimal below."""
-    if value is None:
-        return DASH
-    return f"COP {_es_number(value, 0 if abs(value) >= 1000 else 1)} M"
-
-
-def format_pct(share) -> str:
-    return DASH if share is None else f"{_es_number(share * 100, 1)} %"
+__all__ = ["GUIDED_STEPS", "TABS", "format_cop_m", "format_pct", "render", "write"]   # formatters re-exported
 
 
 def _e(value) -> str:
@@ -156,7 +139,12 @@ def _gates_card(gates: dict) -> str:
         f'<dt data-gate="{gate}">{GATE_NAMES[gate]}</dt><dd>{_status(gates[gate]["status"])} '
         f'<span class="label-sm">{_e(detail[gate])}</span></dd>'
         for gate in ("gate1", "gate2", "gate3"))
-    return f'<div class="card"><h3>Estado de los gates</h3><dl class="kv">{rows}</dl></div>'
+    gate3 = gates["gate3"]
+    warning = ""
+    if gate3["status"] == "PASS" and not gate3["citations_checked"]:
+        warning = ('<p class="note" id="gate3-no-citations">Gate 3 aún no verifica las cifras citadas en el '
+                   'informe y la presentación: la corrida oficial lo exige.</p>')
+    return f'<div class="card"><h3>Estado de los gates</h3><dl class="kv">{rows}</dl>{warning}</div>'
 
 
 def _comparisons(target: str, evaluations: list) -> str:

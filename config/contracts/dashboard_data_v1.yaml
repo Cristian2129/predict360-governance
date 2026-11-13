@@ -53,9 +53,10 @@ definitions:
     fields:
       figure_id: {type: string, pattern: "^[a-z0-9_]+(\\.[a-z0-9_]+)+$"}
       value: {type: number}
-      unit: {type: string}
+      unit: {type: string, enum: [COP_m, share, ratio, count]}
       file: {type: string}
       script: {type: string}
+      path: {type: string}                  # keys and [field=value] selectors, never list positions
 
   waiver:
     type: object
@@ -211,14 +212,25 @@ fields:
         type: object
         fields:
           status: {ref: gate_status}
-          checked: {type: integer, min: 0}
+          checked: {type: integer, min: 0}            # figures + citations
+          figures_checked: {type: integer, min: 0}
+          citations_checked: {type: integer, min: 0}
+          require_citations: {type: boolean}          # true for the official demo run
+          warnings: {type: array, items: {type: string}}
           mismatches:
             type: array
             items:
               type: object
-              open: true                    # B10 defines the detail
               fields:
-                figure_id: {type: string}
+                figure_id: {type: [string, "null"]}
+                source: {type: string, enum: [output_file, citation, citations]}
+                where: {type: [string, "null"]}
+                expected: {type: any}
+                found: {type: any}
+                reason:
+                  type: string
+                  enum: [output_missing, output_altered, path_not_found, value_differs,
+                         invalid_citation, unknown_figure, text_differs, no_citations]
 
   quality:
     type: object

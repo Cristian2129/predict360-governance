@@ -13,6 +13,11 @@ already written. A versioned copy (a git commit) of the official run is the outs
 
 A manifest is closed when written: it cannot be overwritten, and figures or outputs
 cannot be added afterwards. Figures keep full precision; rounding is for display only.
+
+Each figure stores the ``path`` of its value inside its output file, so Gate 3 can read it
+back. Paths use keys and selectors by identifier, never list positions, so reordering a
+list cannot make a figure point to another item:
+``evaluations[model_id=model_b,label=delinquency_60].at_k.net_value_cop_m``.
 """
 from __future__ import annotations
 
@@ -29,6 +34,42 @@ from src.predict360.config import ROOT
 
 FIGURE_ID = re.compile(r"^[a-z0-9_]+(\.[a-z0-9_]+)+$")
 MANIFEST_NAME = "manifest.json"
+_CONDITION = r"[A-Za-z0-9_]+=[A-Za-z0-9_\-]+"
+_PATH_SEGMENT = re.compile(rf"^(?P<key>[A-Za-z0-9_]+)(?:\[(?P<select>{_CONDITION}(?:,{_CONDITION})*)\])?$")
+
+
+def _parse_figure_path(path: str) -> list[tuple[str, dict]]:
+    """Segments of a figure path: (key, {field: value}) with an empty dict when there is no selector."""
+    segments = []
+    for segment in (path or "").split("."):
+        match = _PATH_SEGMENT.match(segment)
+        if not match:
+            raise ValueError(f"invalid figure path {path!r}: use keys and [field=value] selectors, "
+                             "e.g. evaluations[model_id=model_b,label=delinquency_60].at_k.net_value_cop_m")
+        select = dict(c.split("=", 1) for c in match["select"].split(",")) if match["select"] else {}
+        segments.append((match["key"], select))
+    return segments
+
+
+def resolve_figure_path(document, path: str):
+    """The value at ``path``. A list can only be entered with a selector that matches exactly one item."""
+    node = document
+    for key, select in _parse_figure_path(path):
+        if not isinstance(node, dict):
+            raise ValueError(f"{path!r}: {key!r} is applied to a list; lists need a [field=value] selector, "
+                             "not a position")
+        if key not in node:
+            raise KeyError(f"{path!r}: key {key!r} not found")
+        node = node[key]
+        if select:
+            if not isinstance(node, list):
+                raise ValueError(f"{path!r}: selector on {key!r}, which is not a list")
+            matches = [item for item in node if isinstance(item, dict)
+                       and all(str(item.get(field)) == value for field, value in select.items())]
+            if len(matches) != 1:
+                raise ValueError(f"{path!r}: selector on {key!r} matched {len(matches)} items, not exactly one")
+            node = matches[0]
+    return node
 
 
 def _utc(now: datetime | None) -> datetime:
@@ -130,8 +171,10 @@ def add_output(manifest: dict, path: str | Path, base: str | Path) -> dict:
     return entry
 
 
-def register_figure(manifest: dict, figure_id: str, value, unit: str, file: str, script: str) -> dict:
-    """Origin of a published figure. ``file`` must be an output; its hash lives in outputs."""
+def register_figure(manifest: dict, figure_id: str, value, unit: str, file: str, script: str,
+                    path: str) -> dict:
+    """Origin of a published figure. ``file`` must be an output (its hash lives in outputs) and
+    ``path`` locates the value inside it (see the module docstring)."""
     _check_open(manifest)
     if not FIGURE_ID.match(figure_id):
         raise ValueError(f"figure_id must be dotted lowercase (e.g. exposure.delinquency.observed_cop_m): "
@@ -140,7 +183,8 @@ def register_figure(manifest: dict, figure_id: str, value, unit: str, file: str,
         raise ValueError(f"figure {figure_id} is already registered")
     if not any(o["file"] == file for o in manifest["outputs"]):
         raise ValueError(f"figure {figure_id} points to {file}, which is not in outputs")
-    figure = {"figure_id": figure_id, "value": value, "unit": unit, "file": file, "script": script}
+    _parse_figure_path(path)
+    figure = {"figure_id": figure_id, "value": value, "unit": unit, "file": file, "script": script, "path": path}
     manifest["figures"].append(figure)
     return figure
 
