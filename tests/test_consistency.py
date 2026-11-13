@@ -92,7 +92,7 @@ def test_reordering_evaluations_does_not_change_the_result(tmp_path):
 def test_gate3_is_recorded_in_the_manifest(tmp_path):
     manifest, run_dir = _run(tmp_path)
     record_gate(manifest, run_gate3(manifest, run_dir, _citations(tmp_path)), {})
-    assert manifest["gates"]["gate3"] == "PASS"
+    assert manifest["gates"]["gate3"] == {"status": "PASS"}
 
 
 # --- figures against their output files ---------------------------------------------------

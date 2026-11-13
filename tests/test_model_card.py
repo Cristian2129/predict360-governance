@@ -56,7 +56,8 @@ def test_overlapping_split_defect_rejects_model_a(cfg, tmp_path, monkeypatch):
     monkeypatch.delenv("PREDICT360_HMAC_KEY", raising=False)
     generate_synthetic_data(config=CONFIG, output_dir=tmp_path, defect="overlapping_split")
     report = run_gate2(cfg, tmp_path / "model_cards", tmp_path / "scores_sample.csv")
-    assert report["status"] == "FAIL"
+    # Rejecting a card is the gate doing its job: the gate passes, the card carries REJECTED
+    assert report["status"] == "PASS" and report["failures"] == []
     for card in report["cards"]:
         if card["model_id"] == "model_a":
             assert card["decision"] == "REJECTED"
@@ -139,6 +140,31 @@ def test_retired_card_in_gate2_counts_as_skipped(cfg, tmp_path):
     report = run_gate2(cfg, tmp_path, SCORES)
     assert report["status"] == "PASS"
     assert report["counts"] == {"ADMITTED": 5, "REJECTED": 0, "SKIPPED": 1}
+
+
+def _cards_in(tmp_path, change=None):
+    for path in CARDS_DIR.glob("*.json"):
+        card = json.loads(path.read_text(encoding="utf-8"))
+        if change:
+            change(path.stem, card)
+        (tmp_path / path.name).write_text(json.dumps(card), encoding="utf-8")
+    return tmp_path
+
+
+def test_gate2_fails_when_the_baseline_of_a_target_is_not_admitted(cfg, tmp_path):
+    def reject_churn_baseline(stem, card):
+        if stem == "churn_baseline_rule":
+            del card["seed"]
+    report = run_gate2(cfg, _cards_in(tmp_path, reject_churn_baseline), SCORES)
+    assert report["status"] == "FAIL"
+    assert len(report["failures"]) == 1
+    assert "baseline_rule" in report["failures"][0] and "churn" in report["failures"][0]
+
+
+def test_gate2_fails_when_it_cannot_run(cfg, tmp_path):
+    assert run_gate2(cfg, tmp_path, SCORES)["status"] == "FAIL"                 # no cards
+    missing = run_gate2(cfg, CARDS_DIR, tmp_path / "missing_scores.csv")        # no scores file
+    assert missing["status"] == "FAIL" and missing["failures"]
 
 
 # --- warnings and strict rules -------------------------------------------------------
