@@ -1,1 +1,42 @@
 date,person,sprint,story_id,hours,estimated,note
+2026-10-13,Cristian Vega,1,MGMT,1.0,1,Sprint 1 planning (docs/sprint1_planning.md); duration assumed 1 h
+2026-10-13,Marco Jimenez,1,MGMT,1.0,1,Sprint 1 planning (docs/sprint1_planning.md); duration assumed 1 h
+2026-10-13,Paula Gacha,1,MGMT,1.0,1,Sprint 1 planning (docs/sprint1_planning.md); duration assumed 1 h
+2026-10-14,Cristian Vega,1,US-01,4.0,1,git window 10:42-14:49; PR #1
+2026-10-14,Cristian Vega,1,US-02,3.0,1,git window 19:29-20:09 plus prep; PR #11
+2026-10-14,Cristian Vega,1,MGMT,3.25,1,merges/reviews PR #2 #3 #7 #9 #10 #12; sprint log and daily updates
+2026-10-14,Marco Jimenez,1,US-06,5.0,1,git window 13:53-17:31; PR #2 #7
+2026-10-14,Marco Jimenez,1,US-04-P1,2.0,1,pairing with Paula (co-author on US-04 tests 23:08); worked ahead of Sprint 2
+2026-10-14,Marco Jimenez,1,MGMT,1.25,1,daily log PR #9 and merges
+2026-10-14,Paula Gacha,1,US-03-P1,1.0,1,git window 21:08-21:50; PR #12
+2026-10-14,Paula Gacha,1,US-04-P1,1.0,1,pairing with Marco; tests 23:08; worked ahead of Sprint 2
+2026-10-15,Cristian Vega,2,US-07,1.0,1,pairing with Marco (co-author 16:48); PR #16
+2026-10-15,Cristian Vega,2,US-02,1.0,1,exposure refactor PR #17 (story already Done: AC without EV)
+2026-10-15,Cristian Vega,2,MGMT,2.75,1,gitignore PR #15; sprint 2 docs/retro/xp_log PR #18; merges
+2026-10-15,Marco Jimenez,2,US-04-P1,1.0,1,pairing with Paula (co-author 11:38); PR #13
+2026-10-15,Marco Jimenez,2,US-07,3.0,1,risk register PR #16
+2026-10-15,Marco Jimenez,2,MGMT,1.25,1,sprint 2 docs pairing with Cristian PR #18; merges
+2026-10-15,Paula Gacha,2,US-03-P2,0.75,1,git window 11:38-12:19; PR #13 #14; confirmed by Cristian
+2026-11-10,Cristian Vega,3,MGMT,2.0,1,Sprint 3 planning with the team (composition; data principle)
+2026-11-10,Marco Jimenez,3,MGMT,2.0,1,Sprint 3 planning with the team
+2026-11-10,Paula Gacha,3,MGMT,2.0,1,Sprint 3 planning with the team
+2026-11-10,Cristian Vega,3,US-04-P2,3.0,1,technical specification draft (confirmed by Cristian)
+2026-11-11,Cristian Vega,3,US-04-P2,6.25,0,solo; git window 16:02-23:14 minus 1 h; spec in repo; config/contracts PR #19; synthetic v2 PR #20 #21 #22
+2026-11-11,Marco Jimenez,3,US-04-P2,0.5,0,review and merge PR #19 #20 #21
+2026-11-12,Cristian Vega,3,US-04-P2,2.0,0,pairing with Marco; B2 Gate 1 B3 NaN fix B4 labeling; PR #23 #24 #25 #26
+2026-11-12,Marco Jimenez,3,US-04-P2,2.0,0,pairing with Cristian; B2 Gate 1 B3 NaN fix B4 labeling; PR #23 #24 #25 #26
+2026-11-12,Cristian Vega,3,US-05,2.0,0,pairing with Marco; churn reconcile B7 model card B8a evaluator; PR #27 #28 #29
+2026-11-12,Marco Jimenez,3,US-05,2.0,0,pairing with Cristian; churn reconcile B7 model card B8a evaluator; PR #27 #28 #29
+2026-11-12,Cristian Vega,3,MGMT,0.5,0,pairing with Marco; B9 budget_schedule PR #30
+2026-11-12,Marco Jimenez,3,MGMT,0.5,0,pairing with Cristian; B9 budget_schedule PR #30
+2026-11-12,Cristian Vega,3,US-05,1.25,0,pairing with Marco; B5 lineage PR #31; evaluator fix PR #32
+2026-11-12,Marco Jimenez,3,US-05,1.25,0,pairing with Cristian; B5 lineage PR #31; evaluator fix PR #32
+2026-11-12,Cristian Vega,3,US-10,1.0,0,pairing with Marco; dashboard_data contract PR #33
+2026-11-12,Marco Jimenez,3,US-10,1.0,0,pairing with Cristian; dashboard_data contract PR #33
+2026-11-12,Paula Gacha,3,US-05,2.0,0,pairing session (2 h; exact slot not recorded; confirmed by Cristian)
+2026-11-12,Cristian Vega,3,US-10,1.5,0,pairing with Marco 17:45-19:10; B12a dashboard renderer and Pages workflow PR #34
+2026-11-12,Marco Jimenez,3,US-10,1.5,0,pairing with Cristian 17:45-19:10; B12a dashboard renderer and Pages workflow PR #34
+2026-11-13,Cristian Vega,3,US-05,3.5,0,session of the three 13:00-16:30; B8b metrics and paired bootstrap PR #35; B10 Gate 3 PR #36; B11a planning
+2026-11-13,Marco Jimenez,3,US-05,3.5,0,session of the three 13:00-16:30; B8b metrics and paired bootstrap PR #35; B10 Gate 3 PR #36; B11a planning
+2026-11-13,Paula Gacha,3,US-05,3.5,0,session of the three 13:00-16:30; B8b metrics and paired bootstrap PR #35; B10 Gate 3 PR #36; B11a planning
+
