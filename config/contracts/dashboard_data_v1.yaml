@@ -368,85 +368,94 @@ fields:
         value: {type: object, values: {type: any}}   # dotted keys, as in assumptions.yaml
         rationale: {type: string}
 
+  # RUN: the whole section. NOT_RUN: only why (e.g. the hours log failed Gate 1), never null,
+  # so the dashboard does not have to guess. The official run always has it (Gate 1 without FAIL).
   management:
-    type: object
-    fields:
-      baseline:
-        type: object
+    one_of:
+      - type: object
         fields:
-          ceiling_cop_m: {ref: cop_m}
-          contingency_cop_m: {ref: cop_m}
-          bac_cop_m: {ref: cop_m}
-          reserve_remaining_cop_m: {ref: cop_m}
-          change_requests:
+          status: {type: string, enum: [RUN]}
+          baseline:
+            type: object
+            fields:
+              ceiling_cop_m: {ref: cop_m}
+              contingency_cop_m: {ref: cop_m}
+              bac_cop_m: {ref: cop_m}
+              reserve_remaining_cop_m: {ref: cop_m}
+              change_requests:
+                type: array
+                items:
+                  type: object
+                  fields:
+                    id: {type: string}
+                    sprint: {type: integer, min: 1}
+                    approved_cop_m: {ref: cop_m}
+              pv_by_sprint_cop_m: {type: object, values: {ref: cop_m}}
+              k_scale: {type: number}
+              rate_cop: {type: number}
+              logged_hour_cop_m: {ref: cop_m}
+          sprints:
             type: array
             items:
               type: object
               fields:
-                id: {type: string}
                 sprint: {type: integer, min: 1}
-                approved_cop_m: {ref: cop_m}
-          pv_by_sprint_cop_m: {type: object, values: {ref: cop_m}}
-          k_scale: {type: number}
-          rate_cop: {type: number}
-          logged_hour_cop_m: {ref: cop_m}
-      sprints:
-        type: array
-        items:
-          type: object
-          fields:
-            sprint: {type: integer, min: 1}
-            committed_sp: {type: integer, min: 0}
-            done_sp: {type: integer, min: 0}
-            pv_cop_m: {ref: cop_m}
-            ev_cop_m: {ref: cop_m}
-            ac_cop_m: {ref: cop_m}
-            spi: {type: [number, "null"]}
-            cpi: {type: [number, "null"]}
-            logged_hours: {type: number, min: 0}
-            estimated_hours: {type: number, min: 0}
-            hours_estimated: {type: boolean}
-            mgmt_hours: {type: number, min: 0}
-            mgmt_ac_cop_m: {ref: cop_m}
-            change_requests_cop_m: {ref: cop_m}
-      cumulative:
-        type: object
+                committed_sp: {type: integer, min: 0}
+                done_sp: {type: integer, min: 0}
+                pv_cop_m: {ref: cop_m}
+                ev_cop_m: {ref: cop_m}
+                ac_cop_m: {ref: cop_m}
+                spi: {type: [number, "null"]}
+                cpi: {type: [number, "null"]}
+                logged_hours: {type: number, min: 0}
+                estimated_hours: {type: number, min: 0}
+                hours_estimated: {type: boolean}
+                mgmt_hours: {type: number, min: 0}
+                mgmt_ac_cop_m: {ref: cop_m}
+                change_requests_cop_m: {ref: cop_m}
+          cumulative:
+            type: object
+            fields:
+              sprints: {type: array, items: {type: integer}}
+              pv_cop_m: {ref: cop_m}
+              ev_cop_m: {ref: cop_m}
+              ac_cop_m: {ref: cop_m}
+              spi: {type: [number, "null"]}
+              cpi: {type: [number, "null"]}
+              bac_cop_m: {ref: cop_m}
+              eac_cop_m: {ref: cop_m_or_null}
+              ceiling_cop_m: {ref: cop_m}
+              eac_minus_ceiling_cop_m: {ref: cop_m_or_null}
+              eac_over_ceiling: {type: [boolean, "null"]}
+              estimated_hours: {type: number, min: 0}
+              mgmt_hours: {type: number, min: 0}
+          hours_outside_reported_sprints: {type: object, values: {type: number}}
+          velocity:
+            type: array
+            items:
+              type: object
+              fields:
+                sprint: {type: integer, min: 1}
+                planned_sp: {type: number, min: 0}
+                completed_sp: {type: number, min: 0}
+                completion_rate_pct: {type: number, min: 0}
+          risks:
+            type: array
+            items:
+              type: object
+              fields:
+                risk_id: {type: string}
+                category: {type: string}
+                description: {type: string}
+                probability: {type: string}
+                impact: {type: string}
+                owner: {type: string}
+                status: {type: string}
+          risk_reviews_count: {type: integer, min: 0}     # 0 shows as "no reviews recorded", not an empty table
+      - type: object
         fields:
-          sprints: {type: array, items: {type: integer}}
-          pv_cop_m: {ref: cop_m}
-          ev_cop_m: {ref: cop_m}
-          ac_cop_m: {ref: cop_m}
-          spi: {type: [number, "null"]}
-          cpi: {type: [number, "null"]}
-          bac_cop_m: {ref: cop_m}
-          eac_cop_m: {ref: cop_m_or_null}
-          ceiling_cop_m: {ref: cop_m}
-          eac_minus_ceiling_cop_m: {ref: cop_m_or_null}
-          eac_over_ceiling: {type: [boolean, "null"]}
-          estimated_hours: {type: number, min: 0}
-          mgmt_hours: {type: number, min: 0}
-      hours_outside_reported_sprints: {type: object, values: {type: number}}
-      velocity:
-        type: array
-        items:
-          type: object
-          fields:
-            sprint: {type: integer, min: 1}
-            planned_sp: {type: number, min: 0}
-            completed_sp: {type: number, min: 0}
-            completion_rate_pct: {type: number, min: 0}
-      risks:
-        type: array
-        items:
-          type: object
-          fields:
-            risk_id: {type: string}
-            category: {type: string}
-            description: {type: string}
-            probability: {type: string}
-            impact: {type: string}
-            owner: {type: string}
-            status: {type: string}
+          status: {type: string, enum: [NOT_RUN]}
+          reason: {type: string}
 
   handover:
     type: object
@@ -459,6 +468,8 @@ fields:
             step: {type: integer, min: 1}
             title: {type: string}
             status: {type: string, enum: [done, pending]}
-      finbank_todo:                         # e.g. current_dpd and maturity_date for contract v2
+      # Runbook steps come from config/handover.yaml (written by people); the contract gaps come
+      # from the not_verifiable steps of the labeling funnel (e.g. current_dpd, maturity_date)
+      finbank_todo:
         type: array
         items: {type: string}

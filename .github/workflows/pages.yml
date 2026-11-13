@@ -1,8 +1,10 @@
 name: Predict360 dashboard - GitHub Pages
 
-# Publishes the committee dashboard rendered from SYNTHETIC data only.
-# --publish makes dashboard_render refuse any run whose meta.synthetic is false.
-# TODO(B11): render the official demo run (runs/<run_id>/dashboard_data.json) instead of the fixture.
+# Publishes the committee dashboard, SYNTHETIC data only (src/predict360/publish_pages.py):
+# - the page of the latest official demo run (runs/official/), byte for byte, once its
+#   lineage chain and file hashes verify;
+# - the fixture, with its loud sample banner, while no official run exists.
+# If a check fails the build fails, deploy does not run and the previous site stays online.
 
 on:
   push:
@@ -35,12 +37,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Render dashboard (synthetic only)
+      - name: Build the site from the official run (verified) or the fixture
         run: |
-          PYTHONPATH=. python -m src.predict360.dashboard_render \
-            --data dashboard/dashboard_data.sample.json \
-            --out _site/index.html \
-            --publish
+          PYTHONPATH=. python -m src.predict360.publish_pages --out _site
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

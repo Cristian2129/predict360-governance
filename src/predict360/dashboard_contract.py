@@ -139,6 +139,8 @@ def _semantic(data: dict) -> list[str]:
     if counts != data["gates"]["gate2"]["counts"]:
         errors.append(f"gates.gate2.counts: {data['gates']['gate2']['counts']} do not match the cards {counts}")
 
+    if data["management"]["status"] != "RUN":
+        return errors
     base = data["management"]["baseline"]
     if abs(sum(base["pv_by_sprint_cop_m"].values()) - base["bac_cop_m"]) > _EPS:
         errors.append("management.baseline: PV by sprint does not add up to the BAC")
