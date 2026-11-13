@@ -213,6 +213,33 @@ def test_budget_lines_add_up(sample):
 
 # --- the real output ------------------------------------------------------------------
 
-@pytest.mark.skip(reason="B11b: export_dashboard_data.py does not exist yet; it must enable this test")
-def test_pipeline_output_meets_the_same_contract():
-    from src.predict360.export_dashboard_data import build_dashboard_data  # noqa: F401  (B11b)
+def test_management_that_did_not_run_is_an_object_that_says_why(sample):
+    data = copy.deepcopy(sample)
+    data["management"] = {"status": "NOT_RUN", "reason": "hours_log failed Gate 1"}
+    assert _errors(data) == []
+
+
+@pytest.mark.parametrize("management", [
+    {"status": "NOT_RUN"},                                              # no reason
+    None,                                                               # a null says nothing
+    {"status": "NOT_RUN", "reason": "x", "velocity": []},               # half a section
+])
+def test_management_that_did_not_run_has_exactly_status_and_reason(sample, management):
+    data = copy.deepcopy(sample)
+    data["management"] = management
+    assert any(e.startswith("$.management") for e in _errors(data))
+
+
+def test_management_that_ran_carries_its_status_and_risk_review_count(sample):
+    assert sample["management"]["status"] == "RUN"
+    data = copy.deepcopy(sample)
+    del data["management"]["risk_reviews_count"]
+    assert any(e.startswith("$.management") for e in _errors(data))
+
+
+def test_pipeline_output_meets_the_same_contract(tmp_path):
+    from src.predict360.run_pipeline import run_pipeline
+    result = run_pipeline(runs_dir=tmp_path / "runs", citations_path=tmp_path / "none.yaml")
+    data = json.loads((result["run_dir"] / "dashboard_data.json").read_text(encoding="utf-8"))
+    assert _errors(data) == []
+    assert list(data) == TOP_LEVEL and data["meta"]["sample"] is False
