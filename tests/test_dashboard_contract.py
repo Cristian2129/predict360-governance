@@ -41,6 +41,11 @@ def test_fixture_assumptions_are_the_real_ones_with_their_type(sample):
     assert [(a["id"], a["type"]) for a in sample["assumptions"]] == [(i["id"], i["type"]) for i in items]
 
 
+def test_a_rejected_card_does_not_turn_gate2_red(sample):
+    assert any(c["decision"] == "REJECTED" for c in sample["models"]["cards"])
+    assert sample["gates"]["gate2"]["status"] == "PASS" and sample["gates"]["gate2"]["failures"] == []
+
+
 def test_fixture_covers_the_cases_the_dashboard_must_show(sample):
     decisions = {c["decision"] for c in sample["models"]["cards"]}
     assert decisions == {"ADMITTED", "REJECTED", "SKIPPED"}

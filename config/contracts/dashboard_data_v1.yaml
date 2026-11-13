@@ -208,6 +208,9 @@ fields:
               ADMITTED: {type: integer, min: 0}
               REJECTED: {type: integer, min: 0}
               SKIPPED: {type: integer, min: 0}
+          # A REJECTED card is not a gate failure; FAIL only if the gate could not run or the
+          # baseline of a target was not admitted (then nothing can be compared)
+          failures: {type: array, items: {type: string}}
       gate3:
         type: object
         fields:

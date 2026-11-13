@@ -111,7 +111,8 @@ def test_sources_with_rows_and_scores_hash(cfg):
 def test_gate1_status_contracts_and_full_waiver_records(cfg):
     manifest = _with_sources(cfg)
     record_gate(manifest, run_gate1(cfg, as_of=datetime(2026, 11, 12).date()), cfg)
-    assert manifest["gates"] == {"gate1": "PASS_WITH_WAIVERS"}
+    assert manifest["gates"] == {"gate1": {"status": "PASS_WITH_WAIVERS", "tables": {
+        "delinquency": "PASS", "churn": "PASS_WITH_WAIVERS", "scores": "PASS"}}}   # global and per table
     assert manifest["contract_versions"] == {"delinquency": "v1", "churn": "v1", "scores": "v1"}
     (waiver,) = manifest["waivers"]
     assert waiver == cfg["waivers"][0]   # the whole record, not only its id
