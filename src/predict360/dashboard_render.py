@@ -11,8 +11,14 @@ so it opens with a double click without network, from GitHub Pages, and inside F
 - ``write(..., publish=True)`` refuses non-synthetic data: only the synthetic demo run is
   published; a real FinBank run is rendered for local use inside the bank only.
 
-Trace-this-figure, charts and the stress simulator arrive in B12b; the Data, Models,
-Management and Handover views in B12c.
+- Trace a figure (B12b): every registered figure shown carries ``data-figure-id`` and a
+  ``<details>`` with its output file and hash, path, script, commit and sources. A figure
+  that is not registered is shown without a trace, never with an invented one.
+- The Data and lineage view lists the registered figures, sources and outputs, explains the
+  log status and says that its manifest is a snapshot taken at export.
+
+Charts and the stress simulator arrive in B12b-2; the data quality part of the Data view and
+the Models, Management and Handover views in B12c.
 
 Usage:
     python -m src.predict360.dashboard_render --data runs/<run_id>/dashboard_data.json \\
@@ -27,7 +33,7 @@ from html import escape
 from pathlib import Path
 
 from src.predict360.dashboard_contract import validate_dashboard_data
-from src.predict360.formatting import format_cop_m, format_pct
+from src.predict360.formatting import format_cop_m, format_count, format_figure, format_pct
 
 ASSETS_DIR = Path(__file__).resolve().parent / "dashboard_assets"
 
@@ -64,7 +70,14 @@ REASON_CODES = {"authorized": "", "insufficient_evidence": "Evidencia insuficien
                 "no_candidate": "Sin modelo candidato"}
 OUTCOMES = {"beats": ("Supera la regla", "ok"), "insufficient_evidence": ("Evidencia insuficiente", "warn"),
             "does_not_beat_baseline": ("No supera la regla", "bad")}
-__all__ = ["GUIDED_STEPS", "TABS", "format_cop_m", "format_pct", "render", "write"]   # formatters re-exported
+LOG_STATUS = {
+    "OK": ("ok", "La cadena de hashes del log de linaje está íntegra: ninguna corrida anterior fue alterada."),
+    "TAMPERED": ("bad", "El log de linaje fue alterado: la cadena de hashes no coincide. "
+                        "No confíe en estas cifras hasta revisarlo."),
+    "NOT_CHECKED": ("warn", "El log no se verificó: esta es la primera corrida registrada en él."),
+}
+SNAPSHOT_NOTE = ("Foto del manifiesto al exportar; el manifiesto final registra también este archivo y el tablero.")
+__all__ =["GUIDED_STEPS", "TABS", "format_cop_m", "format_pct", "render", "write"]   # formatters re-exported
 
 
 def _e(value) -> str:
@@ -115,10 +128,53 @@ def _nav() -> str:
             f'<nav class="guide" aria-label="Modo guiado"><span class="label">Modo guiado:</span>{steps}</nav>')
 
 
-def _exposure_card(target: str, rec: dict) -> str:
+# --- trace a figure to its origin --------------------------------------------------------
+
+def _figure_sources(figure_id: str) -> list[str]:
+    """Manifest sources a figure comes from, by the family of its id."""
+    family, *rest = figure_id.split(".")
+    if family == "exposure":
+        return [rest[0]]
+    if family == "models":
+        return [rest[0].split("_")[0], "scores"]          # delinquency_30 -> delinquency; churn_3m -> churn
+    if family == "management":
+        return ["hours_log", "sprint_log"]
+    return []
+
+
+def _trace(figure: dict, data: dict) -> str:
+    """<details> with everything needed to rebuild the figure: output, path, script, commit, sources."""
+    manifest = data["lineage"]["manifest"]
+    output = next((o for o in manifest["outputs"] if o["file"] == figure["file"]), None)
+    sources = {s["name"]: s for s in manifest["sources"]}
+    listed = [sources[n] for n in _figure_sources(figure["figure_id"]) if n in sources]
+    source_rows = "".join(f'<dt>Fuente · {_e(s["name"])}</dt><dd>{_e(s["file"])}<br><code>{_e(s["sha256"])}</code></dd>'
+                          for s in listed) or "<dt>Fuentes</dt><dd>sin fuente registrada en el manifiesto</dd>"
+    digest = f'<br><code>{_e(output["sha256"])}</code>' if output else ""
+    return (
+        f'<details class="trace" data-trace="{_e(figure["figure_id"])}"><summary>Rastrear</summary><dl class="kv">'
+        f'<dt>Cifra</dt><dd><code>{_e(figure["figure_id"])}</code> = {_e(format_figure(figure["value"], figure["unit"], "es"))}</dd>'
+        f'<dt>Archivo de salida</dt><dd>{_e(figure["file"])}{digest}</dd>'
+        f'<dt>Ruta en el archivo</dt><dd><code>{_e(figure["path"])}</code></dd>'
+        f'<dt>Script</dt><dd>{_e(figure["script"])}</dd>'
+        f'<dt>Commit</dt><dd><code>{_e(data["meta"]["commit"])}</code></dd>'
+        f'{source_rows}</dl></details>'
+    )
+
+
+def _traced(figure_id: str, data: dict) -> tuple[str, str]:
+    """(attribute, trace) for a registered figure; nothing for one that is not registered."""
+    figure = next((f for f in data["lineage"]["figures"] if f["figure_id"] == figure_id), None)
+    if figure is None:
+        return "", ""
+    return f' data-figure-id="{_e(figure_id)}"', _trace(figure, data)
+
+
+def _exposure_card(target: str, rec: dict, data: dict) -> str:
+    attribute, trace = _traced(f"exposure.{target}.observed_cop_m", data)
     return (
         f'<div class="card"><h3>{TARGET_NAMES[target]}</h3>'
-        f'<div class="figure" data-figure-id="exposure.{target}.observed_cop_m">{format_cop_m(rec["actual_cop_m"])}</div>'
+        f'<div class="figure"{attribute}>{format_cop_m(rec["actual_cop_m"])}</div>{trace}'
         '<div class="label-sm">Exposición observada en los datos</div>'
         '<dl class="kv">'
         f'<dt>Cifra del cliente</dt><dd>{format_cop_m(rec["expected_cop_m"])}</dd>'
@@ -148,16 +204,17 @@ def _gates_card(gates: dict) -> str:
     return f'<div class="card"><h3>Estado de los gates</h3><dl class="kv">{rows}</dl>{warning}</div>'
 
 
-def _comparisons(target: str, evaluations: list) -> str:
+def _comparisons(target: str, data: dict) -> str:
     """Point difference next to the paired interval, per model and label, against the rule."""
     rows = ""
-    for e in sorted((e for e in evaluations if e["target"] == target and e["status"] == "evaluated"
+    for e in sorted((e for e in data["models"]["evaluations"] if e["target"] == target and e["status"] == "evaluated"
                      and e["vs_baseline"]), key=lambda e: (e["model_id"], e["label"])):
         vs = e["vs_baseline"]
         text, cls = OUTCOMES[vs["outcome"]]
+        attribute, trace = _traced(f"models.{e['label']}.{e['model_id']}.difference_vs_baseline_cop_m", data)
         rows += (f'<tr data-comparison="{_e(target)}.{_e(e["label"])}.{_e(e["model_id"])}">'
                  f'<td>{_e(e["model_id"])}</td><td>{_e(e["label"])}</td>'
-                 f'<td>{format_cop_m(vs["difference_cop_m"])}</td>'
+                 f'<td{attribute}>{format_cop_m(vs["difference_cop_m"])}{trace}</td>'
                  f'<td>{format_cop_m(vs["ci_low_cop_m"])} a {format_cop_m(vs["ci_high_cop_m"])}</td>'
                  f'<td><span class="status {cls}">{text}</span></td></tr>')
     if not rows:
@@ -167,8 +224,8 @@ def _comparisons(target: str, evaluations: list) -> str:
             f'<tbody>{rows}</tbody></table>')
 
 
-def _decisions_card(models: dict) -> str:
-    decisions = models["decisions"]
+def _decisions_card(data: dict) -> str:
+    decisions = data["models"]["decisions"]
     if not decisions:
         body = '<p class="label-sm">Sin dictamen: la regla de promoción no se ha ejecutado.</p>'
     else:
@@ -181,7 +238,7 @@ def _decisions_card(models: dict) -> str:
             body += (f'<div class="decision" data-decision="{_e(d["target"])}">'
                      f'<h4>{TARGET_NAMES[d["target"]]}</h4>'
                      f'<span class="status {cls}">{text}</span>{code}{model}'
-                     f'{_comparisons(d["target"], models["evaluations"])}'
+                     f'{_comparisons(d["target"], data)}'
                      f'<div class="label-sm">{_e(d["reason"])}</div></div>')
     return ('<div class="card"><h3>Dictamen del comité</h3>' + body +
             '<p class="note">Diferencia de valor neto (modelo − regla base) en la misma K, con su intervalo '
@@ -207,11 +264,65 @@ def _summary(data: dict) -> str:
     tables = data["exposure"]["tables"]
     return (
         '<section class="view" id="resumen"><h2>Resumen</h2>'
-        f'<div class="grid">{_exposure_card("delinquency", tables["delinquency"])}'
-        f'{_exposure_card("churn", tables["churn"])}</div>'
+        f'<div class="grid">{_exposure_card("delinquency", tables["delinquency"], data)}'
+        f'{_exposure_card("churn", tables["churn"], data)}</div>'
         '<p class="note">Son exposición en riesgo, no pérdida. Las cifras del cliente se concilian en cada corrida.</p>'
         f'<div class="grid">{_gates_card(data["gates"])}{_run_card(data["meta"])}</div>'
-        f'<div class="stack">{_decisions_card(data["models"])}</div></section>'
+        f'<div class="stack">{_decisions_card(data)}</div></section>'
+    )
+
+
+# --- data and lineage view -------------------------------------------------------------------
+
+def _log_card(lineage: dict) -> str:
+    status = lineage["log_status"]
+    cls, text = LOG_STATUS[status]
+    manifest = lineage["manifest"]
+    head = manifest["lineage_head_sha256"]
+    return (
+        f'<div class="card" id="log-status"><h3>Log de linaje</h3>'
+        f'<p><span class="status {cls}">{_e(status)}</span> {text}</p>'
+        '<dl class="kv">'
+        f'<dt>Corrida</dt><dd>{_e(manifest["run_id"])}</dd>'
+        f'<dt>Abierta</dt><dd>{_e(manifest["created_at"])}</dd>'
+        f'<dt>Exportada</dt><dd>{_e(manifest["closed_at"])}</dd>'
+        f'<dt>Ancla en el log</dt><dd>{f"<code>{_e(head)}</code>" if head else "primera entrada del log"}</dd>'
+        f'<dt>Scores</dt><dd><code>{_e(manifest["scores_sha256"])}</code></dd>'
+        '</dl></div>'
+    )
+
+
+def _files_table(entries: list, caption: str, with_name: bool) -> str:
+    head = ("<th>Fuente</th>" if with_name else "") + "<th>Archivo</th><th>Filas</th><th>sha256</th>"
+    rows = "".join(
+        "<tr>" + (f'<td>{_e(e["name"])}</td>' if with_name else "")
+        + f'<td>{_e(e["file"])}</td><td>{format_count(e["rows"])}</td><td><code>{_e(e["sha256"])}</code></td></tr>'
+        for e in entries)
+    return (f'<table class="data"><caption>{caption}</caption><thead><tr>{head}</tr></thead>'
+            f'<tbody>{rows}</tbody></table>')
+
+
+def _figures_table(data: dict) -> str:
+    rows = "".join(
+        f'<tr data-figure-row="{_e(f["figure_id"])}"><td><code>{_e(f["figure_id"])}</code></td>'
+        f'<td>{_e(format_figure(f["value"], f["unit"], "es"))}</td><td>{_e(f["file"])}</td>'
+        f'<td><code>{_e(f["path"])}</code></td><td>{_e(f["script"])}</td></tr>'
+        for f in data["lineage"]["figures"])
+    return ('<table class="data"><caption>Cifras registradas (las que verifica el Gate 3)</caption>'
+            '<thead><tr><th>Cifra</th><th>Valor</th><th>Archivo</th><th>Ruta</th><th>Script</th></tr></thead>'
+            f'<tbody>{rows}</tbody></table>')
+
+
+def _lineage_view(data: dict) -> str:
+    manifest = data["lineage"]["manifest"]
+    return (
+        '<section class="view" id="datos"><h2>Datos y linaje</h2>'
+        f'<div class="grid">{_log_card(data["lineage"])}</div>'
+        f'<p class="note" id="manifest-snapshot">{SNAPSHOT_NOTE}</p>'
+        f'<div class="card">{_figures_table(data)}</div>'
+        f'<div class="card">{_files_table(manifest["sources"], "Fuentes de la corrida", True)}</div>'
+        f'<div class="card">{_files_table(manifest["outputs"], "Salidas de la corrida", False)}</div>'
+        '</section>'
     )
 
 
@@ -243,7 +354,8 @@ def render(data: dict) -> str:
     if errors:
         raise ValueError("dashboard_data_v1: " + "; ".join(errors[:5]))
     css = (ASSETS_DIR / "styles.css").read_text(encoding="utf-8")
-    views = _summary(data) + "".join(_pending(t, label) for t, label in TABS[1:]) + _guided()
+    views = (_summary(data) + _lineage_view(data)
+             + "".join(_pending(t, label) for t, label in TABS[2:]) + _guided())
     return (
         '<!doctype html>\n<html lang="es"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
