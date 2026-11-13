@@ -113,6 +113,95 @@ def test_commit_warning_on_dirty_or_unknown(sample, commit, warned):
 
 # --- navigation: tabs and 6-step guided mode -----------------------------------------
 
+# --- trace a figure to its origin (B12b) ------------------------------------------------
+
+def _trace(html, figure_id):
+    match = re.search(rf'<details class="trace" data-trace="{re.escape(figure_id)}">(.*?)</details>', html, re.S)
+    assert match, f"no trace for {figure_id}"
+    return match.group(1)
+
+
+def _registered(data):
+    return {f["figure_id"]: f for f in data["lineage"]["figures"]}
+
+
+def test_every_traced_figure_is_a_registered_one(html, sample):
+    shown = set(re.findall(r'data-figure-id="([^"]+)"', html))
+    assert "exposure.delinquency.observed_cop_m" in shown
+    assert shown <= set(_registered(sample))
+    assert set(re.findall(r'data-trace="([^"]+)"', html)) <= set(_registered(sample))
+
+
+def test_the_trace_names_file_path_script_commit_and_hashes(html, sample):
+    figure = _registered(sample)["exposure.delinquency.observed_cop_m"]
+    trace = _trace(html, figure["figure_id"])
+    manifest = sample["lineage"]["manifest"]
+    output = next(o for o in manifest["outputs"] if o["file"] == figure["file"])
+    sources = {s["name"]: s for s in manifest["sources"]}
+    for text in (figure["file"], figure["path"], figure["script"], sample["meta"]["commit"], output["sha256"],
+                 sources["delinquency"]["file"], sources["delinquency"]["sha256"]):
+        assert text in trace
+    assert sources["scores"]["sha256"] not in trace          # only the sources this figure comes from
+
+
+def test_model_figures_trace_to_their_table_and_the_scores(sample):
+    data = copy.deepcopy(sample)
+    evaluation = next(e for e in data["models"]["evaluations"] if e["status"] == "evaluated" and e["vs_baseline"])
+    figure_id = f"models.{evaluation['label']}.{evaluation['model_id']}.difference_vs_baseline_cop_m"
+    data["lineage"]["figures"].append({
+        "figure_id": figure_id, "value": evaluation["vs_baseline"]["difference_cop_m"], "unit": "COP_m",
+        "file": "evaluation.json", "script": "src/predict360/evaluator.py",
+        "path": f"evaluations[model_id={evaluation['model_id']},label={evaluation['label']}].vs_baseline.difference_cop_m"})
+    html = render(data)
+    assert f'data-figure-id="{figure_id}"' in html          # the difference in the verdict table
+    trace = _trace(html, figure_id)
+    sources = {s["name"]: s["sha256"] for s in data["lineage"]["manifest"]["sources"]}
+    assert sources[evaluation["target"]] in trace and sources["scores"] in trace
+
+
+def test_an_unregistered_figure_is_shown_without_a_trace(sample):
+    data = copy.deepcopy(sample)
+    data["lineage"]["figures"] = [f for f in data["lineage"]["figures"]
+                                  if f["figure_id"] != "exposure.churn.observed_cop_m"]
+    html = render(data)
+    assert 'data-figure-id="exposure.churn.observed_cop_m"' not in html
+    assert format_cop_m(data["exposure"]["tables"]["churn"]["actual_cop_m"]) in html   # the value still shows
+
+
+# --- the data and lineage view (B12b) ----------------------------------------------------
+
+def _view(html, view_id):
+    match = re.search(rf'<section class="view" id="{view_id}">(.*?)</section>', html, re.S)
+    assert match, view_id
+    return match.group(1)
+
+
+def test_lineage_view_lists_every_figure_source_and_output(html, sample):
+    view = _view(html, "datos")
+    assert "Vista en construcción" not in view
+    for figure in sample["lineage"]["figures"]:
+        assert figure["figure_id"] in view
+    for entry in sample["lineage"]["manifest"]["sources"] + sample["lineage"]["manifest"]["outputs"]:
+        assert entry["file"] in view and entry["sha256"] in view
+
+
+def test_lineage_view_says_the_manifest_is_a_snapshot(html):
+    assert ("Foto del manifiesto al exportar; el manifiesto final registra también este archivo y el tablero."
+            in _view(html, "datos"))
+
+
+@pytest.mark.parametrize("status,cls,words", [
+    ("OK", "ok", "cadena de hashes"),
+    ("TAMPERED", "bad", "alterado"),
+    ("NOT_CHECKED", "warn", "no se verificó"),
+])
+def test_the_log_status_is_explained(sample, status, cls, words):
+    data = copy.deepcopy(sample)
+    data["lineage"]["log_status"] = status
+    block = re.search(r'<div class="card" id="log-status">(.*?)</div>', render(data), re.S).group(1)
+    assert f'<span class="status {cls}">{status}</span>' in block and words in block
+
+
 def test_the_six_views_of_the_spec_exist(html):
     assert [tab_id for tab_id, _ in TABS] == ["resumen", "datos", "modelos", "estres", "gestion", "entrega"]
     ids = _ids(html)

@@ -116,6 +116,22 @@ table.compare th, table.compare td { text-align: left; padding: 4px 12px 4px 0; 
   border-bottom: 1px solid var(--border); }
 table.compare th { color: var(--muted); font-weight: 600; }
 
+/* Trace a figure (B12b): a native <details>, no JavaScript */
+details.trace { margin: 6px 0 2px; font-size: 0.85rem; white-space: normal; }
+details.trace summary { cursor: pointer; color: var(--muted); width: max-content; }
+details.trace[open] summary { margin-bottom: 4px; }
+details.trace dl.kv { margin-top: 4px; }
+code { font-size: 0.85em; overflow-wrap: anywhere; }
+
+/* Lineage tables: scroll sideways on a phone instead of overflowing the page */
+table.data { display: block; overflow-x: auto; border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+table.data caption { text-align: left; font-weight: 600; padding-bottom: 6px; }
+table.data th, table.data td { text-align: left; vertical-align: top; padding: 4px 12px 4px 0;
+  border-bottom: 1px solid var(--border); }
+table.data th { color: var(--muted); font-weight: 600; white-space: nowrap; }
+table.data td code { display: inline-block; min-width: 16ch; }
+section.view > .card + .card { margin-top: 16px; }
+
 .note { color: var(--muted); font-size: 0.9rem; margin-top: 12px; }
 .pending { padding: 24px; border: 1px dashed var(--border); border-radius: var(--radius); color: var(--muted); }
 
