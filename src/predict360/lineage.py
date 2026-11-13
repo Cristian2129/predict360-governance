@@ -151,9 +151,15 @@ def add_source(manifest: dict, name: str, path: str | Path, base: str | Path = R
 
 
 def record_gate(manifest: dict, report: dict, cfg: dict) -> None:
-    """Gate status, contract versions and the full record of every waiver applied."""
+    """Gate status (global, per table and counts when the report has them), contract versions
+    and the full record of every waiver applied."""
     _check_open(manifest)
-    manifest["gates"][report["gate"]] = report["status"]
+    gate = {"status": report["status"]}
+    if "tables" in report:
+        gate["tables"] = {name: table["status"] for name, table in report["tables"].items()}
+    if "counts" in report:
+        gate["counts"] = report["counts"]
+    manifest["gates"][report["gate"]] = gate
     manifest["contract_versions"].update(report.get("contract_versions") or {})
     known = {w["id"]: w for w in cfg.get("waivers") or []}
     recorded = {w["id"] for w in manifest["waivers"]}
