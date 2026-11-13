@@ -91,10 +91,23 @@ dl.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 8
 dl.kv dt { color: var(--muted); }
 dl.kv dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 
-.status { display: inline-block; padding: 2px 10px; border-radius: 999px; font-weight: 700; font-size: 0.85rem; }
+.status { display: inline-block; padding: 2px 10px; border-radius: 999px; font-weight: 700; font-size: 0.85rem;
+  white-space: nowrap; }   /* a status pill never breaks letter by letter */
 .status.PASS, .status.ok { background: var(--ok-bg); color: var(--ok); }
 .status.PASS_WITH_WAIVERS, .status.NOT_RUN, .status.warn { background: var(--warn-bg); color: var(--warn); }
 .status.FAIL, .status.bad { background: var(--bad-bg); color: var(--bad); }
+
+.stack { margin-top: var(--gap); }
+.grid + .grid { margin-top: var(--gap); }
+.decision { padding: 12px 0; border-top: 1px solid var(--border); }
+.decision:first-of-type { border-top: 0; padding-top: 0; }
+.decision h4 { margin: 0 0 6px; font-size: 1rem; }
+.decision .status + .status { margin-left: 6px; }
+table.compare { display: block; overflow-x: auto; border-collapse: collapse; margin: 10px 0 6px;
+  font-variant-numeric: tabular-nums; font-size: 0.92rem; }
+table.compare th, table.compare td { text-align: left; padding: 4px 12px 4px 0; white-space: nowrap;
+  border-bottom: 1px solid var(--border); }
+table.compare th { color: var(--muted); font-weight: 600; }
 
 .note { color: var(--muted); font-size: 0.9rem; margin-top: 12px; }
 .pending { padding: 24px; border: 1px dashed var(--border); border-radius: var(--radius); color: var(--muted); }
