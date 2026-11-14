@@ -7,10 +7,12 @@ l share of exposure lost, c cost per contact), all assumptions from ``config/ass
     net_value(K) = e * l * sum_topK(E * y) - c * K
     K*           = argmax_K net_value(K)
 
-- K counts clients: each row weighs ``weight`` clients and rows are never split, so the
-  applied K is the largest whole-row prefix not above the requested K. Both values are
-  reported, and cost, capture and the random baseline all use ``k_applied`` so that the
-  model and the baseline are compared on the same K.
+- K counts clients: each row weighs ``weight`` clients and rows are never split. The
+  applied K is the last point of the published curve not above the requested K
+  (``applied_point``, rounding down: capacity is a hard limit). The dashboard simulator
+  applies the same rule to the same published curve. Both values are reported, and cost,
+  capture and the random baseline all use ``k_applied`` so that the model and the
+  baseline are compared on the same K.
 - Ties in the score are broken by ``client_id``. The ID is an HMAC, so that order is
   equivalent to a random but reproducible one: a model with constant scores lands close
   to random, which is the correct reading.
@@ -122,19 +124,28 @@ def _point(row) -> dict:
     }
 
 
-def _applied(curve: pd.DataFrame, k_requested: float) -> pd.Series:
+def _row_at(curve: pd.DataFrame, k_requested: float) -> pd.Series:
+    """Whole-row prefix not above k_requested (builds the published grid)."""
     return curve[curve["k"] <= k_requested + _EPS].iloc[-1]
 
 
+def applied_point(points: list[dict], k_requested: float) -> dict:
+    """THE K rule, shared with the dashboard simulator (dashboard_assets/simulator.js):
+    the last point of the published curve with k <= k_requested. It rounds DOWN, never to
+    the nearest, because capacity is a hard limit: nobody calls more clients than the team
+    can handle. Using the published grid lets the simulator apply exactly the same rule."""
+    return [p for p in points if p["k"] <= k_requested + _EPS][-1]
+
+
 def evaluate_at_k(df: pd.DataFrame, k_requested: float, values: dict) -> dict:
-    point = _point(_applied(capture_curve(df, values), k_requested))
+    point = dict(applied_point(_published_curve(capture_curve(df, values)), k_requested))
     k_applied = point.pop("k")
     return {"k_requested": k_requested, "k_applied": k_applied, **point}
 
 
 def random_baseline(df: pd.DataFrame, k_requested: float, values: dict) -> dict:
     """Expected result of contacting k_applied clients at random (analytical, no simulation)."""
-    k_applied = float(_applied(capture_curve(df, values), k_requested)["k"])
+    k_applied = float(applied_point(_published_curve(capture_curve(df, values)), k_requested)["k"])
     total = float((df["exposure_cop_m"] * df["y"]).sum())
     share = k_applied / float(df["weight"].sum())
     prevalence = float((df["weight"] * df["y"]).sum() / df["weight"].sum())
@@ -163,7 +174,7 @@ def _published_curve(curve: pd.DataFrame) -> list[dict]:
     points, last = [_point(curve.iloc[0])], 0.0
     target = step
     while target < n:
-        row = _applied(curve, target)
+        row = _row_at(curve, target)
         if row["k"] - last >= MIN_PUBLISHED_CLIENTS and n - row["k"] >= MIN_PUBLISHED_CLIENTS:
             points.append(_point(row))
             last = float(row["k"])

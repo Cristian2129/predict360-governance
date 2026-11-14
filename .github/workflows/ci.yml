@@ -18,6 +18,13 @@ jobs:
         with:
           python-version: "3.13"
 
+      # The stress simulator (JavaScript) must match evaluator.py: tests/test_simulator_parity.py
+      # runs it with Node. Pinned so that the parity does not change when Node is updated.
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
