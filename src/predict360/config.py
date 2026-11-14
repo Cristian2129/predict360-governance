@@ -66,17 +66,26 @@ def load_config(path: str | Path) -> dict:
         raise ValueError(f"{path}: hmac.{DEMO_KEY_FIELD} is only allowed when synthetic is true")
     if cfg["synthetic"] and not isinstance(cfg["generator"], dict):
         raise ValueError(f"{path}: a synthetic config needs a 'generator' section")
-    _check_gate2(path, cfg["gate2"])
+    _check_gate2(path, cfg["gate2"], cfg["synthetic"])
     return cfg
 
 
-def _check_gate2(path, gate2) -> None:
-    """A typo in a rule name must fail here, not silently leave the rule as a WARNING."""
+def _check_gate2(path, gate2, synthetic: bool) -> None:
+    """A typo in a rule name must fail here, not silently leave the rule as a WARNING.
+
+    ``demo_cards`` (optional) names the deliberately broken cards of the synthetic demo;
+    inside FinBank no card may be presented as a demonstration.
+    """
     if not isinstance(gate2, dict):
         raise ValueError(f"{path}: gate2 must be a mapping")
     for key in ("strict_rules", "baseline_models"):
         if not isinstance(gate2.get(key), list):
             raise ValueError(f"{path}: gate2.{key} must be a list")
+    if "demo_cards" in gate2:
+        if not isinstance(gate2["demo_cards"], list):
+            raise ValueError(f"{path}: gate2.demo_cards must be a list")
+        if not synthetic:
+            raise ValueError(f"{path}: gate2.demo_cards is only allowed when synthetic is true")
     unknown = [rule for rule in gate2["strict_rules"] if rule not in GATE2_CONFIGURABLE_RULES]
     if unknown:
         raise ValueError(f"{path}: unknown gate2.strict_rules {', '.join(map(str, unknown))}; "

@@ -294,6 +294,28 @@ def _model_cards(cfg: dict, t: pd.Timestamp, scores_hash: str) -> dict[str, dict
     return cards
 
 
+def _demo_cards(cfg: dict, cards: dict[str, dict], t: pd.Timestamp) -> dict[str, dict]:
+    """DEMO cards (``gate2.demo_cards``): a copy of the target's model_a card trained past T.
+
+    Only the split is broken, so Gate 2 rejects it for one reason, temporal_split. It has
+    no scores: scores_v1 only accepts models with an admitted card.
+    """
+    offset = cfg["generator"]["scores"]["demo_train_end_offset_days"]
+    demos = {}
+    for stem in cfg["gate2"].get("demo_cards", []):
+        target, model_id = stem.split("_", 1)
+        card = dict(cards[f"{target}_model_a"])
+        card.update(
+            model_id=model_id,
+            train_end_date=(t + pd.Timedelta(days=offset)).strftime("%Y-%m-%d"),
+            algorithm=("DEMO card, no scores: a model_a card trained until after evaluation "
+                       "starts (non-temporal split), to show Gate 2 rejecting it"),
+            hyperparameters={},
+        )
+        demos[stem] = card
+    return demos
+
+
 # --- defects ------------------------------------------------------------------
 
 def _apply_data_defect(defect: str | None, dlq: pd.DataFrame, scores: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -365,6 +387,7 @@ def generate_synthetic_data(config: str | Path | dict = DEFAULT_CONFIG,
             if card["model_id"] == "model_a":
                 card["train_end_date"] = (pd.Timestamp(card["eval_start_date"])
                                           + pd.Timedelta(days=30)).strftime("%Y-%m-%d")
+    cards.update(_demo_cards(cfg, cards, t))
     for name, card in cards.items():
         (out / "model_cards" / f"{name}.json").write_text(
             json.dumps(card, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")

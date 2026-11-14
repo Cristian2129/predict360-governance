@@ -63,6 +63,10 @@ GUIDED_STEPS = [
 ]
 TARGET_NAMES = {"delinquency": "Mora temprana", "churn": "Fuga de clientes preferenciales"}
 GATE_NAMES = {"gate1": "Gate 1 · Datos", "gate2": "Gate 2 · Fichas de modelo", "gate3": "Gate 3 · Consistencia"}
+CARD_RULES = {"complete_card": "ficha incompleta", "traceable": "sin trazabilidad",
+              "temporal_split": "partición no temporal", "preprocessing_train_only": "posible fuga en el preprocesamiento",
+              "status_backed": "estado sin aprobación", "intervention_declared": "intervención no declarada",
+              "baselines_compared": "líneas base no comparadas", "status": "retirada"}
 VERDICTS = {"authorized_for_shadow_deployment": ("Autorizado a despliegue en sombra", "ok"),
             "not_authorized": ("No autorizado", "bad")}
 REASON_CODES = {"authorized": "", "insufficient_evidence": "Evidencia insuficiente",
@@ -185,11 +189,25 @@ def _exposure_card(target: str, rec: dict, data: dict) -> str:
     )
 
 
-def _gates_card(gates: dict) -> str:
+def _demo_notes(cards: list[dict]) -> str:
+    """A demo card is labelled next to its reason: a rejection must not read as a delivered model."""
+    notes = ""
+    for card in (c for c in cards if c["demo"]):
+        reasons = "; ".join(f'{_e(r["rule"])} ({CARD_RULES.get(r["rule"], r["rule"])})' for r in card["reasons"])
+        outcome = f"rechazada por {reasons}" if card["decision"] == "REJECTED" else "admitida"
+        notes += (f'<p class="note" data-demo-card="{_e(card["file"])}"><span class="status warn">Ficha de '
+                  f'demostración</span> {_e(card["target"])} · {_e(card["model_id"])}, {outcome}. PCM la incluye '
+                  'a propósito para mostrar a Gate 2 deteniendo una fuga de datos: no es un modelo entregado.</p>')
+    return notes
+
+
+def _gates_card(gates: dict, cards: list[dict]) -> str:
     counts = gates["gate2"]["counts"]
+    demo_rejected = sum(c["demo"] and c["decision"] == "REJECTED" for c in cards)
+    rejected = f'{counts["REJECTED"]} rechazadas' + (f" ({demo_rejected} de demostración)" if demo_rejected else "")
     detail = {
         "gate1": f'{len(gates["gate1"]["tables"])} tablas validadas',
-        "gate2": f'{counts["ADMITTED"]} admitidas · {counts["REJECTED"]} rechazadas · {counts["SKIPPED"]} omitidas',
+        "gate2": f'{counts["ADMITTED"]} admitidas · {rejected} · {counts["SKIPPED"]} omitidas',
         "gate3": f'{gates["gate3"]["checked"]} cifras verificadas · {len(gates["gate3"]["mismatches"])} diferencias',
     }
     rows = "".join(
@@ -201,7 +219,8 @@ def _gates_card(gates: dict) -> str:
     if gate3["status"] == "PASS" and not gate3["citations_checked"]:
         warning = ('<p class="note" id="gate3-no-citations">Gate 3 aún no verifica las cifras citadas en el '
                    'informe y la presentación: la corrida oficial lo exige.</p>')
-    return f'<div class="card"><h3>Estado de los gates</h3><dl class="kv">{rows}</dl>{warning}</div>'
+    return (f'<div class="card"><h3>Estado de los gates</h3><dl class="kv">{rows}</dl>{_demo_notes(cards)}'
+            f'{warning}</div>')
 
 
 def _comparisons(target: str, data: dict) -> str:
@@ -267,7 +286,7 @@ def _summary(data: dict) -> str:
         f'<div class="grid">{_exposure_card("delinquency", tables["delinquency"], data)}'
         f'{_exposure_card("churn", tables["churn"], data)}</div>'
         '<p class="note">Son exposición en riesgo, no pérdida. Las cifras del cliente se concilian en cada corrida.</p>'
-        f'<div class="grid">{_gates_card(data["gates"])}{_run_card(data["meta"])}</div>'
+        f'<div class="grid">{_gates_card(data["gates"], data["models"]["cards"])}{_run_card(data["meta"])}</div>'
         f'<div class="stack">{_decisions_card(data)}</div></section>'
     )
 
