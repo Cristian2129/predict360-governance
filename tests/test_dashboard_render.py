@@ -15,6 +15,7 @@ import pytest
 
 from src.predict360.config import ROOT
 from src.predict360.dashboard_contract import SAMPLE_PATH
+from src.predict360.formatting import format_ratio
 from src.predict360.dashboard_render import (
     GUIDED_STEPS,
     TABS,
@@ -394,6 +395,113 @@ def test_decision_shows_point_difference_next_to_the_paired_interval(sample, htm
         fragment = html[html.index(row):html.index("</tr>", html.index(row))]
         for value in (vs["difference_cop_m"], vs["ci_low_cop_m"], vs["ci_high_cop_m"]):
             assert format_cop_m(value) in fragment
+
+
+# --- management view (B12c) ------------------------------------------------------------------
+
+def _management(data):
+    return _view(render(data), "gestion")
+
+
+def test_management_view_is_built(html):
+    view = _view(html, "gestion")
+    assert "Vista en construcción" not in view and 'id="management-cumulative"' in view
+
+
+def test_cumulative_figures_come_from_the_json_with_their_trace(sample, html):
+    view = _view(html, "gestion")
+    cumulative = sample["management"]["cumulative"]
+    for key in ("pv_cop_m", "ev_cop_m", "ac_cop_m", "eac_cop_m", "ceiling_cop_m"):
+        assert format_cop_m(cumulative[key]) in view, key
+    for key in ("spi", "cpi"):
+        assert format_ratio(cumulative[key]) in view, key
+    registered = [f["figure_id"] for f in sample["lineage"]["figures"] if f["figure_id"].startswith("management.")]
+    assert registered
+    for figure_id in registered:
+        assert f'data-figure-id="{figure_id}"' in view and f'data-trace="{figure_id}"' in view
+
+
+def _eac_line(view):
+    return re.search(r'<p id="eac-ceiling">(.*?)</p>', view, re.S).group(1)
+
+
+@pytest.mark.parametrize("eac,over,cls,words", [(200.0, True, "bad", "supera el techo"),
+                                                 (170.0, False, "ok", "dentro del techo"),
+                                                 (None, None, "warn", "no se puede estimar")])
+def test_eac_is_compared_with_the_ceiling(sample, eac, over, cls, words):
+    data = copy.deepcopy(sample)
+    cumulative = data["management"]["cumulative"]
+    cumulative.update(eac_cop_m=eac, eac_over_ceiling=over,
+                      eac_minus_ceiling_cop_m=None if eac is None else eac - cumulative["ceiling_cop_m"])
+    line = _eac_line(_management(data))
+    assert f'class="status {cls}"' in line and words in line
+    if eac is not None:
+        assert format_cop_m(abs(eac - cumulative["ceiling_cop_m"])) in line
+
+
+def test_baseline_shows_bac_reserve_change_requests_and_rate(sample, html):
+    view = _view(html, "gestion")
+    baseline = sample["management"]["baseline"]
+    for key in ("ceiling_cop_m", "contingency_cop_m", "bac_cop_m", "reserve_remaining_cop_m", "logged_hour_cop_m"):
+        assert format_cop_m(baseline[key]) in view, key
+    for cr in baseline["change_requests"]:
+        assert f'data-change-request="{cr["id"]}"' in view and format_cop_m(cr["approved_cop_m"]) in view
+    assert f'COP {format_count(baseline["rate_cop"])}' in view and format_ratio(baseline["k_scale"]) in view
+
+
+def _sprint_row(view, sprint):
+    return re.search(rf'<tr data-sprint="{sprint}">(.*?)</tr>', view, re.S).group(1)
+
+
+def test_one_row_per_sprint_with_reconstructed_hours_marked(sample):
+    data = copy.deepcopy(sample)
+    data["management"]["sprints"][1]["hours_estimated"] = False
+    view = _management(data)
+    for s in data["management"]["sprints"]:
+        row = _sprint_row(view, s["sprint"])
+        assert format_cop_m(s["ev_cop_m"]) in row and format_cop_m(s["ac_cop_m"]) in row
+        assert ("reconstruidas" in row) is s["hours_estimated"]
+
+
+def test_an_open_sprint_is_explained_only_while_open(sample):
+    data = copy.deepcopy(sample)
+    data["management"]["sprints"][-1]["done_sp"] = data["management"]["sprints"][-1]["committed_sp"] - 5
+    note = re.search(r'<p class="note" id="open-sprint">(.*?)</p>', _management(data), re.S)
+    assert note and "DoD" in note.group(1)
+    for s in data["management"]["sprints"]:
+        s["done_sp"] = s["committed_sp"]
+    assert 'id="open-sprint"' not in _management(data)
+
+
+def test_velocity_has_one_row_per_sprint(sample, html):
+    view = _view(html, "gestion")
+    for v in sample["management"]["velocity"]:
+        assert f'data-velocity="{v["sprint"]}"' in view
+
+
+def test_hours_outside_reported_sprints_are_flagged(sample, html):
+    assert 'id="hours-outside"' not in _view(html, "gestion")
+    data = copy.deepcopy(sample)
+    data["management"]["hours_outside_reported_sprints"] = {"4": 6.5}
+    assert 'id="hours-outside"' in _management(data)
+
+
+@pytest.mark.parametrize("count,words", [(0, "Sin revisiones registradas"), (2, "2 revisiones registradas")])
+def test_every_risk_is_listed_with_the_review_count(sample, count, words):
+    data = copy.deepcopy(sample)
+    data["management"]["risk_reviews_count"] = count
+    view = _management(data)
+    for r in data["management"]["risks"]:
+        assert f'data-risk="{r["risk_id"]}"' in view
+    assert words in re.search(r'<p[^>]*id="risk-reviews">(.*?)</p>', view, re.S).group(1)
+
+
+def test_management_that_did_not_run_shows_only_its_reason(sample):
+    data = copy.deepcopy(sample)
+    data["management"] = {"status": "NOT_RUN", "reason": "hours_log failed Gate 1"}
+    view = _management(data)
+    assert 'id="management-not-run"' in view and "hours_log failed Gate 1" in view
+    assert "<table" not in view and 'id="management-cumulative"' not in view
 
 
 def test_renderer_source_has_no_hand_written_figures():
