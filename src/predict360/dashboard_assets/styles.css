@@ -147,3 +147,41 @@ footer { color: var(--muted); font-size: 0.85rem; padding: 16px; text-align: cen
   .figure { font-size: 1.5rem; }
   nav.tabs, nav.guide { flex-wrap: nowrap; overflow-x: auto; }
 }
+
+/* --- Stress view (B12b-2): curve and simulator ------------------------------------------ */
+:root { --s0: #1f5fae; --s1: #c2571a; --s2: #2e8b57; --s3: #7a4fb5; --random: #8a94a3; }
+@media (prefers-color-scheme: dark) {
+  :root { --s0: #7fb0ff; --s1: #f2a36b; --s2: #6fd39b; --s3: #c3a3f0; --random: #8e99a8; }
+}
+svg.curve { width: 100%; height: auto; display: block; margin: 8px 0 4px; }
+svg.curve .axis { stroke: var(--border); stroke-width: 1; }
+svg.curve .series { fill: none; stroke-width: 2.25; stroke-linejoin: round; }
+svg.curve .series.s0, svg.curve .kstar.s0 { stroke: var(--s0); }
+svg.curve .series.s1, svg.curve .kstar.s1 { stroke: var(--s1); }
+svg.curve .series.s2, svg.curve .kstar.s2 { stroke: var(--s2); }
+svg.curve .series.s3, svg.curve .kstar.s3 { stroke: var(--s3); }
+svg.curve .series.random { stroke: var(--random); stroke-dasharray: 6 5; stroke-width: 1.75; }
+svg.curve .kstar { fill: var(--surface); stroke-width: 2.5; }
+svg.curve .capacity { stroke: var(--text); stroke-width: 1.25; stroke-dasharray: 2 4; }
+svg.curve .tick { fill: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+ul.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; list-style: none; padding: 0; margin: 0 0 8px;
+  font-size: 0.85rem; color: var(--muted); }
+ul.legend li { display: flex; align-items: center; gap: 6px; }
+.swatch { display: inline-block; width: 18px; height: 0; border-top: 3px solid var(--random); }
+.swatch.s0 { border-color: var(--s0); } .swatch.s1 { border-color: var(--s1); }
+.swatch.s2 { border-color: var(--s2); } .swatch.s3 { border-color: var(--s3); }
+.swatch.random { border-top-style: dashed; }
+.swatch.capacity { border-top: 2px dotted var(--text); }
+ul.legend .dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--muted); }
+form.sim-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 24px;
+  align-items: end; margin: 12px 0 16px; }
+form.sim-controls label { display: flex; flex-direction: column; gap: 4px; font-weight: 600; }
+form.sim-controls output { font-weight: 400; color: var(--muted); font-variant-numeric: tabular-nums; }
+form.sim-controls input[type="range"] { width: 100%; accent-color: var(--accent); }
+form.sim-controls button { justify-self: start; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
+form.sim-controls .note { grid-column: 1 / -1; margin: 0; }
+p#sim-hypothetical { border-radius: var(--radius); margin: 0 0 8px; }
+p.sim-warning { margin: 6px 0 0; padding: 6px 10px; border-left: 3px solid var(--warn); background: var(--warn-bg);
+  color: var(--warn); font-size: 0.9rem; }
+section.view > .card[data-sim-label] + .card[data-sim-label] { margin-top: 16px; }

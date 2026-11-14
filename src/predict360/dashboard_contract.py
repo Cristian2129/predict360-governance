@@ -10,6 +10,7 @@ express are checked here:
 - every figure points to a file in ``lineage.manifest.outputs`` and figure ids are unique;
 - each published curve starts at K = 0, grows, and its points are at least
   ``MIN_PUBLISHED_CLIENTS`` apart; ``k_star`` is one of its points; k_applied <= k_requested;
+  ``at_k`` is the published point at ``k_applied`` (the K rule shared with the simulator);
 - gate 2 counts match the decisions of the cards;
 - budget lines add up: PV per sprint sums to the BAC, and the reserve is the contingency
   minus the approved change requests;
@@ -120,6 +121,10 @@ def _semantic(data: dict) -> list[str]:
             errors.append(f"{where}.k_star: must be a point of the published curve")
         if evaluation["k_applied"] > evaluation["k_requested"] + _EPS:
             errors.append(f"{where}.k_applied: exceeds k_requested")
+        # One K rule for the evaluator and the simulator: at_k IS the published point at k_applied
+        point = next((p for p in evaluation["curve"] if abs(p["k"] - evaluation["k_applied"]) <= _EPS), None)
+        if point is None or {k: v for k, v in point.items() if k != "k"} != evaluation["at_k"]:
+            errors.append(f"{where}.at_k: must be the published curve point at k_applied")
         if any(cell["n_clients"] < MIN_PUBLISHED_CLIENTS - _EPS for cell in evaluation["metrics"]["calibration"]):
             errors.append(f"{where}.metrics.calibration: no cell may describe fewer than "
                           f"{MIN_PUBLISHED_CLIENTS} clients")

@@ -150,6 +150,17 @@ def test_k_applied_never_exceeds_k_requested(sample):
     assert any("k_applied" in e for e in _errors(data))
 
 
+def test_at_k_is_the_published_point_at_k_applied(sample):
+    # One K rule for the evaluator and the simulator: the dashboard can rebuild at_k from the curve
+    data = copy.deepcopy(sample)
+    _evaluated(data)["at_k"]["net_value_cop_m"] += 1.0
+    assert any("at_k" in e for e in _errors(data))
+    data = copy.deepcopy(sample)
+    evaluation = _evaluated(data)
+    evaluation["k_applied"] = evaluation["curve"][1]["k"] + 1                # not a published point
+    assert any("at_k" in e for e in _errors(data))
+
+
 def test_calibration_cells_are_never_under_30_clients(sample):
     data = copy.deepcopy(sample)
     _evaluated(data)["metrics"]["calibration"][0]["n_clients"] = 29.0

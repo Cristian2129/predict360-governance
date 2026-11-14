@@ -33,7 +33,7 @@ from html import escape
 from pathlib import Path
 
 from src.predict360.dashboard_contract import validate_dashboard_data
-from src.predict360.formatting import format_cop_m, format_count, format_figure, format_pct
+from src.predict360.formatting import DASH, format_cop_m, format_count, format_figure, format_pct
 
 ASSETS_DIR = Path(__file__).resolve().parent / "dashboard_assets"
 
@@ -326,6 +326,161 @@ def _lineage_view(data: dict) -> str:
     )
 
 
+# --- stress view: curve and simulator ----------------------------------------------------------
+
+LABEL_NAMES = {"delinquency_30": "Mora a 30 días", "delinquency_60": "Mora a 60 días",
+               "churn_3m": "Fuga a 3 meses"}
+HYPOTHETICAL = ("Escenario hipotético: no cambia el dictamen, que se fijó con los supuestos registrados en el acta.")
+
+
+def _by_label(data: dict) -> dict:
+    labels: dict = {}
+    for e in data["models"]["evaluations"]:
+        if e["status"] == "evaluated":
+            labels.setdefault(e["label"], []).append(e)
+    return {label: sorted(rows, key=lambda e: e["model_id"]) for label, rows in labels.items()}
+
+
+def _rule(data: dict) -> str:
+    return next((e["vs_baseline"]["baseline_model"] for e in data["models"]["evaluations"]
+                 if e["status"] == "evaluated" and e.get("vs_baseline")), "baseline_rule")
+
+
+def simulator_data(data: dict) -> dict:
+    """What simulator.js needs: the acta's assumptions and, per label and model, the published
+    curve plus the evaluator's own numbers for the browser self-check."""
+    values = {k: v for item in data["assumptions"] for k, v in item["value"].items()}
+    return {
+        "defaults": {"capacity_share": values["value.default_capacity_share"],
+                     "action_effectiveness": values["value.action_effectiveness"],
+                     "loss_given_event": values["value.loss_given_event"],
+                     "cost_per_contact_cop": values["value.cost_per_contact_cop"]},
+        "rule": _rule(data),
+        "labels": {label: {"target": rows[0]["target"], "models": [{
+            "model_id": e["model_id"], "n_clients": e["n_clients"],
+            "event_exposure_cop_m": e["event_exposure_cop_m"], "k_applied": e["k_applied"],
+            "k_star_k": e["k_star"]["k"], "at_k_net_value_cop_m": e["at_k"]["net_value_cop_m"],
+            "random_net_value_cop_m": e["random_at_k"]["net_value_cop_m"],
+            "curve": [{"k": p["k"], "captured_cop_m": p["captured_cop_m"], "net_value_cop_m": p["net_value_cop_m"]}
+                      for p in e["curve"]]} for e in rows]}
+            for label, rows in _by_label(data).items()},
+    }
+
+
+def curve_svg(label: str, evaluations: list, capacity_k: float | None = None) -> str:
+    """Net value against K for each model, the random line and K*; reusable by the Models view.
+    Drawn with the assumptions of the acta (the values the evaluator published)."""
+    width, height, left, right, top, bottom = 640, 300, 100, 16, 16, 40   # left fits "COP -1.358 M"
+    n = max(e["n_clients"] for e in evaluations)
+    last = evaluations[0]["curve"][-1]
+    nets = [p["net_value_cop_m"] for e in evaluations for p in e["curve"]] + [0.0, last["net_value_cop_m"]]
+    low, high = min(nets), max(nets)
+    span = (high - low) or 1.0
+    xscale = (width - left - right) / n
+    x = lambda k: left + xscale * k
+    y = lambda v: top + (high - v) / span * (height - top - bottom)
+    parts = [f'<line class="axis" data-zero="{_e(label)}" x1="{left}" y1="{y(0):.1f}" x2="{width - right}" '
+             f'y2="{y(0):.1f}"/>']
+    for i, e in enumerate(evaluations):
+        points = " ".join(f"{x(p['k']):.1f},{y(p['net_value_cop_m']):.1f}" for p in e["curve"])
+        parts.append(f'<polyline class="series s{i}" data-series="{_e(e["model_id"])}" points="{points}"/>')
+        star = e["k_star"]
+        parts.append(f'<circle class="kstar s{i}" data-kstar="{_e(e["model_id"])}" cx="{x(star["k"]):.1f}" '
+                     f'cy="{y(star["net_value_cop_m"]):.1f}" r="4"><title>K* {_e(e["model_id"])}: '
+                     f'{format_count(star["k"])} clientes, {format_cop_m(star["net_value_cop_m"])}</title></circle>')
+    parts.append(f'<polyline class="series random" data-series="random" '
+                 f'points="{x(0):.1f},{y(0):.1f} {x(last["k"]):.1f},{y(last["net_value_cop_m"]):.1f}"/>')
+    if capacity_k is not None:
+        parts.append(f'<line class="capacity" data-capacity-line="{_e(label)}" data-x0="{left}" '
+                     f'data-xscale="{xscale!r}" x1="{x(capacity_k):.1f}" y1="{top}" x2="{x(capacity_k):.1f}" '
+                     f'y2="{height - bottom}"/>')
+    parts += [f'<text class="tick" data-tick="high" x="{left - 6}" y="{y(high) + 4:.1f}" text-anchor="end">'
+              f'{format_cop_m(high)}</text>',
+              f'<text class="tick" data-tick="low" x="{left - 6}" y="{y(low) + 4:.1f}" text-anchor="end">'
+              f'{format_cop_m(low)}</text>',
+              f'<text class="tick" x="{left}" y="{height - bottom + 16}">0</text>',
+              f'<text class="tick" x="{width - right}" y="{height - bottom + 16}" text-anchor="end">'
+              f'{format_count(n)} clientes</text>',
+              f'<text class="tick" x="{(left + width - right) / 2:.0f}" y="{height - 6}" text-anchor="middle">'
+              'Clientes contactados (K)</text>']
+    title = f"Valor neto en COP según K · {LABEL_NAMES.get(label, label)}"
+    plot_h = height - top - bottom
+    return (f'<svg class="curve" data-curve="{_e(label)}" data-x0="{left}" data-xscale="{xscale!r}" '
+            f'data-top="{top}" data-plot-h="{plot_h}" viewBox="0 0 {width} {height}" role="img" '
+            f'aria-label="{_e(title)}"><title>{_e(title)}</title>{"".join(parts)}</svg>')
+
+
+def _legend(evaluations: list) -> str:
+    items = "".join(f'<li><span class="swatch s{i}"></span>{_e(e["model_id"])}</li>' for i, e in enumerate(evaluations))
+    return (f'<ul class="legend">{items}<li><span class="swatch random"></span>azar</li>'
+            '<li><span class="swatch capacity"></span>K aplicado por capacidad</li>'
+            '<li><span class="dot"></span>K* (óptimo sin restricción)</li></ul>')
+
+
+def _stress_table(label: str, evaluations: list, rule: str) -> str:
+    rule_net = next((e["at_k"]["net_value_cop_m"] for e in evaluations if e["model_id"] == rule), None)
+    rows, warnings = "", ""
+    for e in evaluations:
+        key = f'{label}.{e["model_id"]}'
+        net = e["at_k"]["net_value_cop_m"]
+        diff = DASH if e["model_id"] == rule or rule_net is None else format_cop_m(net - rule_net)
+        rows += (f'<tr><td>{_e(e["model_id"])}</td>'
+                 f'<td data-sim-kstar="{_e(key)}">{format_count(e["k_star"]["k"])}</td>'
+                 f'<td data-sim-kapplied="{_e(key)}">{format_count(e["k_applied"])}</td>'
+                 f'<td data-sim-net="{_e(key)}">{format_cop_m(net)}</td>'
+                 f'<td data-sim-diff="{_e(key)}">{diff}</td></tr>')
+        if e["k_star"]["k"] > e["k_applied"]:
+            warnings += (f'<p class="sim-warning" data-sim-slot="{_e(key)}" data-sim-warning="{_e(key)}">'
+                         f'{_e(e["model_id"])}: la capacidad ({format_count(e["k_applied"])} clientes) queda por '
+                         f'debajo de K* ({format_count(e["k_star"]["k"])}): más capacidad de gestión aumentaría '
+                         'el valor neto.</p>')
+        else:
+            warnings += f'<p class="sim-warning" data-sim-slot="{_e(key)}" hidden></p>'
+    random_net = evaluations[0]["random_at_k"]["net_value_cop_m"]
+    rows += (f'<tr class="random"><td>azar</td><td>{DASH}</td><td>{DASH}</td>'
+             f'<td data-sim-net="{_e(label)}.random">{format_cop_m(random_net)}</td><td>{DASH}</td></tr>')
+    return ('<table class="compare"><thead><tr><th>Modelo</th><th>K* de la curva</th><th>K aplicado</th>'
+            f'<th>Valor neto en K aplicado</th><th>Diferencia vs {_e(rule)}<br><span class="label-sm">'
+            'estimación puntual, sin intervalo</span></th></tr></thead>'
+            f'<tbody>{rows}</tbody></table>{warnings}')
+
+
+def _stress_view(data: dict) -> str:
+    sim = simulator_data(data)
+    d = sim["defaults"]
+    script = (ASSETS_DIR / "simulator.js").read_text(encoding="utf-8")
+    payload = json.dumps(sim, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+    cards = ""
+    for label, evaluations in _by_label(data).items():
+        cards += (f'<div class="card" data-sim-label="{_e(label)}"><h3>{_e(LABEL_NAMES.get(label, label))}</h3>'
+                  f'{curve_svg(label, evaluations, evaluations[0]["k_applied"])}{_legend(evaluations)}'
+                  f'{_stress_table(label, evaluations, sim["rule"])}</div>')
+    if not cards:
+        cards = '<div class="pending">Sin modelos evaluados: no hay curvas que simular.</div>'
+    return (
+        '<section class="view" id="estres"><h2>Estrés</h2>'
+        f'<p class="banner warn" id="sim-hypothetical" role="note">{HYPOTHETICAL}</p>'
+        '<form class="card sim-controls" id="sim-controls" onsubmit="return false">'
+        '<label>Capacidad de gestión (% de clientes) <output id="sim-capacity-out">'
+        f'{format_pct(d["capacity_share"])}</output>'
+        f'<input type="range" id="sim-capacity" min="1" max="100" step="1" value="{round(d["capacity_share"] * 100)}"></label>'
+        '<label>Efectividad de la acción <output id="sim-effectiveness-out">'
+        f'{format_pct(d["action_effectiveness"])}</output>'
+        f'<input type="range" id="sim-effectiveness" min="0" max="100" step="5" '
+        f'value="{round(d["action_effectiveness"] * 100)}"></label>'
+        f'<label>Costo por contacto <output id="sim-cost-out">COP {format_count(d["cost_per_contact_cop"])}</output>'
+        f'<input type="range" id="sim-cost" min="0" max="200000" step="1000" value="{d["cost_per_contact_cop"]}"></label>'
+        '<button type="button" id="sim-reset">Restablecer supuestos</button>'
+        f'<p class="note">Pérdida por evento fija en {format_pct(d["loss_given_event"])} de la exposición. '
+        'Las curvas, K*, la línea de capacidad y la tabla se recalculan con los controles. '
+        'Sin JavaScript se muestran los valores del acta.</p></form>'
+        '<p class="note" id="sim-status" role="status" hidden></p>'
+        f'{cards}'
+        f'<script type="application/json" id="sim-data">{payload}</script>'
+        f'<script>{script}</script></section>'
+    )
+
+
 def _pending(tab_id: str, label: str) -> str:
     return (f'<section class="view" id="{tab_id}"><h2>{label}</h2>'
             '<div class="pending">Vista en construcción.</div></section>')
@@ -354,8 +509,8 @@ def render(data: dict) -> str:
     if errors:
         raise ValueError("dashboard_data_v1: " + "; ".join(errors[:5]))
     css = (ASSETS_DIR / "styles.css").read_text(encoding="utf-8")
-    views = (_summary(data) + _lineage_view(data)
-             + "".join(_pending(t, label) for t, label in TABS[2:]) + _guided())
+    views = (_summary(data) + _lineage_view(data) + _pending("modelos", dict(TABS)["modelos"]) + _stress_view(data)
+             + "".join(_pending(t, label) for t, label in TABS[4:]) + _guided())
     return (
         '<!doctype html>\n<html lang="es"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
