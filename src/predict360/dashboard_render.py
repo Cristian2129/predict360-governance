@@ -33,7 +33,7 @@ from html import escape
 from pathlib import Path
 
 from src.predict360.dashboard_contract import validate_dashboard_data
-from src.predict360.formatting import DASH, format_cop_m, format_count, format_figure, format_pct
+from src.predict360.formatting import DASH, format_cop_m, format_count, format_figure, format_pct, format_ratio
 
 ASSETS_DIR = Path(__file__).resolve().parent / "dashboard_assets"
 
@@ -500,6 +500,116 @@ def _stress_view(data: dict) -> str:
     )
 
 
+# --- management view: EVM, velocity and risks ------------------------------------------------
+
+OPEN_SPRINT_NOTE = ("EV solo reconoce los SP cerrados con DoD («No attachment, no Done»): un sprint sin cerrar "
+                    "baja el EV y arrastra SPI, CPI y EAC hasta su cierre.")
+
+
+def _hours(value) -> str:
+    return f"{format_ratio(value)} h"
+
+
+def _eac_line(cumulative: dict) -> str:
+    over, gap = cumulative["eac_over_ceiling"], cumulative["eac_minus_ceiling_cop_m"]
+    ceiling = format_cop_m(cumulative["ceiling_cop_m"])
+    if over is None or gap is None:
+        cls, text = "warn", "EAC: no se puede estimar todavía (sin valor ganado)."
+    elif over:
+        cls, text = "bad", f"El EAC supera el techo de {ceiling} por {format_cop_m(gap)}."
+    else:
+        cls, text = "ok", f"El EAC está dentro del techo de {ceiling}: margen de {format_cop_m(-gap)}."
+    return f'<p id="eac-ceiling"><span class="status {cls}">EAC</span> {text}</p>'
+
+
+def _cumulative_card(management: dict, data: dict) -> str:
+    c = management["cumulative"]
+    rows = ""
+    for key, name, fmt in (("pv_cop_m", "PV (valor planeado)", format_cop_m), ("ev_cop_m", "EV (valor ganado)", format_cop_m),
+                           ("ac_cop_m", "AC (costo real)", format_cop_m), ("spi", "SPI", format_ratio),
+                           ("cpi", "CPI", format_ratio), ("eac_cop_m", "EAC (estimado al cierre)", format_cop_m),
+                           ("bac_cop_m", "BAC", format_cop_m), ("ceiling_cop_m", "Techo del charter", format_cop_m)):
+        attribute, trace = _traced(f"management.cumulative.{key}", data)
+        rows += f'<dt>{name}</dt><dd><span{attribute}>{fmt(c[key])}</span>{trace}</dd>'
+    sprints = ", ".join(str(s) for s in c["sprints"])
+    return (f'<div class="card" id="management-cumulative"><h3>Acumulado · sprints {_e(sprints)}</h3>'
+            f'<dl class="kv">{rows}</dl>{_eac_line(c)}</div>')
+
+
+def _baseline_card(baseline: dict) -> str:
+    crs = "".join(f'<dt data-change-request="{_e(cr["id"])}">{_e(cr["id"])} · sprint {_e(cr["sprint"])}</dt>'
+                  f'<dd>{format_cop_m(cr["approved_cop_m"])} de la reserva al BAC</dd>'
+                  for cr in baseline["change_requests"])
+    return (
+        '<div class="card" id="management-baseline"><h3>Línea base</h3><dl class="kv">'
+        f'<dt>Techo del charter</dt><dd>{format_cop_m(baseline["ceiling_cop_m"])}</dd>'
+        f'<dt>Contingencia</dt><dd>{format_cop_m(baseline["contingency_cop_m"])}</dd>{crs}'
+        f'<dt>BAC</dt><dd>{format_cop_m(baseline["bac_cop_m"])}</dd>'
+        f'<dt>Reserva restante</dt><dd>{format_cop_m(baseline["reserve_remaining_cop_m"])}</dd>'
+        f'<dt>Tarifa</dt><dd>COP {format_count(baseline["rate_cop"])} por hora</dd>'
+        f'<dt>Escala k</dt><dd>{format_ratio(baseline["k_scale"])}</dd>'
+        f'<dt>Una hora registrada</dt><dd>{format_cop_m(baseline["logged_hour_cop_m"])}</dd>'
+        '</dl></div>'
+    )
+
+
+def _sprints_table(management: dict) -> str:
+    rows = ""
+    for s in management["sprints"]:
+        marker = ' <span class="status warn">reconstruidas</span>' if s["hours_estimated"] else ""
+        rows += (f'<tr data-sprint="{_e(s["sprint"])}"><td>{_e(s["sprint"])}</td>'
+                 f'<td>{format_count(s["done_sp"])} de {format_count(s["committed_sp"])}</td>'
+                 f'<td>{format_cop_m(s["pv_cop_m"])}</td><td>{format_cop_m(s["ev_cop_m"])}</td>'
+                 f'<td>{format_cop_m(s["ac_cop_m"])}</td><td>{format_ratio(s["spi"])}</td><td>{format_ratio(s["cpi"])}</td>'
+                 f'<td>{_hours(s["logged_hours"])}{marker}</td><td>{_hours(s["mgmt_hours"])}</td></tr>')
+    note = (f'<p class="note" id="open-sprint">{OPEN_SPRINT_NOTE}</p>'
+            if any(s["done_sp"] < s["committed_sp"] for s in management["sprints"]) else "")
+    return ('<div class="card"><table class="data"><caption>Valor ganado por sprint</caption><thead><tr>'
+            '<th>Sprint</th><th>SP cerrados</th><th>PV</th><th>EV</th><th>AC</th><th>SPI</th><th>CPI</th>'
+            '<th>Horas registradas</th><th>Horas de gestión</th></tr></thead>'
+            f'<tbody>{rows}</tbody></table>{note}'
+            '<p class="note">Las horas de gestión (MGMT) cuentan en el AC, no en el EV.</p></div>')
+
+
+def _velocity_table(management: dict) -> str:
+    rows = "".join(f'<tr data-velocity="{_e(v["sprint"])}"><td>{_e(v["sprint"])}</td>'
+                   f'<td>{format_count(v["planned_sp"])}</td><td>{format_count(v["completed_sp"])}</td>'
+                   f'<td>{format_pct(v["completion_rate_pct"] / 100)}</td></tr>' for v in management["velocity"])
+    return ('<div class="card"><table class="data"><caption>Velocidad</caption><thead><tr><th>Sprint</th>'
+            '<th>SP planeados</th><th>SP completados</th><th>Cumplimiento</th></tr></thead>'
+            f'<tbody>{rows}</tbody></table></div>')
+
+
+def _risks_table(management: dict) -> str:
+    rows = "".join(f'<tr data-risk="{_e(r["risk_id"])}"><td>{_e(r["risk_id"])}</td><td>{_e(r["category"])}</td>'
+                   f'<td>{_e(r["description"])}</td><td>{_e(r["probability"])}</td><td>{_e(r["impact"])}</td>'
+                   f'<td>{_e(r["owner"])}</td><td>{_e(r["status"])}</td></tr>' for r in management["risks"])
+    count = management["risk_reviews_count"]
+    reviews = ("Sin revisiones registradas." if count == 0
+               else f'{format_count(count)} revisiones registradas.')
+    return ('<div class="card"><table class="data"><caption>Registro de riesgos</caption><thead><tr><th>Id</th>'
+            '<th>Categoría</th><th>Descripción</th><th>Probabilidad</th><th>Impacto</th><th>Responsable</th>'
+            f'<th>Estado</th></tr></thead><tbody>{rows}</tbody></table>'
+            f'<p class="note" id="risk-reviews">{reviews}</p></div>')
+
+
+def _management_view(data: dict) -> str:
+    management = data["management"]
+    head = f'<section class="view" id="gestion"><h2>{dict(TABS)["gestion"]}</h2>'
+    if management["status"] != "RUN":
+        return (head + f'<div class="banner warn" id="management-not-run" role="status">La gestión no se calculó '
+                f'en esta corrida: {_e(management["reason"])}.</div></section>')
+    outside = management["hours_outside_reported_sprints"]
+    hours_note = ""
+    if outside:
+        listed = ", ".join(f"sprint {_e(s)}: {_hours(h)}" for s, h in sorted(outside.items()))
+        hours_note = (f'<p class="note" id="hours-outside">Horas registradas en sprints que aún no están en el '
+                      f'sprint_log ({listed}): no entran en el valor ganado.</p>')
+    return (head + f'<div class="grid">{_cumulative_card(management, data)}{_baseline_card(management["baseline"])}</div>'
+            f'{_sprints_table(management)}{hours_note}<div class="grid">{_velocity_table(management)}</div>'
+            f'{_risks_table(management)}</section>')
+
+
 def _pending(tab_id: str, label: str) -> str:
     return (f'<section class="view" id="{tab_id}"><h2>{label}</h2>'
             '<div class="pending">Vista en construcción.</div></section>')
@@ -529,7 +639,7 @@ def render(data: dict) -> str:
         raise ValueError("dashboard_data_v1: " + "; ".join(errors[:5]))
     css = (ASSETS_DIR / "styles.css").read_text(encoding="utf-8")
     views = (_summary(data) + _lineage_view(data) + _pending("modelos", dict(TABS)["modelos"]) + _stress_view(data)
-             + "".join(_pending(t, label) for t, label in TABS[4:]) + _guided())
+             + _management_view(data) + _pending("entrega", dict(TABS)["entrega"]) + _guided())
     return (
         '<!doctype html>\n<html lang="es"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
