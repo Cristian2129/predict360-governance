@@ -397,6 +397,138 @@ def test_decision_shows_point_difference_next_to_the_paired_interval(sample, htm
             assert format_cop_m(value) in fragment
 
 
+# --- models view (B12c-2): which model ranks best, and is the evidence enough? ----------------
+
+def _models(data):
+    return _view(render(data), "modelos")
+
+
+def _attr(tag, name):
+    return re.search(rf'\b{name}="([^"]*)"', tag).group(1)
+
+
+def test_models_view_is_built_and_never_says_production(html):
+    view = _view(html, "modelos")
+    assert "Vista en construcción" not in view and "producción" not in view.lower()
+
+
+def test_the_global_verdict_comes_first(sample, html):
+    view = _view(html, "modelos")
+    verdict = re.search(r'<div class="card" id="models-verdict">(.*?)</div>', view, re.S)
+    assert verdict and view.index('id="models-verdict"') < view.index("data-decision-card=")
+    assert "No autorizado" in verdict.group(1)            # the fixture authorizes nothing
+
+
+@pytest.mark.parametrize("code,tag", [("insufficient_evidence", "Evidencia insuficiente"),
+                                      ("authorized", "Supera la regla"),
+                                      ("does_not_beat_baseline", "No supera la regla")])
+def test_the_target_tag_comes_from_the_reason_of_the_decision(sample, code, tag):
+    data = copy.deepcopy(sample)
+    decision = next(d for d in data["models"]["decisions"] if d["target"] == "delinquency")
+    decision["reason_code"] = code
+    if code == "authorized":
+        decision.update(verdict="authorized_for_shadow_deployment", model_id="model_a")
+    card = re.search(r'<div class="card" data-decision-card="delinquency">(.*?)</svg>', _models(data), re.S).group(1)
+    assert re.search(rf'<span class="status \w+" data-decision-tag="delinquency">{tag}</span>', card)
+
+
+def _ci_rows(view):
+    return re.findall(r'<g data-ci="([^"]+)"[^>]*>(.*?)</g>', view, re.S)
+
+
+def test_the_drawn_interval_matches_the_evaluation(sample, html):
+    view = _view(html, "modelos")
+    expected = {f'{e["label"]}.{e["model_id"]}': e["vs_baseline"] for e in sample["models"]["evaluations"]
+                if e["status"] == "evaluated" and e["vs_baseline"]}
+    rows = dict(_ci_rows(view))
+    assert set(rows) == set(expected)
+    for svg in re.findall(r'<svg class="ci"[^>]*>.*?</svg>', view, re.S):
+        head = svg[:svg.index(">")]
+        vmin, x0, scale = (float(_attr(head, n)) for n in ("data-vmin", "data-x0", "data-xscale"))
+        px = lambda v: x0 + (v - vmin) * scale
+        for key, body in re.findall(r'<g data-ci="([^"]+)"[^>]*>(.*?)</g>', svg, re.S):
+            vs = expected[key]
+            line = re.search(r"<line class=\"ci-range\"[^>]*>", body).group(0)
+            dot = re.search(r"<circle class=\"ci-point\"[^>]*>", body).group(0)
+            assert float(_attr(line, "x1")) == pytest.approx(px(vs["ci_low_cop_m"]), abs=0.01)
+            assert float(_attr(line, "x2")) == pytest.approx(px(vs["ci_high_cop_m"]), abs=0.01)
+            assert float(_attr(dot, "cx")) == pytest.approx(px(vs["difference_cop_m"]), abs=0.01)
+        zero = re.search(r'<line class="zero"[^>]*>', svg).group(0)
+        assert float(_attr(zero, "x1")) == pytest.approx(px(0.0), abs=0.01)
+        shade = re.search(r'<rect class="rule-better"[^>]*>', svg).group(0)
+        assert float(_attr(shade, "x")) + float(_attr(shade, "width")) == pytest.approx(px(0.0), abs=0.01)
+        assert "la regla es mejor" in svg
+
+
+def test_delinquency_must_win_at_30_and_60_days(html):
+    card = re.search(r'data-decision-card="delinquency">(.*?)</p>', _view(html, "modelos"), re.S).group(1)
+    assert "30 y a 60 días" in card
+
+
+def test_a_target_without_a_comparison_says_so(sample, html):
+    card = re.search(r'data-decision-card="churn">(.*?)</div>', _view(html, "modelos"), re.S).group(1)
+    assert 'id="ci-none-churn"' in card                     # fixture: churn baseline not evaluated
+
+
+def _capture_svgs(view):
+    return re.findall(r'(<svg class="capture"[^>]*>)(.*?)</svg>', view, re.S)
+
+
+def test_one_capture_curve_per_label_behind_a_selector(sample, html):
+    view = _view(html, "modelos")
+    labels = sorted({e["label"] for e in sample["models"]["evaluations"] if e["status"] == "evaluated"})
+    assert sorted(_attr(head, "data-capture-curve") for head, _ in _capture_svgs(view)) == labels
+    assert sorted(re.findall(r'<input type="radio" name="capture-label" id="capture-([^"]+)"', view)) == labels
+    assert "data-curve=" not in view                        # the simulator only redraws the Estrés curves
+
+
+def test_the_capture_curve_ends_at_100_and_the_diagonal_is_exact(sample, html):
+    evaluations = [e for e in sample["models"]["evaluations"] if e["status"] == "evaluated"]
+    for head, body in _capture_svgs(_view(html, "modelos")):
+        x0, y0, w, h = (float(_attr(head, n)) for n in ("data-x0", "data-y0", "data-w", "data-h"))
+        diagonal = re.search(r'<line class="diagonal"[^>]*>', body).group(0)
+        assert [float(_attr(diagonal, n)) for n in ("x1", "y1", "x2", "y2")] == [x0, y0, x0 + w, y0 - h]
+        label = _attr(head, "data-capture-curve")
+        for e in (e for e in evaluations if e["label"] == label):
+            line = re.search(rf'<polyline class="series s\d" data-capture="{e["model_id"]}" points="([^"]+)"', body)
+            first, *_, last = [tuple(map(float, p.split(","))) for p in line.group(1).split()]
+            assert first == (x0, y0) and last == pytest.approx((x0 + w, y0 - h), abs=0.01)
+            capacity = re.search(r'<line class="capacity"[^>]*>', body).group(0)
+            assert float(_attr(capacity, "x1")) == pytest.approx(x0 + w * e["k_applied"] / e["n_clients"], abs=0.01)
+
+
+def test_every_card_has_a_row_with_its_reason_in_spanish(sample, html):
+    view = _view(html, "modelos")
+    for card in sample["models"]["cards"]:
+        row = re.search(rf'<tr data-card-row="{re.escape(card["file"])}">(.*?)</tr>', view, re.S).group(1)
+        for reason in card["reasons"]:
+            assert reason["message"] in row                  # original message, in the detail
+        assert ("Ficha de demostración" in row) is card["demo"]
+    demo = re.search(r'<tr data-card-row="delinquency_model_c.json">(.*?)</tr>', view, re.S).group(1)
+    assert "partición no temporal" in demo and "<details" in demo
+
+
+def test_the_technical_detail_has_every_metric_and_the_calibration(sample, html):
+    view = _view(html, "modelos")
+    detail = re.search(r'<details class="technical" id="models-technical">(.*?)</details>', view, re.S).group(1)
+    for e in sample["models"]["evaluations"]:
+        key = f'{e["label"]}.{e["model_id"]}'
+        assert f'data-metrics="{key}"' in detail
+        if e["status"] == "evaluated":
+            assert format_ratio(e["metrics"]["brier"]) in detail
+            assert len(re.findall(rf'data-calibration="{re.escape(key)}"', detail)) == len(e["metrics"]["calibration"])
+        else:
+            assert "scores incompletos" in detail
+    for label in {e["label"] for e in sample["models"]["evaluations"] if e["status"] == "evaluated"}:
+        assert f'data-metrics="{label}.random"' in detail
+
+
+def test_slices_are_pending_and_scores_are_declared_simulated(html):
+    view = _view(html, "modelos")
+    assert 'id="slices-pending"' in view and "tenure_months" in view
+    assert 'id="models-simulated"' in view
+
+
 # --- management view (B12c) ------------------------------------------------------------------
 
 def _management(data):

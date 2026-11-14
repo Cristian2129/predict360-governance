@@ -500,6 +500,209 @@ def _stress_view(data: dict) -> str:
     )
 
 
+# --- models view: which model ranks best, and is the evidence enough? ---------------------------
+
+DECISION_TAGS = {"authorized": ("Supera la regla", "ok"), "insufficient_evidence": ("Evidencia insuficiente", "warn"),
+                 "does_not_beat_baseline": ("No supera la regla", "bad"),
+                 "no_baseline": ("Sin regla base comparable", "warn"), "no_candidate": ("Sin modelo candidato", "warn")}
+CARD_DECISIONS = {"ADMITTED": ("Admitida", "ok"), "REJECTED": ("Rechazada", "bad"), "SKIPPED": ("Omitida", "warn")}
+NOT_EVALUATED = {"incomplete_scores": "scores incompletos"}
+DELINQUENCY_RULE = ("Mora exige ganar a 30 y a 60 días: se autoriza solo si todo el intervalo supera el margen "
+                    "en ambos horizontes.")
+SLICES_PENDING = ("Rebanadas: pendiente (B8c). La primera será la de clientes con tenure_months faltante "
+                  "(riesgo R-01, waiver W-01), evaluada aparte y sin imputar.")
+SIMULATED_NOTE = ("Scores simulados: no son modelos entrenados. El sistema evalúa en COP cualquier modelo que "
+                  "FinBank entrene; estos sirven para mostrar cómo.")
+
+
+def _f(value: float) -> str:
+    return f"{value:.3f}"
+
+
+def _verdict_card(data: dict) -> str:
+    items = ""
+    for d in data["models"]["decisions"]:
+        text, cls = VERDICTS[d["verdict"]]
+        model = f' · {_e(d["model_id"])}' if d["model_id"] else ""
+        items += f'<li>{TARGET_NAMES[d["target"]]}: <span class="status {cls}">{text}</span>{model}</li>'
+    authorized = [d for d in data["models"]["decisions"] if d["verdict"] == "authorized_for_shadow_deployment"]
+    lead = ("Hay modelos autorizados a despliegue en sombra." if authorized
+            else "Ningún objetivo tiene un modelo autorizado: la evidencia no alcanza para reemplazar la regla.")
+    return (f'<div class="card" id="models-verdict"><h3>Dictamen</h3><p>{lead}</p><ul class="plain">{items}</ul>'
+            '<p class="note">El dictamen más alto posible es «autorizado a despliegue en sombra».</p></div>')
+
+
+def ci_svg(target: str, rows: list) -> str:
+    """Point advantage over the rule and its paired interval, against zero (and the margin)."""
+    width, left, right, top, row_h, bottom = 640, 150, 16, 26, 28, 26
+    height = top + row_h * len(rows) + bottom
+    margin = rows[0]["vs_baseline"]["margin_cop_m"]
+    values = [0.0, margin] + [v for e in rows for v in (e["vs_baseline"]["ci_low_cop_m"], e["vs_baseline"]["ci_high_cop_m"])]
+    low, high = min(values), max(values)
+    pad = (high - low) * 0.05 or 1.0
+    vmin, vmax = low - pad, high + pad
+    scale = (width - left - right) / (vmax - vmin)
+    x = lambda v: left + (v - vmin) * scale
+    bottom_y = height - bottom
+    parts = [f'<rect class="rule-better" x="{left}" y="{top}" width="{_f(x(0.0) - left)}" height="{bottom_y - top}"/>',
+             f'<text class="tick" x="{left + 4}" y="{top - 8}">la regla es mejor</text>',
+             f'<line class="zero" x1="{_f(x(0.0))}" y1="{top}" x2="{_f(x(0.0))}" y2="{bottom_y}"/>']
+    if margin:
+        parts.append(f'<line class="margin" x1="{_f(x(margin))}" y1="{top}" x2="{_f(x(margin))}" y2="{bottom_y}"/>')
+    for i, e in enumerate(rows):
+        vs = e["vs_baseline"]
+        cy = top + row_h * i + row_h / 2
+        _, cls = OUTCOMES[vs["outcome"]]
+        parts.append(
+            f'<g data-ci="{_e(e["label"])}.{_e(e["model_id"])}" class="{cls}">'
+            f'<text class="tick" x="{left - 8}" y="{cy + 4:.1f}" text-anchor="end">{_e(e["model_id"])} · '
+            f'{_e(LABEL_NAMES.get(e["label"], e["label"]))}</text>'
+            f'<line class="ci-range" x1="{_f(x(vs["ci_low_cop_m"]))}" y1="{cy:.1f}" x2="{_f(x(vs["ci_high_cop_m"]))}" '
+            f'y2="{cy:.1f}"/><circle class="ci-point" cx="{_f(x(vs["difference_cop_m"]))}" cy="{cy:.1f}" r="4">'
+            f'<title>{format_cop_m(vs["difference_cop_m"])} · IC {format_cop_m(vs["ci_low_cop_m"])} a '
+            f'{format_cop_m(vs["ci_high_cop_m"])}</title></circle></g>')
+    for v, anchor in ((vmin, "start"), (0.0, "middle"), (vmax, "end")):
+        if v != 0.0 and abs(x(v) - x(0.0)) < 80:          # keep the zero label readable
+            continue
+        parts.append(f'<text class="tick" x="{_f(x(v))}" y="{height - 8}" text-anchor="{anchor}">{format_cop_m(v)}</text>')
+    title = f"Ventaja sobre la regla con su intervalo pareado · {TARGET_NAMES[target]}"
+    return (f'<svg class="ci" data-ci-target="{_e(target)}" data-vmin="{vmin!r}" data-x0="{left}" '
+            f'data-xscale="{scale!r}" viewBox="0 0 {width} {height}" role="img" aria-label="{_e(title)}">'
+            f'<title>{_e(title)}</title>{"".join(parts)}</svg>')
+
+
+def _decision_card(decision: dict, data: dict) -> str:
+    target = decision["target"]
+    tag, cls = DECISION_TAGS[decision["reason_code"]]
+    rule = f" {DELINQUENCY_RULE}" if target == "delinquency" else ""
+    rows = sorted((e for e in data["models"]["evaluations"] if e["target"] == target and e["status"] == "evaluated"
+                   and e["vs_baseline"]), key=lambda e: (e["model_id"], e["label"]))
+    body = (ci_svg(target, rows) + _comparisons(target, data) if rows
+            else f'<p class="label-sm" id="ci-none-{_e(target)}">Sin comparación contra la regla: {_e(decision["reason"])}</p>')
+    return (f'<div class="card" data-decision-card="{_e(target)}"><h3>{TARGET_NAMES[target]}</h3>'
+            f'<p><span class="status {cls}" data-decision-tag="{_e(target)}">{tag}</span>{rule}</p>{body}</div>')
+
+
+def capture_svg(label: str, evaluations: list) -> str:
+    """Share of the at-risk exposure found against the share of clients contacted; needs no assumption."""
+    width, height, left, right, top, bottom = 640, 300, 56, 16, 16, 40
+    w, h = width - left - right, height - top - bottom
+    x0, y0 = left, top + h
+    n = evaluations[0]["n_clients"]
+    px = lambda k: x0 + w * k / n
+    py = lambda capture: y0 - h * capture
+    parts = [f'<line class="diagonal" data-diagonal="{_e(label)}" x1="{x0}" y1="{y0}" x2="{x0 + w}" y2="{y0 - h}"/>']
+    for i, e in enumerate(evaluations):
+        points = " ".join(f"{_f(px(p['k']))},{_f(py(p['capture']))}" for p in e["curve"])
+        parts.append(f'<polyline class="series s{i}" data-capture="{_e(e["model_id"])}" points="{points}"/>')
+    k = evaluations[0]["k_applied"]
+    parts += [f'<line class="capacity" x1="{_f(px(k))}" y1="{top}" x2="{_f(px(k))}" y2="{y0}"/>',
+              f'<text class="tick" x="{left - 6}" y="{y0 - h + 4}" text-anchor="end">100 %</text>',
+              f'<text class="tick" x="{left - 6}" y="{y0 + 4}" text-anchor="end">0 %</text>',
+              f'<text class="tick" x="{x0 + w}" y="{y0 + 16}" text-anchor="end">100 %</text>',
+              f'<text class="tick" x="{(left + width - right) / 2:.0f}" y="{height - 6}" text-anchor="middle">'
+              '% de clientes contactados</text>']
+    title = f"Exposición en riesgo encontrada según clientes contactados · {LABEL_NAMES.get(label, label)}"
+    return (f'<svg class="capture" data-capture-curve="{_e(label)}" data-x0="{x0}" data-y0="{y0}" '
+            f'data-w="{w}" data-h="{h}" viewBox="0 0 {width} {height}" role="img" aria-label="{_e(title)}">'
+            f'<title>{_e(title)}</title>{"".join(parts)}</svg>')
+
+
+def _capture_card(data: dict) -> str:
+    labels = _by_label(data)
+    if not labels:
+        return ""
+    inputs, figures, rules = "", "", ""
+    for n, (label, evaluations) in enumerate(labels.items()):
+        name = _e(LABEL_NAMES.get(label, label))
+        checked = " checked" if n == 0 else ""
+        inputs += (f'<input type="radio" name="capture-label" id="capture-{_e(label)}"{checked}>'
+                   f'<label for="capture-{_e(label)}">{name}</label>')
+        items = "".join(f'<li><span class="swatch s{i}"></span>{_e(e["model_id"])}</li>' for i, e in enumerate(evaluations))
+        figures += (f'<figure data-capture-for="{_e(label)}">{capture_svg(label, evaluations)}<ul class="legend">{items}'
+                    '<li><span class="swatch random"></span>azar (diagonal)</li>'
+                    '<li><span class="swatch capacity"></span>capacidad actual</li></ul></figure>')
+        rules += f'#capture-{label}:checked ~ figure[data-capture-for="{label}"] {{ display: block; }}'
+    return (f'<div class="card" id="models-capture"><h3>¿Qué modelo encuentra más exposición en riesgo?</h3>'
+            f'<style>.capture-switch figure {{ display: none; }} {rules}</style>'
+            f'<div class="capture-switch">{inputs}{figures}</div>'
+            '<p class="note">Curva de captura: no depende de supuestos de valor. Cuanto más arriba de la diagonal, '
+            'mejor ordena el modelo.</p></div>')
+
+
+def _cards_table(cards: list) -> str:
+    rows = ""
+    for card in cards:
+        text, cls = CARD_DECISIONS[card["decision"]]
+        reasons = "; ".join(CARD_RULES.get(r["rule"], r["rule"]) for r in card["reasons"]) or DASH
+        demo = ' <span class="status warn">Ficha de demostración</span>' if card["demo"] else ""
+        messages = "".join(f'<li><code>{_e(r["rule"])}</code> ({_e(r["severity"])}): {_e(r["message"])}</li>'
+                           for r in card["reasons"])
+        rows += (f'<tr data-card-row="{_e(card["file"])}"><td>{_e(card["model_id"])}{demo}</td>'
+                 f'<td>{_e(TARGET_NAMES.get(card["target"], card["target"]))}</td>'
+                 f'<td><span class="status {cls}">{text}</span></td><td>{_e(reasons)}</td>'
+                 f'<td><details><summary>Detalle</summary><code>{_e(card["file"])}</code> · estado '
+                 f'{_e(card["status"])}<ul class="plain">{messages}</ul></details></td></tr>')
+    return ('<div class="card" id="models-cards"><table class="data"><caption>Fichas de modelo (Gate 2)</caption>'
+            '<thead><tr><th>Modelo</th><th>Objetivo</th><th>Decisión</th><th>Motivo</th><th></th></tr></thead>'
+            f'<tbody>{rows}</tbody></table><p class="note">Gate 2 revisa lo que declara la ficha (fechas, hash, '
+            'preprocesamiento); no puede probar por sí solo cómo se entrenó un modelo externo.</p></div>')
+
+
+def _metrics_row(key: str, name: str, point: dict, metrics: dict | None, k_star: dict | None) -> str:
+    m = metrics or {}
+    cells = [format_pct(point["capture"]), format_cop_m(point["captured_cop_m"]), format_cop_m(point["net_value_cop_m"]),
+             format_pct(point["precision"]), format_pct(point["recall"]), format_ratio(point["lift"]),
+             format_ratio(m.get("pr_auc")), format_ratio(m.get("brier")),
+             format_count(k_star["k"]) if k_star else DASH, format_cop_m(k_star["net_value_cop_m"]) if k_star else DASH]
+    return f'<tr data-metrics="{_e(key)}"><td>{_e(name)}</td>' + "".join(f"<td>{c}</td>" for c in cells) + "</tr>"
+
+
+def _technical_detail(data: dict) -> str:
+    labels: dict = {}
+    for e in data["models"]["evaluations"]:
+        labels.setdefault(e["label"], []).append(e)
+    tables = ""
+    for label, entries in labels.items():
+        rows, calibration, evaluated = "", "", None
+        for e in sorted(entries, key=lambda e: e["model_id"]):
+            key = f'{label}.{e["model_id"]}'
+            if e["status"] != "evaluated":
+                reason = NOT_EVALUATED.get(e["reason"], e["reason"])
+                missing = e.get("missing_score_rows")
+                detail = f" ({format_count(missing)} filas sin score)" if missing else ""
+                rows += (f'<tr data-metrics="{_e(key)}"><td>{_e(e["model_id"])}</td>'
+                         f'<td colspan="10">No evaluado: {_e(reason)}{detail}</td></tr>')
+                continue
+            evaluated = e
+            rows += _metrics_row(key, e["model_id"], e["at_k"], e["metrics"], e["k_star"])
+            calibration += "".join(
+                f'<tr data-calibration="{_e(key)}"><td>{_e(e["model_id"])}</td><td>{_e(b["bin"])}</td>'
+                f'<td>{format_count(b["n_clients"])}</td><td>{format_pct(b["mean_score"])}</td>'
+                f'<td>{format_pct(b["observed_rate"])}</td></tr>' for b in e["metrics"]["calibration"])
+        if evaluated:
+            rows += _metrics_row(f"{label}.random", "azar", evaluated["random_at_k"], None, None)
+        name = _e(LABEL_NAMES.get(label, label))
+        tables += ('<table class="data"><caption>Métricas en la K aplicada · ' + name + '</caption><thead><tr>'
+                   '<th>Modelo</th><th>Captura</th><th>Capturado</th><th>Valor neto</th><th>Precisión</th>'
+                   '<th>Recall</th><th>Lift</th><th>PR-AUC</th><th>Brier</th><th>K*</th><th>Valor neto en K*</th>'
+                   f'</tr></thead><tbody>{rows}</tbody></table>')
+        if calibration:
+            tables += ('<table class="data"><caption>Calibración por decil · ' + name + '</caption><thead><tr>'
+                       '<th>Modelo</th><th>Decil</th><th>Clientes</th><th>Score medio</th><th>Tasa observada</th>'
+                       f'</tr></thead><tbody>{calibration}</tbody></table>')
+    return (f'<details class="technical" id="models-technical"><summary>Detalle técnico</summary>{tables}</details>')
+
+
+def _models_view(data: dict) -> str:
+    cards = "".join(_decision_card(d, data) for d in data["models"]["decisions"])
+    return (f'<section class="view" id="modelos"><h2>{dict(TABS)["modelos"]}</h2>'
+            f'{_verdict_card(data)}<div class="stack">{cards}</div>{_capture_card(data)}'
+            f'{_cards_table(data["models"]["cards"])}<div class="card">{_technical_detail(data)}</div>'
+            f'<p class="pending" id="slices-pending">{SLICES_PENDING}</p>'
+            f'<p class="note" id="models-simulated">{SIMULATED_NOTE}</p></section>')
+
+
 # --- management view: EVM, velocity and risks ------------------------------------------------
 
 OPEN_SPRINT_NOTE = ("EV solo reconoce los SP cerrados con DoD («No attachment, no Done»): un sprint sin cerrar "
@@ -638,7 +841,7 @@ def render(data: dict) -> str:
     if errors:
         raise ValueError("dashboard_data_v1: " + "; ".join(errors[:5]))
     css = (ASSETS_DIR / "styles.css").read_text(encoding="utf-8")
-    views = (_summary(data) + _lineage_view(data) + _pending("modelos", dict(TABS)["modelos"]) + _stress_view(data)
+    views = (_summary(data) + _lineage_view(data) + _models_view(data) + _stress_view(data)
              + _management_view(data) + _pending("entrega", dict(TABS)["entrega"]) + _guided())
     return (
         '<!doctype html>\n<html lang="es"><head><meta charset="utf-8">'

@@ -185,3 +185,24 @@ p#sim-hypothetical { border-radius: var(--radius); margin: 0 0 8px; }
 p.sim-warning { margin: 6px 0 0; padding: 6px 10px; border-left: 3px solid var(--warn); background: var(--warn-bg);
   color: var(--warn); font-size: 0.9rem; }
 section.view > .card[data-sim-label] + .card[data-sim-label] { margin-top: 16px; }
+
+/* --- Models view (B12c-2): paired interval and capture curve ----------------------------- */
+svg.ci, svg.capture { width: 100%; height: auto; display: block; margin: 8px 0 4px; }
+svg.ci { max-width: 820px; } svg.capture { max-width: 760px; }
+.stack > .card[data-decision-card] + .card[data-decision-card] { margin-top: 16px; }
+svg.ci .rule-better { fill: var(--bad-bg, rgba(190, 40, 40, 0.08)); }
+svg.ci .zero { stroke: var(--text); stroke-width: 1.25; }
+svg.ci .margin { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+svg.ci .ci-range { stroke: var(--s0); stroke-width: 3; stroke-linecap: round; }
+svg.ci .ci-point { fill: var(--surface); stroke: var(--s0); stroke-width: 2.5; }
+svg.ci .tick, svg.capture .tick { fill: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+svg.capture .diagonal { stroke: var(--random); stroke-width: 1.75; stroke-dasharray: 6 5; }
+svg.capture .series { fill: none; stroke-width: 2.25; stroke-linejoin: round; }
+svg.capture .series.s0 { stroke: var(--s0); } svg.capture .series.s1 { stroke: var(--s1); }
+svg.capture .series.s2 { stroke: var(--s2); } svg.capture .series.s3 { stroke: var(--s3); }
+svg.capture .capacity { stroke: var(--text); stroke-width: 1.25; stroke-dasharray: 2 4; }
+.capture-switch figure { margin: 0; }
+.capture-switch > label { display: inline-block; margin: 0 16px 4px 4px; cursor: pointer; }
+ul.plain { list-style: none; padding: 0; margin: 4px 0; }
+details.technical > summary { cursor: pointer; font-weight: 600; }
+details.technical table.data { margin-top: 12px; }
