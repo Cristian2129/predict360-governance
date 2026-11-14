@@ -9,6 +9,7 @@ import yaml
 from src.predict360.config import CONFIG_DIR, ROOT, load_assumptions, load_config
 from src.predict360.evaluator import (
     MIN_PUBLISHED_CLIENTS,
+    applied_point,
     bootstrap_net_values,
     brier_score,
     calibration_table,
@@ -116,6 +117,34 @@ def test_random_baseline_uses_the_applied_k(assumptions):
     result = random_baseline(df, 12_175, assumptions)
     assert result["k_applied"] == 12_000
     assert result["captured_cop_m"] == pytest.approx(total * 12_000 / df["weight"].sum())
+
+
+# --- one rule for K, shared with the dashboard simulator (B12b-2) ------------------------
+
+def test_applied_point_rounds_down_never_to_the_nearest():
+    points = [{"k": 0.0}, {"k": 50.0}, {"k": 100.0}]
+    assert applied_point(points, 99.0)["k"] == 50.0          # the nearest would be 100
+    assert applied_point(points, 100.0)["k"] == 100.0
+    assert applied_point(points, 100.0 + 1e-12)["k"] == 100.0
+    assert applied_point(points, 10.0)["k"] == 0.0           # capacity is a hard limit
+
+
+def test_k_applied_is_a_point_of_the_published_curve(assumptions):
+    # Capacity of 12% on 1,000 clients: the grid has 50-client steps, so 120 becomes 100,
+    # the same point the simulator can use (it only has the published curve)
+    at_k = evaluate_at_k(_spec_case(30), 120, assumptions)
+    assert at_k["k_requested"] == 120 and at_k["k_applied"] == 100
+    assert random_baseline(_spec_case(30), 120, assumptions)["k_applied"] == 100
+
+
+def test_every_at_k_is_the_published_point_at_k_applied(synthetic, assumptions):
+    report = evaluate_models(*synthetic, assumptions)
+    for e in report["evaluations"]:
+        if e["status"] != "evaluated":
+            continue
+        point = applied_point(e["curve"], e["k_requested"])
+        assert point["k"] == e["k_applied"]
+        assert {k: v for k, v in point.items() if k != "k"} == e["at_k"]
 
 
 # --- K* --------------------------------------------------------------------------------
@@ -275,8 +304,9 @@ def test_random_baseline_rates(assumptions):
 
 def test_rates_are_weighted_by_clients(assumptions):
     df = pd.DataFrame({"client_id": ["a", "b", "c"], "score": [0.9, 0.5, 0.1], "y": [1, 0, 1],
-                       "exposure_cop_m": [1.0, 1.0, 1.0], "weight": [3.0, 1.0, 1.0]})
-    result = evaluate_at_k(df, 4, assumptions)          # rows a and b: 4 clients, 3 events of 4
+                       "exposure_cop_m": [1.0, 1.0, 1.0], "weight": [300.0, 100.0, 100.0]})
+    # rows a and b: 400 clients, 300 events of 400 (x100 so that K = 400 is a published grid point)
+    result = evaluate_at_k(df, 400, assumptions)
     assert result["precision"] == pytest.approx(0.75)
     assert result["recall"] == pytest.approx(0.75)
     assert result["lift"] == pytest.approx(0.75 / 0.8)

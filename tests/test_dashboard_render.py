@@ -19,6 +19,7 @@ from src.predict360.dashboard_render import (
     GUIDED_STEPS,
     TABS,
     format_cop_m,
+    format_count,
     format_pct,
     render,
     write,
@@ -200,6 +201,83 @@ def test_the_log_status_is_explained(sample, status, cls, words):
     data["lineage"]["log_status"] = status
     block = re.search(r'<div class="card" id="log-status">(.*?)</div>', render(data), re.S).group(1)
     assert f'<span class="status {cls}">{status}</span>' in block and words in block
+
+
+# --- stress view: curve and simulator (B12b-2) -------------------------------------------------
+
+def _evaluated_by_label(data):
+    out = {}
+    for e in data["models"]["evaluations"]:
+        if e["status"] == "evaluated":
+            out.setdefault(e["label"], []).append(e)
+    return out
+
+
+def test_stress_view_is_a_hypothetical_scenario_that_never_issues_a_verdict(html):
+    view = _view(html, "estres")
+    assert "Vista en construcción" not in view
+    assert ("Escenario hipotético: no cambia el dictamen, que se fijó con los supuestos registrados en el acta."
+            in view)
+    assert 'id="sim-reset"' in view and "Restablecer supuestos" in view
+    assert "estimación puntual, sin intervalo" in view
+    assert "utorizado" not in view                     # neither "Autorizado" nor "No autorizado"
+
+
+def test_one_curve_per_label_with_models_random_and_k_star(html, sample):
+    view = _view(html, "estres")
+    for label, evaluations in _evaluated_by_label(sample).items():
+        svg = re.search(rf'<svg[^>]*data-curve="{label}"[^>]*>(.*?)</svg>', view, re.S)
+        assert svg, label
+        for e in evaluations:
+            assert f'data-series="{e["model_id"]}"' in svg.group(1)
+            assert f'data-kstar="{e["model_id"]}"' in svg.group(1)
+        assert 'data-series="random"' in svg.group(1)
+
+
+def test_the_curve_carries_what_the_simulator_needs_to_redraw_it(html, sample):
+    # Every control (capacity, effectiveness, cost) must move the drawing, not only the table
+    view = _view(html, "estres")
+    for label in _evaluated_by_label(sample):
+        svg = re.search(rf'<svg[^>]*data-curve="{label}"[^>]*>', view).group(0)
+        for attribute in ("data-x0", "data-xscale", "data-top", "data-plot-h"):
+            assert attribute in svg, (label, attribute)
+    assert 'data-tick="high"' in view and 'data-tick="low"' in view and 'data-zero="' in view
+    assert "se dibujan con los supuestos del acta" not in view
+
+
+def test_defaults_are_the_evaluator_values_without_javascript(html, sample):
+    view = _view(html, "estres")
+    for label, evaluations in _evaluated_by_label(sample).items():
+        for e in evaluations:
+            key = f'{label}.{e["model_id"]}'
+            cell = lambda name: re.search(rf'data-sim-{name}="{re.escape(key)}"[^>]*>([^<]*)<', view).group(1)
+            assert cell("net") == format_cop_m(e["at_k"]["net_value_cop_m"])
+            assert cell("kapplied") == format_count(e["k_applied"])
+            assert cell("kstar") == format_count(e["k_star"]["k"])
+        random = re.search(rf'data-sim-net="{label}.random"[^>]*>([^<]*)<', view).group(1)
+        assert random == format_cop_m(evaluations[0]["random_at_k"]["net_value_cop_m"])
+
+
+def test_capacity_below_k_star_is_flagged(html, sample):
+    view = _view(html, "estres")
+    for label, evaluations in _evaluated_by_label(sample).items():
+        for e in evaluations:
+            flagged = f'data-sim-warning="{label}.{e["model_id"]}"' in view
+            assert flagged == (e["k_star"]["k"] > e["k_applied"]), (label, e["model_id"])
+
+
+def test_simulator_data_and_script_are_inline(html, sample):
+    view = _view(html, "estres")
+    raw = re.search(r'<script type="application/json" id="sim-data">(.*?)</script>', view, re.S).group(1)
+    assert "</" not in raw
+    sim = json.loads(raw)
+    values = {k: v for item in sample["assumptions"] for k, v in item["value"].items()}
+    assert sim["defaults"] == {"capacity_share": values["value.default_capacity_share"],
+                               "action_effectiveness": values["value.action_effectiveness"],
+                               "loss_given_event": values["value.loss_given_event"],
+                               "cost_per_contact_cop": values["value.cost_per_contact_cop"]}
+    assert set(sim["labels"]) == set(_evaluated_by_label(sample))
+    assert "function appliedPoint" in html and "function selfCheck" in html
 
 
 def test_the_six_views_of_the_spec_exist(html):
