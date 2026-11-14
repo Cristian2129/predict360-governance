@@ -43,13 +43,27 @@ def test_scores_hash_is_the_sha256_of_the_file(scores_hash):
     assert scores_hash == _card()["dataset_hash"]
 
 
-def test_all_synthetic_cards_are_admitted_without_warnings(cfg):
+DEMO_FILE = "delinquency_model_c.json"
+
+
+def test_synthetic_cards_are_admitted_except_the_demo_card(cfg):
     report = run_gate2(cfg, CARDS_DIR, SCORES)
-    assert report["status"] == "PASS"
-    assert len(report["cards"]) == 6
-    assert {c["decision"] for c in report["cards"]} == {"ADMITTED"}
-    assert all(c["reasons"] == [] for c in report["cards"])
-    assert report["counts"] == {"ADMITTED": 6, "REJECTED": 0, "SKIPPED": 0}
+    assert report["status"] == "PASS" and report["failures"] == []
+    assert report["counts"] == {"ADMITTED": 6, "REJECTED": 1, "SKIPPED": 0}
+    for card in report["cards"]:
+        assert card["demo"] is (card["file"] == DEMO_FILE)
+        if card["demo"]:
+            # Exactly one reason: the non-temporal split, the leakage told in the defence
+            assert card["decision"] == "REJECTED"
+            assert [(r["rule"], r["severity"]) for r in card["reasons"]] == [("temporal_split", "reject")]
+        else:
+            assert card["decision"] == "ADMITTED" and card["reasons"] == []
+
+
+def test_without_demo_cards_in_the_config_no_card_is_marked_demo(cfg):
+    gate2 = {k: v for k, v in cfg["gate2"].items() if k != "demo_cards"}
+    report = run_gate2({**cfg, "gate2": gate2}, CARDS_DIR, SCORES)
+    assert not any(c["demo"] for c in report["cards"])
 
 
 def test_overlapping_split_defect_rejects_model_a(cfg, tmp_path, monkeypatch):
@@ -59,7 +73,7 @@ def test_overlapping_split_defect_rejects_model_a(cfg, tmp_path, monkeypatch):
     # Rejecting a card is the gate doing its job: the gate passes, the card carries REJECTED
     assert report["status"] == "PASS" and report["failures"] == []
     for card in report["cards"]:
-        if card["model_id"] == "model_a":
+        if card["model_id"] == "model_a" or card["demo"]:
             assert card["decision"] == "REJECTED"
             assert _reasons(card, "reject") == {"temporal_split"}
         else:
@@ -139,7 +153,7 @@ def test_retired_card_in_gate2_counts_as_skipped(cfg, tmp_path):
         (tmp_path / path.name).write_text(json.dumps(card), encoding="utf-8")
     report = run_gate2(cfg, tmp_path, SCORES)
     assert report["status"] == "PASS"
-    assert report["counts"] == {"ADMITTED": 5, "REJECTED": 0, "SKIPPED": 1}
+    assert report["counts"] == {"ADMITTED": 5, "REJECTED": 1, "SKIPPED": 1}   # REJECTED: the demo card
 
 
 def _cards_in(tmp_path, change=None):
