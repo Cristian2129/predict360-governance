@@ -472,7 +472,8 @@
         "target": "churn",
         "status": "candidate",
         "decision": "ADMITTED",
-        "reasons": []
+        "reasons": [],
+        "demo": false
       },
       {
         "file": "churn_model_a.json",
@@ -480,7 +481,8 @@
         "target": "churn",
         "status": "candidate",
         "decision": "ADMITTED",
-        "reasons": []
+        "reasons": [],
+        "demo": false
       },
       {
         "file": "churn_model_b.json",
@@ -494,7 +496,8 @@
             "severity": "skip",
             "message": "retired"
           }
-        ]
+        ],
+        "demo": false
       },
       {
         "file": "delinquency_baseline_rule.json",
@@ -502,7 +505,8 @@
         "target": "delinquency",
         "status": "candidate",
         "decision": "ADMITTED",
-        "reasons": []
+        "reasons": [],
+        "demo": false
       },
       {
         "file": "delinquency_model_a.json",
@@ -510,7 +514,8 @@
         "target": "delinquency",
         "status": "candidate",
         "decision": "ADMITTED",
-        "reasons": []
+        "reasons": [],
+        "demo": false
       },
       {
         "file": "delinquency_model_b.json",
@@ -518,7 +523,8 @@
         "target": "delinquency",
         "status": "candidate",
         "decision": "ADMITTED",
-        "reasons": []
+        "reasons": [],
+        "demo": false
       },
       {
         "file": "delinquency_model_c.json",
@@ -532,7 +538,8 @@
             "severity": "reject",
             "message": "non-temporal split: train_end_date is not before eval_start_date"
           }
-        ]
+        ],
+        "demo": true
       }
     ],
     "evaluations": [

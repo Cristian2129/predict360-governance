@@ -53,6 +53,11 @@ waivers:
 gate2:
   strict_rules: []
   baseline_models: [baseline_rule]
+  # DEMO cards, synthetic only (load_config refuses them elsewhere): deliberately broken
+  # cards that show Gate 2 rejecting a model. The dashboard labels them as demonstrations.
+  # delinquency_model_c: a model_a card trained until T + 30 days, after evaluation starts
+  # at T (non-temporal split, i.e. leakage). It has no scores.
+  demo_cards: [delinquency_model_c]
 
 # PCM Analytics project control (budget_schedule.py). Real team data, not synthetic;
 # the hours log is validated by Gate 1 with contract hours_log_v1.
@@ -97,3 +102,4 @@ generator:
     noise_sd: {baseline_rule: 0.8, model_a: 0.7, model_b: 0.7}
     train_end_offset_days: -91       # train_end_date = T - 91 days
     eval_start_offset_days: 0        # eval_start_date = T
+    demo_train_end_offset_days: 30   # demo cards (gate2.demo_cards): trained until T + 30 days

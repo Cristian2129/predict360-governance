@@ -163,7 +163,8 @@ def run_gate2(cfg: dict, cards_dir: str | Path, scores_path: str | Path) -> dict
     the gate doing its job, not a failure. status: PASS when every card was assessed;
     FAIL only if the gate could not run (no scores file, no cards) or the baseline model
     (``gate2.baseline_models``) of a target was not admitted, because then no model of that
-    target can be compared. ``failures`` says why.
+    target can be compared. ``failures`` says why. ``demo`` marks the cards listed in
+    ``gate2.demo_cards`` (synthetic only), so the dashboard labels them as demonstrations.
     """
     scores_path = Path(scores_path)
     if not scores_path.exists():
@@ -171,10 +172,11 @@ def run_gate2(cfg: dict, cards_dir: str | Path, scores_path: str | Path) -> dict
                 "counts": {"ADMITTED": 0, "REJECTED": 0, "SKIPPED": 0}, "cards": [],
                 "failures": [f"scores file not found: {scores_path.name}"]}
     scores_hash = scores_sha256(scores_path)
+    demo_cards = set(cfg["gate2"].get("demo_cards", []))
     cards = []
     for path in sorted(Path(cards_dir).glob("*.json")):
         card = json.loads(path.read_text(encoding="utf-8"))
-        cards.append({"file": path.name, **admit_card(card, scores_hash, cfg)})
+        cards.append({"file": path.name, **admit_card(card, scores_hash, cfg), "demo": path.stem in demo_cards})
     counts = {d: sum(1 for c in cards if c["decision"] == d) for d in ("ADMITTED", "REJECTED", "SKIPPED")}
 
     failures = [] if cards else [f"no model cards found in {Path(cards_dir).name}"]

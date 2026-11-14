@@ -46,6 +46,15 @@ def test_a_rejected_card_does_not_turn_gate2_red(sample):
     assert sample["gates"]["gate2"]["status"] == "PASS" and sample["gates"]["gate2"]["failures"] == []
 
 
+def test_every_card_says_whether_it_is_a_demo_card(sample):
+    assert all(isinstance(c["demo"], bool) for c in sample["models"]["cards"])
+    demo = [c for c in sample["models"]["cards"] if c["demo"]]
+    assert [(c["file"], c["decision"]) for c in demo] == [("delinquency_model_c.json", "REJECTED")]
+    data = copy.deepcopy(sample)
+    del data["models"]["cards"][0]["demo"]
+    assert any("demo" in e for e in _errors(data))
+
+
 def test_fixture_covers_the_cases_the_dashboard_must_show(sample):
     decisions = {c["decision"] for c in sample["models"]["cards"]}
     assert decisions == {"ADMITTED", "REJECTED", "SKIPPED"}

@@ -324,6 +324,34 @@ def test_summary_shows_gates_run_and_verdicts(sample, html):
     assert "producción" not in html.lower()
 
 
+def _demo_note(html):
+    match = re.search(r'<p class="note" data-demo-card="([^"]+)">(.*?)</p>', html, re.S)
+    return match and (match.group(1), match.group(2))
+
+
+def test_a_demo_card_is_labelled_next_to_its_rejection_reason(sample, html):
+    # «6 admitidas · 1 rechazada» alone could read as a team handing in a leaky model
+    demo = next(c for c in sample["models"]["cards"] if c["demo"])
+    file, text = _demo_note(html)
+    assert file == demo["file"]
+    assert "Ficha de demostración" in text and "partición no temporal" in text
+    assert "temporal_split" in text and _e_model(demo) in text
+    gate2 = html[html.index('data-gate="gate2"'):html.index('data-gate="gate3"')]
+    assert "1 de demostración" in gate2
+
+
+def _e_model(card):
+    return f'{card["target"]} · {card["model_id"]}'
+
+
+def test_without_demo_cards_there_is_no_demo_label(sample):
+    data = copy.deepcopy(sample)
+    for card in data["models"]["cards"]:
+        card["demo"] = False
+    page = render(data)
+    assert _demo_note(page) is None and "de demostración" not in page
+
+
 @pytest.mark.parametrize("citations,warned", [(0, True), (3, False)])
 def test_gate3_pass_without_citations_is_flagged(sample, citations, warned):
     data = copy.deepcopy(sample)

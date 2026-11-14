@@ -69,6 +69,7 @@ def test_gate2_settings_are_declared_in_both_configs():
     ({"strict_rules": ["temporal_split"], "baseline_models": []}, "temporal_split"),
     ({"strict_rules": "baselines_compared", "baseline_models": []}, "strict_rules"),
     ({"strict_rules": []}, "baseline_models"),
+    ({"strict_rules": [], "baseline_models": [], "demo_cards": "delinquency_model_c"}, "demo_cards"),
 ])
 def test_invalid_gate2_settings_fail_on_load(tmp_path, gate2, match):
     # A typo must not silently leave the rule as a WARNING
@@ -77,6 +78,22 @@ def test_invalid_gate2_settings_fail_on_load(tmp_path, gate2, match):
     path = tmp_path / "typo.yaml"
     path.write_text(yaml.safe_dump(cfg), encoding="utf-8")
     with pytest.raises(ValueError, match=match):
+        load_config(path)
+
+
+def test_demo_cards_are_declared_only_in_the_synthetic_config():
+    assert load_config(CONFIG_DIR / "synthetic.yaml")["gate2"]["demo_cards"] == ["delinquency_model_c"]
+    assert "demo_cards" not in load_config(CONFIG_DIR / "real.yaml")["gate2"]
+
+
+def test_demo_cards_are_rejected_in_a_non_synthetic_config(tmp_path):
+    # Inside FinBank no card may be presented as a demonstration
+    cfg = yaml.safe_load((CONFIG_DIR / "synthetic.yaml").read_text(encoding="utf-8"))
+    cfg["synthetic"] = False
+    del cfg["hmac"]["demo_key_public_not_secret"]
+    path = tmp_path / "demo.yaml"
+    path.write_text(yaml.safe_dump(cfg), encoding="utf-8")
+    with pytest.raises(ValueError, match="demo_cards"):
         load_config(path)
 
 

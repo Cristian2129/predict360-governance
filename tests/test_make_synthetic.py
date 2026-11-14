@@ -14,6 +14,7 @@ from src.predict360.reconcile import reconcile_exposure
 CONFIG = CONFIG_DIR / "synthetic.yaml"
 CSV_FILES = ["backlog.csv", "delinquency_sample.csv", "churn_sample.csv", "scores_sample.csv"]
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
+DEMO_CARD = "delinquency_model_c"
 
 
 def _sha256(path):
@@ -60,7 +61,7 @@ def test_same_seed_gives_byte_identical_files(clean, tmp_path, monkeypatch):
     first = {p.relative_to(clean["dir"]): _sha256(p) for p in _all_written_files(clean["dir"])}
     second = {p.relative_to(tmp_path): _sha256(p) for p in _all_written_files(tmp_path)}
     assert first == second
-    assert len(first) == len(CSV_FILES) + 6  # 6 model cards
+    assert len(first) == len(CSV_FILES) + 7  # 6 model cards + the demo card
 
 
 def test_backlog_is_unchanged(clean):
@@ -241,15 +242,39 @@ def test_model_cards_follow_contract_and_trace_scores(clean):
     fields = contract_columns("model_card_v1")
     scores_hash = _sha256(clean["dir"] / "scores_sample.csv")
     cards = sorted((clean["dir"] / "model_cards").glob("*.json"))
-    assert len(cards) == 6
+    assert len(cards) == 7 and [p.stem for p in cards].count(DEMO_CARD) == 1
     for path in cards:
         card = json.loads(path.read_text(encoding="utf-8"))
         assert list(card) == fields
         assert card["status"] == "candidate"
         assert card["dataset_hash"] == scores_hash
-        assert card["train_end_date"] < card["eval_start_date"]
         assert path.stem == f"{card['target']}_{card['model_id']}"
-        assert "simulated" in card["algorithm"]
+        if path.stem != DEMO_CARD:
+            assert card["train_end_date"] < card["eval_start_date"]
+            assert "simulated" in card["algorithm"]
+
+
+def _card_in(folder, stem):
+    return json.loads((folder / "model_cards" / f"{stem}.json").read_text(encoding="utf-8"))
+
+
+def test_the_demo_card_is_declared_in_the_config(cfg):
+    assert cfg["gate2"]["demo_cards"] == [DEMO_CARD]
+
+
+def test_the_demo_card_differs_from_model_a_only_in_its_overlapping_split(clean):
+    # One reason only (temporal_split): the hash, preprocessing and every other field stay clean
+    demo, model_a = _card_in(clean["dir"], DEMO_CARD), _card_in(clean["dir"], "delinquency_model_a")
+    assert demo["train_end_date"] >= demo["eval_start_date"]
+    assert demo["preprocessing_fit_on"] == "train_only"
+    assert {f for f in demo if demo[f] != model_a[f]} == {"model_id", "train_end_date", "algorithm",
+                                                           "hyperparameters"}
+    assert demo["algorithm"].startswith("DEMO card") and "no scores" in demo["algorithm"]
+
+
+def test_the_demo_card_has_no_scores(clean):
+    # scores_v1 only accepts models with an admitted card, and the figures stay byte-identical
+    assert "model_c" not in set(clean["scores"]["model_id"])
 
 
 # --- byte-level reproducibility across operating systems ------------------
@@ -323,5 +348,7 @@ def test_data_defects_leave_model_cards_clean(tmp_path, monkeypatch, defect):
     out = _generate_defect(tmp_path, defect, monkeypatch)
     for p in (out / "model_cards").glob("*.json"):
         card = json.loads(p.read_text(encoding="utf-8"))
+        if p.stem == DEMO_CARD:
+            continue
         assert card["train_end_date"] < card["eval_start_date"]
         assert card["dataset_hash"] == _sha256(out / "scores_sample.csv")

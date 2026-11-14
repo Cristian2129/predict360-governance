@@ -292,6 +292,7 @@ fields:
                   rule: {type: string}
                   severity: {type: string, enum: [reject, warning, skip]}
                   message: {type: string}
+            demo: {type: boolean}     # listed in gate2.demo_cards: shown as a demonstration card
       evaluations:
         type: array
         items:
