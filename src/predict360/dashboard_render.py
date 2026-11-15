@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import date
 from html import escape
 from pathlib import Path
 
@@ -332,10 +333,152 @@ def _figures_table(data: dict) -> str:
             f'<tbody>{rows}</tbody></table>')
 
 
+# --- data: can the data of this run be trusted? ------------------------------------------------
+
+DATA_TABLES = ("delinquency", "churn", "scores")
+TABLE_NAMES = {"delinquency": "mora", "churn": "fuga", "scores": "scores", "hours_log": "registro de horas"}
+COLUMN_NAMES = {"tenure_months": "antigüedad"}
+GATE1_ORDER = {"PASS": 0, "PASS_WITH_WAIVERS": 1, "FAIL": 2}
+GATE1_CLASS = {"PASS": "ok", "PASS_WITH_WAIVERS": "warn", "FAIL": "bad"}
+STEP_NAMES = {"input": "Entrada", "cohort_not_in_arrears_at_T": "Cohorte: sin mora en la fecha de corte",
+              "cohort_not_maturing_within_horizon": "Cohorte: el producto no vence dentro del horizonte",
+              "excluded_immature_all_horizons": "Excluidos: ventana incompleta en todos los horizontes",
+              "labeled": "Etiquetados"}
+EVENTS = {"delinquency": ("caerán en mora", "cayeron en mora"), "churn": ("cancelarán", "cancelaron")}
+WAIVER_WARNING_DAYS = 60
+
+
+def _gate1_table(gate1: dict, tables: tuple, caption: str) -> str:
+    rows = ""
+    for name in tables:
+        t = gate1["tables"].get(name)
+        if t is None:
+            continue
+        rules = ""
+        for r in t["failed_rules"]:
+            critical = " · crítica" if r["critical"] else ""
+            waiver = f' · waiver {_e(r["waived_by"])}' if r.get("waived_by") else ""
+            pct = r.get("unexpected_pct")                  # None for table-level rules (empty, schema)
+            column = f' · {_e(r["column"])}' if r.get("column") else ""
+            share = f" · {format_pct(pct / 100)}" if pct is not None else ""
+            rules += f'<li><code>{_e(r["rule"])}</code>{column}{share}{critical}{waiver}</li>'
+        rows += (f'<tr data-gate1-table="{_e(name)}"><td>{_e(name)}</td><td>{_status(t["status"])}</td>'
+                 f'<td>{format_count(t["rows"])}</td><td><ul class="plain">{rules}</ul>{"" if rules else DASH}</td></tr>')
+    return (f'<table class="data"><caption>{caption}</caption><thead><tr><th>Tabla</th><th>Estado</th><th>Filas</th>'
+            f'<th>Reglas que fallaron</th></tr></thead><tbody>{rows}</tbody></table>')
+
+
+def _data_verdict(data: dict) -> str:
+    gate1 = data["gates"]["gate1"]
+    tables = [gate1["tables"][t] for t in DATA_TABLES if t in gate1["tables"]]
+    status = max((t["status"] for t in tables), key=GATE1_ORDER.get, default="PASS")
+    failed = [r for t in tables for r in t["failed_rules"]]
+    if status == "FAIL":
+        n = sum(1 for r in failed if not r.get("waived_by"))
+        text = f"Los datos no pasan: {format_count(n)} regla(s) fallan sin waiver. No use las cifras de esta corrida."
+    elif status == "PASS_WITH_WAIVERS":
+        ids = ", ".join(sorted({r["waived_by"] for r in failed if r.get("waived_by")}))
+        text = (f"Los datos pasan: {format_count(len(failed))} regla(s) no crítica(s) siguen con un waiver vigente "
+                f"({_e(ids)}).")
+    else:
+        text = f"Los datos de las {format_count(len(tables))} tablas cumplen sus contratos."
+    return (f'<div class="card" id="data-verdict"><h3>Gate 1 · ¿Se puede confiar en los datos?</h3>'
+            f'<p class="plain"><span class="status {GATE1_CLASS[status]}">{_e(status)}</span> {text}</p>'
+            f'{_gate1_table(gate1, DATA_TABLES, "Resultado por tabla")}</div>')
+
+
+def _missing_table(data: dict) -> str:
+    waivers = {(w["table"], w["column"]): w["id"] for w in data["quality"]["waivers"]}
+    rows = ""
+    for table in DATA_TABLES:
+        for column, m in data["quality"]["missing"].get(table, {}).items():
+            if m["limit_pct"] is None:
+                continue                                   # no contract limit: not a quality rule
+            if m["pct"] <= m["limit_pct"]:
+                state = '<span class="status ok">dentro del límite</span>'
+            elif (table, column) in waivers:
+                state = f'<span class="status warn">con waiver {_e(waivers[(table, column)])}</span>'
+            else:
+                state = '<span class="status bad">supera el límite</span>'
+            rows += (f'<tr data-missing="{_e(table)}.{_e(column)}"><td>{_e(table)}</td><td>{_e(column)}</td>'
+                     f'<td>{format_count(m["count"])}</td><td>{format_pct(m["pct"] / 100)}</td>'
+                     f'<td>{format_pct(m["limit_pct"] / 100)}</td><td>{state}</td></tr>')
+    return ('<div class="card" id="data-missing"><table class="data"><caption>Faltantes en las columnas con límite '
+            'del contrato</caption><thead><tr><th>Tabla</th><th>Columna</th><th>Faltantes</th><th>%</th>'
+            f'<th>Límite</th><th>Estado</th></tr></thead><tbody>{rows}</tbody></table></div>')
+
+
+def _waiver_card(waiver: dict, data: dict) -> str:
+    missing = data["quality"]["missing"].get(waiver["table"], {}).get(waiver["column"])
+    column = COLUMN_NAMES.get(waiver["column"], waiver["column"])
+    if waiver["rule"] == "expect_column_values_to_not_be_null" and missing:
+        plain = (f'El {format_pct(missing["pct"] / 100)} de la tabla de {TABLE_NAMES.get(waiver["table"], waiver["table"])} '
+                 f'no tiene {_e(column)} registrada; no se rellena, se evalúa aparte.')
+    else:
+        plain = f'La regla {_e(waiver["rule"])} sobre {_e(column)} falla y se acepta con este waiver.'
+    run_day = date.fromisoformat(data["meta"]["generated_at"][:10])
+    days = (date.fromisoformat(str(waiver["expires"])) - run_day).days
+    expiring = ""
+    if days <= WAIVER_WARNING_DAYS:
+        expiring = (f'<p class="note" data-waiver-expiring="{_e(waiver["id"])}">Vence en {format_count(days)} días: '
+                    f'renovar o corregir antes del {_e(waiver["expires"])}.</p>')
+    return (f'<div class="card" data-waiver="{_e(waiver["id"])}"><h3>Waiver {_e(waiver["id"])}</h3>'
+            f'<p class="plain">{plain}</p><dl class="kv">'
+            f'<dt>Tabla y columna</dt><dd>{_e(waiver["table"])}.{_e(waiver["column"])}</dd>'
+            f'<dt>Regla</dt><dd><code>{_e(waiver["rule"])}</code></dd><dt>Riesgo</dt><dd>{_e(waiver["risk"])}</dd>'
+            f'<dt>Motivo</dt><dd>{_e(waiver["reason"])}</dd><dt>Aprobó</dt><dd>{_e(waiver["approved_by"])}</dd>'
+            f'<dt>Fecha</dt><dd>{_e(waiver["date"])}</dd><dt>Vence</dt><dd>{_e(waiver["expires"])}</dd></dl>'
+            f'{expiring}</div>')
+
+
+def _funnel_card(target: str, funnel: dict) -> str:
+    total = funnel["steps"][0]["clients"]
+    future, past = EVENTS.get(target, ("tendrán el evento", "tuvieron el evento"))
+    plain = ""
+    for label, h in funnel["horizons"].items():
+        plain += (f'<p class="plain" data-horizon="{_e(label)}">{_e(LABEL_NAMES.get(label, label))}. De '
+                  f'{format_count(total)} clientes, {format_count(h["mature_clients"])} tienen su ventana de '
+                  f'{format_count(h["horizon_days"])} días completa; {format_count(total - h["mature_clients"])} se '
+                  f'excluyen porque aún no se sabe si {future}. De los evaluados, '
+                  f'{format_count(h["positive_clients"])} {past} (tasa base {format_pct(h["base_rate"])}).</p>')
+    steps = ""
+    for s in funnel["steps"]:
+        name = _e(STEP_NAMES.get(s["step"], s["step"]))
+        if s.get("status") == "not_verifiable":
+            steps += (f'<tr data-step="{_e(s["step"])}"><td>{name}</td><td colspan="3"><span class="status warn">'
+                      f'No verificable</span> falta {_e(s["missing_column"])}; FinBank debe añadirlo en '
+                      f'{_e(funnel["table"])}_v2.</td></tr>')
+            continue
+        width = 100 * s["clients"] / total if total else 0.0
+        steps += (f'<tr data-step="{_e(s["step"])}"><td>{name}</td><td>{format_count(s["rows"])}</td>'
+                  f'<td>{format_count(s["clients"])}</td><td class="bar-cell"><span class="bar" '
+                  f'style="width: {width:.2f}%"></span></td></tr>')
+    horizons = "".join(
+        f'<tr data-horizon-row="{_e(label)}"><td>{_e(LABEL_NAMES.get(label, label))}</td>'
+        f'<td>{format_count(h["mature_clients"])}</td><td>{format_count(h["immature_rows"])}</td>'
+        f'<td>{format_count(h["positive_clients"])}</td><td>{format_pct(h["base_rate"])}</td></tr>'
+        for label, h in funnel["horizons"].items())
+    return (f'<div class="card" data-funnel="{_e(target)}"><h3>Embudo de etiquetado · {TARGET_NAMES.get(target, target)}</h3>'
+            f'{plain}<table class="data"><caption>Pasos</caption><thead><tr><th>Paso</th><th>Filas</th><th>Clientes</th>'
+            f'<th></th></tr></thead><tbody>{steps}</tbody></table>'
+            '<table class="data"><caption>Por horizonte</caption><thead><tr><th>Etiqueta</th><th>Clientes maduros</th>'
+            '<th>Filas inmaduras</th><th>Clientes con evento</th><th>Tasa base</th></tr></thead>'
+            f'<tbody>{horizons}</tbody></table></div>')
+
+
+def _data_part(data: dict) -> str:
+    quality = data["quality"]
+    waivers = "".join(_waiver_card(w, data) for w in quality["waivers"])
+    funnels = "".join(_funnel_card(t, f) for t, f in quality["labeling_funnel"].items())
+    return (f'{_data_verdict(data)}{_missing_table(data)}'
+            f'<div class="grid">{waivers}</div><div class="stack">{funnels}</div>')
+
+
 def _lineage_view(data: dict) -> str:
     manifest = data["lineage"]["manifest"]
     return (
         '<section class="view" id="datos"><h2>Datos y linaje</h2>'
+        f'{_data_part(data)}<h2 class="sub">Linaje</h2>'
         f'<div class="grid">{_log_card(data["lineage"])}</div>'
         f'<p class="note" id="manifest-snapshot">{SNAPSHOT_NOTE}</p>'
         f'<div class="card">{_figures_table(data)}</div>'
@@ -799,9 +942,13 @@ def _risks_table(management: dict) -> str:
 def _management_view(data: dict) -> str:
     management = data["management"]
     head = f'<section class="view" id="gestion"><h2>{dict(TABS)["gestion"]}</h2>'
+    hours_gate = ('<div class="card" id="management-hours-gate">'
+                  + _gate1_table(data["gates"]["gate1"], ("hours_log",),
+                                 "Gate 1 · registro de horas (control de proyecto de PCM, no es dato de FinBank)")
+                  + '</div>')
     if management["status"] != "RUN":
         return (head + f'<div class="banner warn" id="management-not-run" role="status">La gestión no se calculó '
-                f'en esta corrida: {_e(management["reason"])}.</div></section>')
+                f'en esta corrida: {_e(management["reason"])}.</div>{hours_gate}</section>')
     outside = management["hours_outside_reported_sprints"]
     hours_note = ""
     if outside:
@@ -810,7 +957,7 @@ def _management_view(data: dict) -> str:
                       f'sprint_log ({listed}): no entran en el valor ganado.</p>')
     return (head + f'<div class="grid">{_cumulative_card(management, data)}{_baseline_card(management["baseline"])}</div>'
             f'{_sprints_table(management)}{hours_note}<div class="grid">{_velocity_table(management)}</div>'
-            f'{_risks_table(management)}</section>')
+            f'{_risks_table(management)}{hours_gate}</section>')
 
 
 def _pending(tab_id: str, label: str) -> str:

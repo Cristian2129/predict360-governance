@@ -206,3 +206,8 @@ svg.capture .capacity { stroke: var(--text); stroke-width: 1.25; stroke-dasharra
 ul.plain { list-style: none; padding: 0; margin: 4px 0; }
 details.technical > summary { cursor: pointer; font-weight: 600; }
 details.technical table.data { margin-top: 12px; }
+/* --- Data view (B12c-3): plain sentences and funnel bars ---------------------------------- */
+p.plain { font-size: 1rem; line-height: 1.5; margin: 4px 0 10px; }
+h2.sub { margin-top: 32px; }
+td.bar-cell { width: 40%; }
+td.bar-cell .bar { display: block; height: 10px; border-radius: 0 4px 4px 0; background: var(--s0); min-width: 2px; }
