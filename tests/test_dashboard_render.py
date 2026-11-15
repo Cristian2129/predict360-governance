@@ -397,6 +397,129 @@ def test_decision_shows_point_difference_next_to_the_paired_interval(sample, htm
             assert format_cop_m(value) in fragment
 
 
+# --- data view (B12c-3): can the data of this run be trusted? ---------------------------------
+
+DATA_TABLES = ("delinquency", "churn", "scores")
+
+
+def _data(data):
+    return _view(render(data), "datos")
+
+
+def test_data_comes_before_lineage(html):
+    view = _view(html, "datos")
+    assert view.index('id="data-verdict"') < view.index('id="log-status"')
+
+
+@pytest.mark.parametrize("status,cls,words", [("PASS_WITH_WAIVERS", "warn", "waiver"), ("FAIL", "bad", "no pasan"),
+                                              ("PASS", "ok", "cumplen")])
+def test_the_data_verdict_is_said_in_plain_words(sample, status, cls, words):
+    data = copy.deepcopy(sample)
+    tables = data["gates"]["gate1"]["tables"]
+    if status == "FAIL":
+        tables["scores"].update(status="FAIL", failed_rules=[{"rule": "expect_column_values_to_be_between",
+                                "column": "score", "critical": True, "unexpected_count": 2, "unexpected_pct": 0.1,
+                                "waived_by": None}])
+        data["gates"]["gate1"]["status"] = "FAIL"
+    if status == "PASS":
+        tables["churn"].update(status="PASS", failed_rules=[])
+    card = re.search(r'<div class="card" id="data-verdict">(.*?)</div>', _data(data), re.S).group(1)
+    plain = re.search(r'<p class="plain">(.*?)</p>', card, re.S).group(1)
+    assert f'class="status {cls}"' in plain and words in plain
+
+
+def test_gate1_lists_the_data_tables_but_not_the_hours_log(sample, html):
+    view = _view(html, "datos")
+    for table in DATA_TABLES:
+        assert f'data-gate1-table="{table}"' in view
+    assert 'data-gate1-table="hours_log"' not in view and "hours_log" not in view.split('id="log-status"')[0]
+    rule = sample["gates"]["gate1"]["tables"]["churn"]["failed_rules"][0]
+    row = re.search(r'<tr data-gate1-table="churn">(.*?)</tr>', view, re.S).group(1)
+    assert rule["column"] in row and rule["waived_by"] in row
+
+
+def test_the_hours_log_gate_is_in_the_management_view(sample, html):
+    view = _view(html, "gestion")
+    assert 'data-gate1-table="hours_log"' in view
+    data = copy.deepcopy(sample)
+    data["management"] = {"status": "NOT_RUN", "reason": "hours_log failed Gate 1"}
+    data["gates"]["gate1"]["tables"]["hours_log"].update(status="FAIL")
+    assert 'data-gate1-table="hours_log"' in _management(data)    # it says why management did not run
+
+
+def test_a_table_level_rule_without_a_share_is_shown(sample):
+    data = copy.deepcopy(sample)
+    data["gates"]["gate1"]["tables"]["scores"].update(status="FAIL", rows=0, failed_rules=[
+        {"rule": "expect_table_row_count_to_be_between", "column": None, "critical": True,
+         "unexpected_count": None, "unexpected_pct": None, "waived_by": None}])
+    row = re.search(r'<tr data-gate1-table="scores">(.*?)</tr>', _data(data), re.S).group(1)
+    assert "expect_table_row_count_to_be_between" in row and "None" not in row
+
+
+def _missing_rows(view):
+    return dict(re.findall(r'<tr data-missing="([^"]+)">(.*?)</tr>', view, re.S))
+
+
+def test_missing_lists_only_columns_with_a_contract_limit(sample, html):
+    rows = _missing_rows(_view(html, "datos"))
+    expected = {f"{t}.{c}" for t in DATA_TABLES for c, m in sample["quality"]["missing"][t].items()
+                if m["limit_pct"] is not None}
+    assert set(rows) == expected
+    assert "delinquency.first_delinquency_date" not in rows and "churn.cancellation_date" not in rows
+    assert "W-01" in rows["churn.tenure_months"] and 'class="status warn"' in rows["churn.tenure_months"]
+    assert 'class="status ok"' in rows["delinquency.client_id"]
+
+
+def test_a_column_over_its_limit_without_a_waiver_is_red(sample):
+    data = copy.deepcopy(sample)
+    data["quality"]["missing"]["delinquency"]["tenure_months"].update(count=50, pct=10.0)
+    row = _missing_rows(_data(data))["delinquency.tenure_months"]
+    assert 'class="status bad"' in row
+
+
+def test_the_waiver_is_explained_in_plain_words_with_its_expiry(sample, html):
+    view = _view(html, "datos")
+    waiver = sample["quality"]["waivers"][0]
+    card = re.search(rf'<div class="card" data-waiver="{waiver["id"]}">(.*?)</div>', view, re.S).group(1)
+    pct = sample["quality"]["missing"][waiver["table"]][waiver["column"]]["pct"]
+    plain = re.search(r'<p class="plain">(.*?)</p>', card, re.S).group(1)
+    assert f"El {format_pct(pct / 100)}" in plain and "antigüedad" in plain and "no se rellena, se evalúa aparte" in plain
+    assert waiver["expires"] in card and waiver["approved_by"] in card and waiver["risk"] in card
+
+
+@pytest.mark.parametrize("generated_at,soon", [("2026-11-14T08:00:00Z", True), ("2026-09-01T08:00:00Z", False)])
+def test_a_waiver_close_to_expiry_is_flagged(sample, generated_at, soon):
+    data = copy.deepcopy(sample)
+    data["meta"]["generated_at"] = generated_at
+    assert ('data-waiver-expiring="W-01"' in _data(data)) is soon
+
+
+def test_the_funnel_has_every_step_with_proportional_bars(sample, html):
+    view = _view(html, "datos")
+    for target, funnel in sample["quality"]["labeling_funnel"].items():
+        block = re.search(rf'<div class="card" data-funnel="{target}">(.*?)</table>', view, re.S).group(1)
+        assert len(re.findall(r"<tr data-step=", block)) == len(funnel["steps"])
+        total = funnel["steps"][0]["clients"]
+        for step in funnel["steps"]:
+            row = re.search(rf'<tr data-step="{step["step"]}">(.*?)</tr>', block, re.S).group(1)
+            if step.get("status") == "not_verifiable":
+                assert step["missing_column"] in row and f"{target}_v2" in row and "No verificable" in row
+            else:
+                width = float(re.search(r'style="width: ([\d.]+)%"', row).group(1))
+                assert width == pytest.approx(100 * step["clients"] / total, abs=0.05)
+
+
+def test_each_horizon_is_explained_in_plain_words(sample, html):
+    view = _view(html, "datos")
+    for target, funnel in sample["quality"]["labeling_funnel"].items():
+        total = funnel["steps"][0]["clients"]
+        for label, h in funnel["horizons"].items():
+            plain = re.search(rf'<p class="plain" data-horizon="{label}">(.*?)</p>', view, re.S).group(1)
+            assert f"De {format_count(total)} clientes, {format_count(h['mature_clients'])}" in plain
+            assert format_count(total - h["mature_clients"]) in plain and "aún no se sabe" in plain
+            assert format_pct(h["base_rate"]) in plain
+
+
 # --- models view (B12c-2): which model ranks best, and is the evidence enough? ----------------
 
 def _models(data):
@@ -633,7 +756,7 @@ def test_management_that_did_not_run_shows_only_its_reason(sample):
     data["management"] = {"status": "NOT_RUN", "reason": "hours_log failed Gate 1"}
     view = _management(data)
     assert 'id="management-not-run"' in view and "hours_log failed Gate 1" in view
-    assert "<table" not in view and 'id="management-cumulative"' not in view
+    assert "data-sprint=" not in view and 'id="management-cumulative"' not in view   # only the hours log gate
 
 
 def test_renderer_source_has_no_hand_written_figures():
