@@ -1,6 +1,0 @@
-# The team's reading of the management figures (Gestión view, "Lectura del equipo").
-# Written by people and shown exactly as written; the dashboard never edits it.
-# Blank lines separate paragraphs. While it is null the view says the reading is pending.
-# Figures quoted here must come from the pipeline or docs/sprint_log.csv (Gate 3).
-version: v1
-team_reading: null

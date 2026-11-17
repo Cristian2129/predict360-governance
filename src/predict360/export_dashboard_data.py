@@ -4,8 +4,7 @@
 renders ``index.html`` from it; both files go into the run folder and the final manifest
 records their hashes. Nothing is recomputed here: every value is copied from the run's
 aggregate outputs (gate reports, reconciliation, funnel, evaluation, management) or from
-the files people write (assumptions, sprint log, risk register, handover runbook, the team's
-reading of the management figures in ``config/management_notes.yaml``, shown as written).
+the files people write (assumptions, sprint log, risk register, handover runbook).
 
 - ``lineage.manifest`` is a snapshot of the manifest at export time. A file cannot carry
   its own hash, so its outputs list everything except ``dashboard_data.json`` and
@@ -31,7 +30,6 @@ from src.predict360.risk_register import DEFAULT_REGISTER, DEFAULT_REVIEWS
 from src.predict360.sprint_metrics import calculate_velocity, get_burndown_series
 
 HANDOVER_PATH = CONFIG_DIR / "handover.yaml"
-MANAGEMENT_NOTES_PATH = CONFIG_DIR / "management_notes.yaml"
 DASHBOARD_OUTPUTS = ("dashboard_data.json", "index.html")
 NOT_RUN_HOURS_LOG = "hours_log failed Gate 1"
 NOT_RUN_NO_HOURS_LOG = "no hours_log configured"
@@ -59,14 +57,6 @@ def _log_status(log_path: Path, runs_dir: Path | None) -> str:
     return verify_lineage_log(log_path, runs_dir)["status"]
 
 
-def _team_reading(path: Path) -> str | None:
-    """The team's reading, as written (outer blank lines trimmed); None when nobody wrote it yet."""
-    if not path.exists():
-        return None
-    text = (yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("team_reading")
-    return text.strip() if isinstance(text, str) and text.strip() else None
-
-
 def _burndown(log: pd.DataFrame) -> list[dict]:
     """Remaining SP per block of every reported sprint, as sprint_metrics computes it."""
     return [{"sprint": int(s),
@@ -77,7 +67,7 @@ def _burndown(log: pd.DataFrame) -> list[dict]:
 
 
 def _management(run_dir: Path, cfg: dict, gate1: dict, sprint_log: Path | None,
-                risk_register: Path, risk_reviews: Path, notes: Path) -> dict:
+                risk_register: Path, risk_reviews: Path) -> dict:
     if not (run_dir / "management.json").exists():
         configured = (cfg.get("management") or {}).get("hours_log")
         failed = gate1["tables"].get("hours_log", {}).get("status") == "FAIL"
@@ -95,7 +85,6 @@ def _management(run_dir: Path, cfg: dict, gate1: dict, sprint_log: Path | None,
         "risks": [{k: row[k] for k in RISK_FIELDS} for row in register.to_dict("records")],
         "risk_reviews_count": len(pd.read_csv(risk_reviews)),
         "burndown": _burndown(log),
-        "team_reading": _team_reading(notes),
     }
 
 
@@ -114,8 +103,7 @@ def build_dashboard_data(run_dir: str | Path, manifest: dict, cfg: dict, *, log_
                          assumptions_path: str | Path = CONFIG_DIR / "assumptions.yaml",
                          sprint_log: str | Path | None = None, risk_register: str | Path = DEFAULT_REGISTER,
                          risk_reviews: str | Path = DEFAULT_REVIEWS,
-                         handover_path: str | Path = HANDOVER_PATH,
-                         management_notes: str | Path = MANAGEMENT_NOTES_PATH) -> dict:
+                         handover_path: str | Path = HANDOVER_PATH) -> dict:
     """The dashboard_data_v1 document of an open run (its aggregate outputs already written)."""
     run_dir, log_path = Path(run_dir), Path(log_path)
     gate1, gate2, gate3 = (_read(run_dir, n) for n in ("gate1.json", "gate2.json", "consistency.json"))
@@ -168,7 +156,7 @@ def build_dashboard_data(run_dir: str | Path, manifest: dict, cfg: dict, *, log_
         "assumptions": [{"id": i["id"], "name": i["name"], "type": i["type"], "value": i["value"],
                          "rationale": i["rationale"]} for i in assumptions["items"]],
         "management": _management(run_dir, cfg, gate1, Path(sprint_log) if sprint_log else None,
-                                  Path(risk_register), Path(risk_reviews), Path(management_notes)),
+                                  Path(risk_register), Path(risk_reviews)),
         "handover": _handover(funnel, Path(handover_path)),
     }
 

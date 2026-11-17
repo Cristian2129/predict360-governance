@@ -1577,7 +1577,6 @@ def _models_view(data: dict) -> str:
 MANAGEMENT_QUESTION = "¿Vamos a tiempo y dentro del presupuesto?"
 OPEN_SPRINT_NOTE = ("EV solo reconoce los SP cerrados con DoD («No attachment, no Done»): un sprint sin cerrar "
                     "baja el EV y arrastra SPI, CPI y EAC hasta su cierre.")
-TEAM_READING_PENDING = ("El equipo aún no ha escrito su lectura de estas cifras (config/management_notes.yaml).")
 SP_TICK_STEPS = (1, 2, 5, 10, 20, 50)
 COP_TICK_STEPS = (5, 10, 20, 25, 50, 100, 200)
 
@@ -1648,15 +1647,6 @@ def _budget_bar(management: dict) -> str:
             f'<li><span class="swatch bac"></span>BAC, presupuesto aprobado: <strong>{format_cop_m(c["bac_cop_m"])}'
             f'</strong></li><li><span class="swatch ceiling"></span>Techo del charter: '
             f'<strong>{format_cop_m(c["ceiling_cop_m"])}</strong></li>{eac_item}</ul></div><!-- /budget -->')
-
-
-def _team_reading(management: dict) -> str:
-    text = management["team_reading"]
-    if text is None:
-        body = f'<p class="pending">{_e(TEAM_READING_PENDING)}</p>'
-    else:
-        body = "".join(f"<p>{_e(p.strip())}</p>" for p in re.split(r"\n\s*\n", text) if p.strip())
-    return f'<div class="card" id="team-reading"><h3>Lectura del equipo</h3>{body}</div>'
 
 
 def _chart_frame(ticks: list[float], fmt, width: int, height: int, left: int, right: int, top: int, bottom: int):
@@ -1936,7 +1926,7 @@ def _management_view(data: dict) -> str:
                  f'{_sprints_table(management)}{hours_note}<div class="grid two">{_velocity_table(management)}'
                  f'{_cumulative_kv(management)}</div>{_baseline_card(management["baseline"])}'
                  f'{_risks_detail(management)}{hours_gate}</details>')
-    return (head + f'{_management_cards(management, data)}{_budget_bar(management)}{_team_reading(management)}'
+    return (head + f'{_management_cards(management, data)}{_budget_bar(management)}'
             f'<div class="stack">{_evm_chart(management)}<div class="grid two">{_velocity_chart(management)}'
             f'{_burndown_chart(management)}</div></div>'
             f'{_risks_card(management)}{technical}</section>')

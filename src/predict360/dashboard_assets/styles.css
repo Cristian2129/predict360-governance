@@ -422,8 +422,6 @@ p.mgmt-value { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-
 .swatch.eac.over { border-color: var(--res-bad); background: var(--res-bad); }
 svg.mgmt-chart .tick { font-size: 15px; }
 .mgmt-card details.trace { margin-top: 6px; }
-#team-reading { margin-bottom: var(--gap); }
-#team-reading p { max-width: 75ch; line-height: 1.55; }
 svg.mgmt-chart { width: 100%; height: auto; display: block; margin: 8px 0 4px; }
 svg.mgmt-chart .series { stroke-width: 2.5; }
 svg.mgmt-chart .dot { stroke: var(--surface); stroke-width: 2; }

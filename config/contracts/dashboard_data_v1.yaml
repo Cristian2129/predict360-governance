@@ -472,8 +472,6 @@ fields:
                       block: {type: integer, min: 0}
                       ideal_remaining: {type: number, min: 0}
                       actual_remaining: {type: number, min: 0}
-          # Written by the team in config/management_notes.yaml and shown as written; null until written.
-          team_reading: {type: [string, "null"]}
       - type: object
         fields:
           status: {type: string, enum: [NOT_RUN]}
