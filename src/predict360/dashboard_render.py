@@ -40,19 +40,29 @@ ASSETS_DIR = Path(__file__).resolve().parent / "dashboard_assets"
 
 TABS = [
     ("resumen", "Resumen"),
-    ("datos", "Datos y linaje"),
+    ("datos", "Datos"),
+    ("trazabilidad", "Trazabilidad"),
     ("modelos", "Modelos"),
-    ("estres", "Estrés"),
+    ("estres", "Decisión en COP"),
     ("gestion", "Gestión"),
-    ("entrega", "Entrega a FinBank"),
+    ("entrega", "Entrega"),
 ]
+TAB_ICONS = {"resumen": "home", "datos": "db", "trazabilidad": "route", "modelos": "model", "estres": "coin", "gestion": "calendar",
+             "entrega": "box"}
+# The ONE place where technical ids get their name for a reader; ids stay in «Detalle técnico» only
+PLAIN_NAMES = {
+    "delinquency": "Mora temprana", "churn": "Fuga de clientes preferenciales",
+    "delinquency_30": "Mora a 30 días", "delinquency_60": "Mora a 60 días", "churn_3m": "Fuga a 3 meses",
+    "baseline_rule": "Regla actual", "model_a": "Modelo A", "model_b": "Modelo B", "model_c": "Modelo C",
+    "random": "Azar", "tenure_months": "antigüedad",
+}
 GUIDED_STEPS = [
     {"tab": "resumen", "title": "Correr el pipeline y refrescar el tablero",
      "text": "Un solo comando (run_pipeline.py --config config/synthetic.yaml) corre las doce "
              "estaciones y escribe este tablero. Revise la exposición, la conciliación y los tres gates."},
     {"tab": "datos", "title": "Romper los datos",
      "text": "Con un archivo defectuoso, el Gate 1 se pone en rojo y dice qué regla falló."},
-    {"tab": "resumen", "title": "Rastrear una cifra hasta su origen",
+    {"tab": "trazabilidad", "title": "Rastrear una cifra hasta su origen",
      "text": "Abra el rastreo de la exposición de mora: archivo de origen, script, commit y hash."},
     {"tab": "modelos", "title": "Comparar modelos",
      "text": "Compare los modelos contra la regla base y el azar, revise las rebanadas y vea una "
@@ -62,25 +72,39 @@ GUIDED_STEPS = [
     {"tab": "gestion", "title": "Gestión, evidencia y consistencia",
      "text": "Valor ganado, SPI, CPI y EAC contra el techo del presupuesto; registro de evidencia y Gate 3."},
 ]
-TARGET_NAMES = {"delinquency": "Mora temprana", "churn": "Fuga de clientes preferenciales"}
 GATE_NAMES = {"gate1": "Gate 1 · Datos", "gate2": "Gate 2 · Fichas de modelo", "gate3": "Gate 3 · Consistencia"}
+CONTROL_NAMES = {"gate1": ("db", "Datos"), "gate2": ("file", "Fichas de modelo"),
+                 "gate3": ("check", "Consistencia de cifras")}
+SUMMARY_QUESTION = "¿Cuánto está en riesgo y podemos confiar en la respuesta?"
+EXPOSURE_NOTE = ("Son exposición en riesgo, no pérdida. El dictamen más alto posible es «autorizado a despliegue "
+                 "en sombra».")
+ICONS = {   # 24x24 strokes, drawn inline: no icon font, no network
+    "home": '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+    "db": '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/>'
+          '<path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
+    "model": '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6v6H9z"/>'
+             '<path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"/>',
+    "coin": '<circle cx="12" cy="12" r="9"/><path d="M15 9.5c-.5-1-1.6-1.5-3-1.5-1.9 0-3 .9-3 2s1 1.7 3 2 3 .9 3 '
+            '2-1.1 2-3 2c-1.4 0-2.5-.5-3-1.5M12 6v2M12 16v2"/>',
+    "calendar": '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+    "box": '<path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/>',
+    "play": '<circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5z"/>',
+    "check": '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    "route": '<circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H15a3.5 3.5 0 0 0 0-7H9a3.5 3.5 0 0 1 0-7h6.5"/>',
+    "alert": '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/>',
+    "shield": '<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
+    "file": '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 13h6M9 17h6"/>',
+    "scale": '<path d="M12 4v16M5 20h14M4 8h16"/><path d="M7 8l-3 6a3 3 0 0 0 6 0zM17 8l-3 6a3 3 0 0 0 6 0z"/>',
+}
+PILL_ICONS = {"ok": "check", "warn": "alert", "bad": "alert"}
 CARD_RULES = {"complete_card": "ficha incompleta", "traceable": "sin trazabilidad",
               "temporal_split": "partición no temporal", "preprocessing_train_only": "posible fuga en el preprocesamiento",
               "status_backed": "estado sin aprobación", "intervention_declared": "intervención no declarada",
               "baselines_compared": "líneas base no comparadas", "status": "retirada"}
 VERDICTS = {"authorized_for_shadow_deployment": ("Autorizado a despliegue en sombra", "ok"),
             "not_authorized": ("No autorizado", "bad")}
-REASON_CODES = {"authorized": "", "insufficient_evidence": "Evidencia insuficiente",
-                "does_not_beat_baseline": "No supera la regla", "no_baseline": "Sin regla base comparable",
-                "no_candidate": "Sin modelo candidato"}
 OUTCOMES = {"beats": ("Supera la regla", "ok"), "insufficient_evidence": ("Evidencia insuficiente", "warn"),
             "does_not_beat_baseline": ("No supera la regla", "bad")}
-LOG_STATUS = {
-    "OK": ("ok", "La cadena de hashes del log de linaje está íntegra: ninguna corrida anterior fue alterada."),
-    "TAMPERED": ("bad", "El log de linaje fue alterado: la cadena de hashes no coincide. "
-                        "No confíe en estas cifras hasta revisarlo."),
-    "NOT_CHECKED": ("warn", "El log no se verificó: esta es la primera corrida registrada en él."),
-}
 SNAPSHOT_NOTE = ("Foto del manifiesto al exportar; el manifiesto final registra también este archivo y el tablero.")
 __all__ =["GUIDED_STEPS", "TABS", "format_cop_m", "format_pct", "render", "write"]   # formatters re-exported
 
@@ -93,44 +117,77 @@ def _status(value: str) -> str:
     return f'<span class="status {_e(value)}">{_e(value)}</span>'
 
 
+def _plain(key) -> str:
+    """Reader's name of a technical id (escaped); an unknown id is shown as it is."""
+    return _e(PLAIN_NAMES.get(key, key))
+
+
+def _icon(name: str, size: int = 20) -> str:
+    return (f'<svg class="ico" width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+            f'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{ICONS[name]}</svg>')
+
+
+def _pill(cls: str, text: str, pill_id: str = "") -> str:
+    """Soft status pill: colour, icon AND words, never colour alone. ``text`` is already HTML."""
+    attribute = f' id="{pill_id}" role="status"' if pill_id else ""
+    return f'<span class="pill {cls}"{attribute}>{_icon(PILL_ICONS[cls], 14)}<span>{text}</span></span>'
+
+
+def _plural(n: int, one: str, many: str) -> str:
+    return f"{format_count(n)} {one if n == 1 else many}"
+
+
 # --- page parts ------------------------------------------------------------------------
 
 def _banners(meta: dict) -> str:
+    """Full-width strips only where a reader could be misled: the fixture, or real FinBank data."""
     items = []
     if meta["sample"]:   # first and loud: Pages shows the fixture until the official run exists
         items.append(("banner-sample", "warn loud",
                       "DATOS DE EJEMPLO · Fixture de desarrollo: no proviene de una corrida del pipeline. "
                       "Ninguna cifra de esta página es un resultado."))
-    if meta["synthetic"]:
-        items.append(("banner-synthetic", "info",
-                      "Datos sintéticos: ninguna cifra corresponde a clientes reales de FinBank."))
-    else:
+    if not meta["synthetic"]:
         items.append(("banner-real", "bad", "Datos reales de FinBank: uso interno del banco, no publicar."))
-    if meta["scores_simulated"]:
-        items.append(("banner-simulated", "info", "Los scores de los modelos son simulados, no entrenados."))
-    commit = meta["commit"]
-    if commit == "unknown":
-        items.append(("banner-commit", "warn",
-                      f"No se pudo identificar el commit del código; solo se conoce la versión {_e(meta['code_version'])}."))
-    elif commit.endswith("-dirty"):
-        items.append(("banner-commit", "warn",
-                      "El código tenía cambios sin commit (-dirty): esta no es una corrida oficial."))
     return "".join(f'<div class="banner {cls}" id="{bid}" role="status">{text}</div>' for bid, cls, text in items)
 
 
+def _commit_warning(meta: dict) -> str:
+    commit = meta["commit"]
+    if commit == "unknown":
+        return _pill("warn", "No se pudo identificar el commit del código; solo se conoce la versión "
+                             f"{_e(meta['code_version'])}.", "banner-commit")
+    if commit.endswith("-dirty"):
+        return _pill("warn", "El código tenía cambios sin commit: esta no es una corrida oficial.", "banner-commit")
+    return ""
+
+
 def _header(meta: dict) -> str:
+    simulated = ' · <span id="banner-simulated">scores simulados</span>' if meta["scores_simulated"] else ""
+    if meta["synthetic"]:
+        tag = f'<span class="tag" id="banner-synthetic">Datos sintéticos{simulated}</span>'
+    else:
+        tag = '<span class="tag" id="banner-simulated">Scores simulados</span>' if meta["scores_simulated"] else ""
     return (
-        '<header class="top"><h1>FinBank Predict360 · Tablero del comité</h1>'
-        f'<span class="run">Corrida {_e(meta["run_id"])} · {_e(meta["generated_at"])} · '
-        f'commit {_e(meta["commit"][:12])} · v{_e(meta["code_version"])}</span></header>'
+        '<header class="top"><div><h1>FinBank Predict360 · Tablero del comité</h1>'
+        f'<div class="run">Corrida {_e(meta["run_id"])} · corte {_e(meta["snapshot_date"])} · '
+        f'commit {_e(meta["commit"][:12])} · v{_e(meta["code_version"])}</div></div>'
+        f'<div class="tags">{_commit_warning(meta)}{tag}</div></header>'
     )
 
 
-def _nav() -> str:
-    tabs = "".join(f'<a href="#{tab_id}">{label}</a>' for tab_id, label in TABS)
-    steps = "".join(f'<a href="#guia-{n}">{n}. {_e(s["title"])}</a>' for n, s in enumerate(GUIDED_STEPS, start=1))
-    return (f'<nav class="tabs" aria-label="Vistas">{tabs}</nav>'
-            f'<nav class="guide" aria-label="Modo guiado"><span class="label">Modo guiado:</span>{steps}</nav>')
+def _sidebar() -> str:
+    links = "".join(f'<a class="nav" href="#{tab_id}">{_icon(TAB_ICONS[tab_id])}<span>{label}</span></a>'
+                    for tab_id, label in TABS)
+    return (f'<aside class="side"><div class="brand"><span class="mark">{_icon("check", 18)}</span>Predict360</div>'
+            f'<nav aria-label="Vistas">{links}</nav>'
+            f'<a class="present" href="#guia-1">{_icon("play")}<span>Presentar</span></a></aside>')
+
+
+def _active_nav_style() -> str:
+    """Highlights the link of the view on screen with :target and :has(), without JavaScript."""
+    rules = [f'.app:has(#{tab_id}:target) .nav[href="#{tab_id}"]' for tab_id, _ in TABS]
+    rules.append('.app:not(:has(section.view:target)) .nav[href="#resumen"]')
+    return f'<style>{", ".join(rules)} {{ background: var(--accent-soft); color: var(--accent); }}</style>'
 
 
 # --- trace a figure to its origin --------------------------------------------------------
@@ -175,21 +232,6 @@ def _traced(figure_id: str, data: dict) -> tuple[str, str]:
     return f' data-figure-id="{_e(figure_id)}"', _trace(figure, data)
 
 
-def _exposure_card(target: str, rec: dict, data: dict) -> str:
-    attribute, trace = _traced(f"exposure.{target}.observed_cop_m", data)
-    return (
-        f'<div class="card"><h3>{TARGET_NAMES[target]}</h3>'
-        f'<div class="figure"{attribute}>{format_cop_m(rec["actual_cop_m"])}</div>{trace}'
-        '<div class="label-sm">Exposición observada en los datos</div>'
-        '<dl class="kv">'
-        f'<dt>Cifra del cliente</dt><dd>{format_cop_m(rec["expected_cop_m"])}</dd>'
-        f'<dt>Diferencia</dt><dd>{format_cop_m(rec["difference_cop_m"])}</dd>'
-        f'<dt>Tolerancia</dt><dd>{format_cop_m(rec["tolerance_cop_m"])}</dd>'
-        f'<dt>Conciliación</dt><dd>{_status(rec["status"])}</dd>'
-        '</dl></div>'
-    )
-
-
 def _demo_notes(cards: list[dict]) -> str:
     """A demo card is labelled next to its reason: a rejection must not read as a delivered model."""
     notes = ""
@@ -200,28 +242,6 @@ def _demo_notes(cards: list[dict]) -> str:
                   f'demostración</span> {_e(card["target"])} · {_e(card["model_id"])}, {outcome}. PCM la incluye '
                   'a propósito para mostrar a Gate 2 deteniendo una fuga de datos: no es un modelo entregado.</p>')
     return notes
-
-
-def _gates_card(gates: dict, cards: list[dict]) -> str:
-    counts = gates["gate2"]["counts"]
-    demo_rejected = sum(c["demo"] and c["decision"] == "REJECTED" for c in cards)
-    rejected = f'{counts["REJECTED"]} rechazadas' + (f" ({demo_rejected} de demostración)" if demo_rejected else "")
-    detail = {
-        "gate1": f'{len(gates["gate1"]["tables"])} tablas validadas',
-        "gate2": f'{counts["ADMITTED"]} admitidas · {rejected} · {counts["SKIPPED"]} omitidas',
-        "gate3": f'{gates["gate3"]["checked"]} cifras verificadas · {len(gates["gate3"]["mismatches"])} diferencias',
-    }
-    rows = "".join(
-        f'<dt data-gate="{gate}">{GATE_NAMES[gate]}</dt><dd>{_status(gates[gate]["status"])} '
-        f'<span class="label-sm">{_e(detail[gate])}</span></dd>'
-        for gate in ("gate1", "gate2", "gate3"))
-    gate3 = gates["gate3"]
-    warning = ""
-    if gate3["status"] == "PASS" and not gate3["citations_checked"]:
-        warning = ('<p class="note" id="gate3-no-citations">Gate 3 aún no verifica las cifras citadas en el '
-                   'informe y la presentación: la corrida oficial lo exige.</p>')
-    return (f'<div class="card"><h3>Estado de los gates</h3><dl class="kv">{rows}</dl>{_demo_notes(cards)}'
-            f'{warning}</div>')
 
 
 def _comparisons(target: str, data: dict) -> str:
@@ -244,107 +264,188 @@ def _comparisons(target: str, data: dict) -> str:
             f'<tbody>{rows}</tbody></table>')
 
 
-def _decisions_card(data: dict) -> str:
+# --- summary: how much is at risk, and can the answer be trusted? ---------------------------------
+
+def _authorized_decisions(data: dict) -> list[dict]:
+    return [d for d in data["models"]["decisions"] if d["verdict"] == "authorized_for_shadow_deployment"]
+
+
+def _summary_answer(data: dict) -> str:
+    """The answer sentence, generated from the JSON (escaped pieces only)."""
+    tables = data["exposure"]["tables"]
+    total = sum(t["actual_cop_m"] for t in tables.values())
+    off = [name for name, t in tables.items() if t["status"] != "PASS"]
+    both = "las dos cifras" if len(tables) == 2 else "las cifras"
+    reconciled = (f"y {both} cuadran con las del banco" if not off else
+                  f"pero las cifras de {' y '.join(_plain(t) for t in off)} no cuadran con las del banco")
     decisions = data["models"]["decisions"]
+    authorized = _authorized_decisions(data)
     if not decisions:
-        body = '<p class="label-sm">Sin dictamen: la regla de promoción no se ha ejecutado.</p>'
+        verdict = "todavía no hay dictamen sobre los modelos"
+    elif authorized:
+        verdict = "; ".join(f"{_plain(d['target'])} tiene un modelo autorizado a despliegue en sombra "
+                            f"({_plain(d['model_id'])})" for d in authorized)
+        rest = [d for d in decisions if d not in authorized]
+        if rest:
+            verdict += f"; en {' y '.join(_plain(d['target']) for d in rest)} la evidencia todavía no alcanza"
     else:
-        body = ""
-        for d in decisions:
-            text, cls = VERDICTS[d["verdict"]]
-            model = f' · {_e(d["model_id"])}' if d["model_id"] else ""
-            code = REASON_CODES[d["reason_code"]]
-            code = f' <span class="status warn">{code}</span>' if code else ""
-            body += (f'<div class="decision" data-decision="{_e(d["target"])}">'
-                     f'<h4>{TARGET_NAMES[d["target"]]}</h4>'
-                     f'<span class="status {cls}">{text}</span>{code}{model}'
-                     f'{_comparisons(d["target"], data)}'
-                     f'<div class="label-sm">{_e(d["reason"])}</div></div>')
-    return ('<div class="card"><h3>Dictamen del comité</h3>' + body +
-            '<p class="note">Diferencia de valor neto (modelo − regla base) en la misma K, con su intervalo '
-            'bootstrap pareado. Se autoriza solo si todo el intervalo supera el margen. El dictamen más alto '
-            'posible es «autorizado a despliegue en sombra».</p></div>')
+        verdict = "ningún modelo tiene todavía evidencia suficiente para reemplazar la regla actual"
+    return f"FinBank tiene {format_cop_m(total)} expuestos entre mora y fuga {reconciled}; {verdict}."
 
 
-def _run_card(meta: dict) -> str:
+def _kpi(key: str, icon: str, tone: str, label: str, value: str, pill: str, attribute: str = "") -> str:
+    return (f'<article class="kpi" data-kpi="{key}"><div class="kpi-top"><span class="bubble {tone}">{_icon(icon)}'
+            f'</span><span class="kpi-label">{label}</span></div><div class="kpi-value"{attribute}>{value}</div>'
+            f'{pill}</article>')
+
+
+def _exposure_kpi(target: str, rec: dict, data: dict) -> str:
+    attribute, _ = _traced(f"exposure.{target}.observed_cop_m", data)
+    if rec["status"] == "PASS":
+        pill = _pill("ok", "Cuadra con la cifra del banco")
+    else:
+        pill = _pill("bad", f"No cuadra: difiere en {format_cop_m(rec['difference_cop_m'])}")
+    return _kpi(_e(target), "coin" if target == "delinquency" else "shield", "blue", f"{_plain(target)} · exposición",
+                format_cop_m(rec["actual_cop_m"]), pill, attribute)
+
+
+def _verdict_kpi(data: dict) -> str:
+    decisions = data["models"]["decisions"]
+    authorized = _authorized_decisions(data)
+    if authorized:
+        value, tone = VERDICTS["authorized_for_shadow_deployment"][0], "green"
+        pill = _pill("ok", "En sombra: " + ", ".join(_plain(d["target"]) for d in authorized))
+    elif decisions:
+        codes = [d["reason_code"] for d in decisions]
+        code = "insufficient_evidence" if "insufficient_evidence" in codes else codes[0]
+        text, cls = DECISION_TAGS[code]
+        value, tone, pill = VERDICTS["not_authorized"][0], "amber", _pill(cls, text)
+    else:
+        value, tone, pill = "Sin dictamen", "amber", _pill("warn", "La regla de promoción no se ejecutó")
+    return _kpi("verdict", "scale", tone, "Dictamen del comité", value, pill)
+
+
+def _control_states(data: dict) -> dict:
+    gates = data["gates"]
+    status, failed = _data_status(gates["gate1"])
+    waivers = {r["waived_by"] for r in failed if r.get("waived_by")}
+    gate1 = {"PASS": ("ok", "Cumplen sus contratos"),
+             "PASS_WITH_WAIVERS": ("warn", f"Pasan con {_plural(len(waivers), 'excepción aprobada', 'excepciones aprobadas')}"),
+             "FAIL": ("bad", "No pasan: no use las cifras de esta corrida")}[status]
+    g2 = gates["gate2"]
+    if g2["status"] == "PASS":
+        counts = g2["counts"]
+        demo = sum(c["demo"] and c["decision"] == "REJECTED" for c in data["models"]["cards"])
+        text = (f'{_plural(counts["ADMITTED"], "admitida", "admitidas")} · '
+                f'{_plural(counts["REJECTED"], "rechazada", "rechazadas")}'
+                + (f" ({format_count(demo)} de demostración)" if demo else "")
+                + (f' · {_plural(counts["SKIPPED"], "omitida", "omitidas")}' if counts["SKIPPED"] else ""))
+        gate2 = ("ok", text)
+    else:
+        gate2 = ("warn", "No se revisó en esta corrida") if g2["status"] == "NOT_RUN" else \
+                ("bad", "Hay fichas con errores: vea Modelos")
+    g3 = gates["gate3"]
+    if g3["status"] == "NOT_RUN":
+        gate3 = ("warn", "No se verificó en esta corrida")
+    else:
+        n = len(g3["mismatches"])
+        gate3 = ("ok" if g3["status"] == "PASS" and not n else "bad",
+                 f'{_plural(g3["checked"], "cifra verificada", "cifras verificadas")} · '
+                 f'{_plural(n, "diferencia", "diferencias")}')
+    return {"gate1": gate1, "gate2": gate2, "gate3": gate3}
+
+
+def _controls_panel(data: dict) -> str:
+    items = ""
+    for gate, (cls, text) in _control_states(data).items():
+        icon, name = CONTROL_NAMES[gate]
+        items += (f'<div class="control" data-gate="{gate}"><span class="bubble soft">{_icon(icon)}</span>'
+                  f'<div><p class="control-name">{name}</p>{_pill(cls, _e(text))}</div></div>')
+    g3 = data["gates"]["gate3"]
+    note = ""
+    if g3["status"] == "PASS" and not g3["citations_checked"]:
+        note = ('<p class="foot" id="gate3-no-citations">Aún no se verifican las cifras citadas en el informe y la '
+                'presentación: lo exige la corrida oficial.</p>')
+    return f'<div class="panel"><h3>Controles de esta corrida</h3><div class="controls">{items}</div>{note}</div>'
+
+
+def _summary_detail(data: dict) -> str:
+    meta, gates = data["meta"], data["gates"]
+    rows = ""
+    for target, rec in data["exposure"]["tables"].items():
+        attribute, trace = _traced(f"exposure.{target}.observed_cop_m", data)
+        rows += (f'<tr><td>{_plain(target)} <code>{_e(target)}</code></td>'
+                 f'<td class="num"><span{attribute}>{format_cop_m(rec["actual_cop_m"])}</span>{trace}</td>'
+                 f'<td class="num">{format_cop_m(rec["expected_cop_m"])}</td>'
+                 f'<td class="num">{format_cop_m(rec["difference_cop_m"])}</td>'
+                 f'<td class="num">{format_cop_m(rec["tolerance_cop_m"])}</td><td>{_status(rec["status"])}</td></tr>')
+    reconciliation = ('<table class="data"><caption>Conciliación con las cifras del banco</caption><thead><tr>'
+                      '<th>Tabla</th><th class="num">Observada</th><th class="num">Cifra del cliente</th>'
+                      '<th class="num">Diferencia</th><th class="num">Tolerancia</th><th>Estado</th></tr></thead>'
+                      f'<tbody>{rows}</tbody></table>')
+    gate_rows = "".join(f'<tr><td>{GATE_NAMES[g]}</td><td>{_status(gates[g]["status"])}</td></tr>'
+                        for g in ("gate1", "gate2", "gate3"))
+    decisions = "".join(
+        f'<tr data-decision="{_e(d["target"])}"><td>{_plain(d["target"])}</td><td><code>{_e(d["verdict"])}</code></td>'
+        f'<td><code>{_e(d["reason_code"])}</code></td><td>{_e(d["model_id"] or DASH)}</td><td>{_e(d["reason"])}</td></tr>'
+        for d in data["models"]["decisions"])
     versions = ", ".join(f"{_e(k)} {_e(v)}" for k, v in sorted(meta["contract_versions"].items()))
-    return (
-        '<div class="card"><h3>Última corrida</h3><dl class="kv">'
-        f'<dt>Corrida</dt><dd>{_e(meta["run_id"])}</dd>'
-        f'<dt>Configuración</dt><dd>{_e(meta["config"])}</dd>'
-        f'<dt>Fecha de corte T</dt><dd>{_e(meta["snapshot_date"])}</dd>'
-        f'<dt>Commit</dt><dd>{_e(meta["commit"])}</dd>'
-        f'<dt>Versión del código</dt><dd>{_e(meta["code_version"])}</dd>'
-        f'<dt>Contratos</dt><dd>{versions}</dd>'
-        '</dl></div>'
-    )
+    run = "".join(f'<dt>{name}</dt><dd><code>{_e(value)}</code></dd>' for name, value in (
+        ("Corrida", meta["run_id"]), ("Configuración", meta["config"]), ("Fecha de corte T", meta["snapshot_date"]),
+        ("Commit", meta["commit"]), ("Versión del código", meta["code_version"]))) + f"<dt>Contratos</dt><dd>{versions}</dd>"
+    return (f'<details class="technical" id="summary-technical"><summary>Detalle técnico</summary>{reconciliation}'
+            '<table class="data"><caption>Gates</caption><thead><tr><th>Gate</th><th>Estado</th></tr></thead>'
+            f'<tbody>{gate_rows}</tbody></table>{_demo_notes(data["models"]["cards"])}'
+            '<table class="data"><caption>Dictamen por objetivo</caption><thead><tr><th>Objetivo</th><th>Veredicto</th>'
+            f'<th>Código</th><th>Modelo</th><th>Motivo</th></tr></thead><tbody>{decisions}</tbody></table>'
+            f'<h4>Corrida</h4><dl class="kv">{run}</dl></details>')
 
 
 def _summary(data: dict) -> str:
     tables = data["exposure"]["tables"]
+    kpis = "".join(_exposure_kpi(t, tables[t], data) for t in tables) + _verdict_kpi(data)
     return (
-        '<section class="view" id="resumen"><h2>Resumen</h2>'
-        f'<div class="grid">{_exposure_card("delinquency", tables["delinquency"], data)}'
-        f'{_exposure_card("churn", tables["churn"], data)}</div>'
-        '<p class="note">Son exposición en riesgo, no pérdida. Las cifras del cliente se concilian en cada corrida.</p>'
-        f'<div class="grid">{_gates_card(data["gates"], data["models"]["cards"])}{_run_card(data["meta"])}</div>'
-        f'<div class="stack">{_decisions_card(data)}</div></section>'
+        f'<section class="view" id="resumen"><h2 class="view-title">{dict(TABS)["resumen"]}</h2>'
+        f'<p class="q">{SUMMARY_QUESTION}</p><p class="answer" id="summary-answer">{_summary_answer(data)}</p>'
+        f'<div class="kpis">{kpis}</div>{_controls_panel(data)}{_summary_detail(data)}'
+        f'<p class="foot">{EXPOSURE_NOTE}</p></section>'
     )
 
 
-# --- data and lineage view -------------------------------------------------------------------
+# --- shared pieces of the redesigned views ---------------------------------------------------------
 
-def _log_card(lineage: dict) -> str:
-    status = lineage["log_status"]
-    cls, text = LOG_STATUS[status]
-    manifest = lineage["manifest"]
-    head = manifest["lineage_head_sha256"]
-    return (
-        f'<div class="card" id="log-status"><h3>Log de linaje</h3>'
-        f'<p><span class="status {cls}">{_e(status)}</span> {text}</p>'
-        '<dl class="kv">'
-        f'<dt>Corrida</dt><dd>{_e(manifest["run_id"])}</dd>'
-        f'<dt>Abierta</dt><dd>{_e(manifest["created_at"])}</dd>'
-        f'<dt>Exportada</dt><dd>{_e(manifest["closed_at"])}</dd>'
-        f'<dt>Ancla en el log</dt><dd>{f"<code>{_e(head)}</code>" if head else "primera entrada del log"}</dd>'
-        f'<dt>Scores</dt><dd><code>{_e(manifest["scores_sha256"])}</code></dd>'
-        '</dl></div>'
-    )
+def _how(*bullets: str) -> str:
+    """«¿Cómo se lee?» under every chart: 2-3 bullets, collapsed."""
+    items = "".join(f"<li>{b}</li>" for b in bullets)
+    return f'<details class="how"><summary>¿Cómo se lee?</summary><ul>{items}</ul></details>'
 
 
-def _files_table(entries: list, caption: str, with_name: bool) -> str:
-    head = ("<th>Fuente</th>" if with_name else "") + "<th>Archivo</th><th>Filas</th><th>sha256</th>"
-    rows = "".join(
-        "<tr>" + (f'<td>{_e(e["name"])}</td>' if with_name else "")
-        + f'<td>{_e(e["file"])}</td><td>{format_count(e["rows"])}</td><td><code>{_e(e["sha256"])}</code></td></tr>'
-        for e in entries)
-    return (f'<table class="data"><caption>{caption}</caption><thead><tr>{head}</tr></thead>'
-            f'<tbody>{rows}</tbody></table>')
+def _named(name: str, technical: str) -> str:
+    """Table cell content: the reader's name first, the technical id in grey below it."""
+    return f'<span class="name">{name}</span><code class="id">{_e(technical)}</code>'
 
 
-def _figures_table(data: dict) -> str:
-    rows = "".join(
-        f'<tr data-figure-row="{_e(f["figure_id"])}"><td><code>{_e(f["figure_id"])}</code></td>'
-        f'<td>{_e(format_figure(f["value"], f["unit"], "es"))}</td><td>{_e(f["file"])}</td>'
-        f'<td><code>{_e(f["path"])}</code></td><td>{_e(f["script"])}</td></tr>'
-        for f in data["lineage"]["figures"])
-    return ('<table class="data"><caption>Cifras registradas (las que verifica el Gate 3)</caption>'
-            '<thead><tr><th>Cifra</th><th>Valor</th><th>Archivo</th><th>Ruta</th><th>Script</th></tr></thead>'
-            f'<tbody>{rows}</tbody></table>')
+def _short(digest: str | None) -> str:
+    """A hash cut to 8 characters for the view; the full one lives in «Detalle técnico»."""
+    return f'<code class="hash">{_e(digest[:8])}</code>' if digest else DASH
 
 
 # --- data: can the data of this run be trusted? ------------------------------------------------
 
 DATA_TABLES = ("delinquency", "churn", "scores")
 TABLE_NAMES = {"delinquency": "mora", "churn": "fuga", "scores": "scores", "hours_log": "registro de horas"}
-COLUMN_NAMES = {"tenure_months": "antigüedad"}
+DATA_CARD_NAMES = {"delinquency": ("Mora temprana", "coin"), "churn": ("Fuga de clientes preferenciales", "shield"),
+                   "scores": ("Scores de los modelos", "model")}
+DATA_QUESTION = "¿Se puede confiar en los datos?"
 GATE1_ORDER = {"PASS": 0, "PASS_WITH_WAIVERS": 1, "FAIL": 2}
 GATE1_CLASS = {"PASS": "ok", "PASS_WITH_WAIVERS": "warn", "FAIL": "bad"}
 STEP_NAMES = {"input": "Entrada", "cohort_not_in_arrears_at_T": "Cohorte: sin mora en la fecha de corte",
               "cohort_not_maturing_within_horizon": "Cohorte: el producto no vence dentro del horizonte",
               "excluded_immature_all_horizons": "Excluidos: ventana incompleta en todos los horizontes",
               "labeled": "Etiquetados"}
-EVENTS = {"delinquency": ("caerán en mora", "cayeron en mora"), "churn": ("cancelarán", "cancelaron")}
+EVENTS = {"delinquency": ("caerán en mora", "cayeron en mora", "cayó en mora"),
+          "churn": ("cancelarán", "cancelaron", "canceló")}
+SEGMENTS = (("no_event", "Evaluables sin evento"), ("event", "Con evento"), ("immature", "Sin ventana completa"))
 WAIVER_WARNING_DAYS = 60
 
 
@@ -362,136 +463,400 @@ def _gate1_table(gate1: dict, tables: tuple, caption: str) -> str:
             column = f' · {_e(r["column"])}' if r.get("column") else ""
             share = f" · {format_pct(pct / 100)}" if pct is not None else ""
             rules += f'<li><code>{_e(r["rule"])}</code>{column}{share}{critical}{waiver}</li>'
-        rows += (f'<tr data-gate1-table="{_e(name)}"><td>{_e(name)}</td><td>{_status(t["status"])}</td>'
-                 f'<td>{format_count(t["rows"])}</td><td><ul class="plain">{rules}</ul>{"" if rules else DASH}</td></tr>')
-    return (f'<table class="data"><caption>{caption}</caption><thead><tr><th>Tabla</th><th>Estado</th><th>Filas</th>'
-            f'<th>Reglas que fallaron</th></tr></thead><tbody>{rows}</tbody></table>')
+        label = DATA_CARD_NAMES.get(name, (PLAIN_NAMES.get(name, TABLE_NAMES.get(name, name)),))[0]
+        rows += (f'<tr data-gate1-table="{_e(name)}"><td>{_named(_e(label), name)}</td><td>{_status(t["status"])}</td>'
+                 f'<td class="num">{format_count(t["rows"])}</td>'
+                 f'<td><ul class="plain">{rules}</ul>{"" if rules else DASH}</td></tr>')
+    return (f'<table class="data"><caption>{caption}</caption><thead><tr><th>Tabla</th><th>Estado</th>'
+            f'<th class="num">Filas</th><th>Reglas que fallaron</th></tr></thead><tbody>{rows}</tbody></table>')
 
 
-def _data_verdict(data: dict) -> str:
-    gate1 = data["gates"]["gate1"]
+def _data_status(gate1: dict) -> tuple[str, list[dict]]:
+    """Worst Gate 1 status of FinBank's data tables (PCM's hours log is shown in Gestión)."""
     tables = [gate1["tables"][t] for t in DATA_TABLES if t in gate1["tables"]]
     status = max((t["status"] for t in tables), key=GATE1_ORDER.get, default="PASS")
-    failed = [r for t in tables for r in t["failed_rules"]]
+    return status, [r for t in tables for r in t["failed_rules"]]
+
+
+def _waiver_fragment(waiver: dict, data: dict) -> str:
+    missing = data["quality"]["missing"].get(waiver["table"], {}).get(waiver["column"])
+    column = _plain(waiver["column"])
+    table = TABLE_NAMES.get(waiver["table"], waiver["table"])
+    if waiver["rule"] == "expect_column_values_to_not_be_null" and missing:
+        return f'el {format_pct(missing["pct"] / 100)} de la tabla de {_e(table)} no tiene {column} registrada'
+    return f'la tabla de {_e(table)} incumple una regla sobre {column}'
+
+
+def _data_answer(data: dict) -> str:
+    gate1 = data["gates"]["gate1"]
+    status, failed = _data_status(gate1)
+    tables = [t for t in DATA_TABLES if t in gate1["tables"]]
     if status == "FAIL":
+        bad = [t for t in tables if gate1["tables"][t]["status"] == "FAIL"]
         n = sum(1 for r in failed if not r.get("waived_by"))
-        text = f"Los datos no pasan: {format_count(n)} regla(s) fallan sin waiver. No use las cifras de esta corrida."
-    elif status == "PASS_WITH_WAIVERS":
-        ids = ", ".join(sorted({r["waived_by"] for r in failed if r.get("waived_by")}))
-        text = (f"Los datos pasan: {format_count(len(failed))} regla(s) no crítica(s) siguen con un waiver vigente "
-                f"({_e(ids)}).")
-    else:
-        text = f"Los datos de las {format_count(len(tables))} tablas cumplen sus contratos."
-    return (f'<div class="card" id="data-verdict"><h3>Gate 1 · ¿Se puede confiar en los datos?</h3>'
-            f'<p class="plain"><span class="status {GATE1_CLASS[status]}">{_e(status)}</span> {text}</p>'
-            f'{_gate1_table(gate1, DATA_TABLES, "Resultado por tabla")}</div>')
+        return (f"No: {_plural(n, 'regla falla', 'reglas fallan')} sin excepción en "
+                f"{' y '.join(_e(TABLE_NAMES.get(t, t)) for t in bad)}. No use las cifras de esta corrida.")
+    if status == "PASS_WITH_WAIVERS":
+        used = {r["waived_by"] for r in failed if r.get("waived_by")}
+        waivers = [w for w in data["quality"]["waivers"] if w["id"] in used]
+        detail = "; ".join(f'{_waiver_fragment(w, data)}, que se evalúa aparte hasta el {_e(w["expires"])}'
+                           for w in waivers)
+        return (f"Sí, con {_plural(len(used), 'excepción aprobada', 'excepciones aprobadas')}: las "
+                f"{format_count(len(tables))} tablas de FinBank pasan sus controles, pero {detail}.")
+    return f"Sí: las {format_count(len(tables))} tablas de FinBank cumplen sus contratos."
 
 
-def _missing_table(data: dict) -> str:
+def _table_cards(data: dict) -> str:
+    gate1, funnels = data["gates"]["gate1"], data["quality"]["labeling_funnel"]
+    cards = ""
+    for table in DATA_TABLES:
+        t = gate1["tables"].get(table)
+        if t is None:
+            continue
+        name, icon = DATA_CARD_NAMES[table]
+        if table in funnels:
+            size = f'{format_count(funnels[table]["steps"][0]["clients"])} clientes'
+            sub = f'<p class="kpi-sub">{_plural(t["rows"], "fila", "filas")} en la muestra</p>'
+        else:
+            size, sub = f'{format_count(t["rows"])} filas', ""
+        unwaived = sum(1 for r in t["failed_rules"] if not r.get("waived_by"))
+        pill = {"PASS": ("ok", "Cumple su contrato"), "PASS_WITH_WAIVERS": ("warn", "Pasa con una excepción aprobada"),
+                "FAIL": ("bad", f"No pasa: {_plural(unwaived, 'regla', 'reglas')} sin excepción")}[t["status"]]
+        cards += (f'<article class="kpi" data-table="{_e(table)}"><div class="kpi-top"><span class="bubble blue">'
+                  f'{_icon(icon)}</span><span class="kpi-label">{name}</span></div><div class="kpi-value">{size}</div>'
+                  f'{sub}{_pill(*pill)}</article>')
+    return f'<div class="kpis" id="data-tables">{cards}</div>'
+
+
+def missing_svg(table: str, column: str, m: dict, state: str) -> str:
+    """Share missing against the contract limit: one bar, one vertical mark, direct labels."""
+    width, height, left, right = 460, 64, 4, 112
+    w = width - left - right
+    vmax = max(m["pct"], m["limit_pct"]) * 1.25 or 1.0
+    x = lambda pct: left + w * pct / vmax
+    limit = x(m["limit_pct"])
+    title = f"{PLAIN_NAMES.get(column, column)} faltante en la tabla de {TABLE_NAMES.get(table, table)}"
+    return (f'<svg class="hbar" data-missing="{_e(table)}.{_e(column)}" data-state="{state}" data-x0="{left}" '
+            f'data-w="{w}" data-max="{vmax!r}" viewBox="0 0 {width} {height}" role="img" aria-label="{_e(title)}">'
+            f'<title>{_e(title)}</title><rect class="track" x="{left}" y="22" width="{w}" height="18" rx="4"/>'
+            f'<rect class="value" x="{left}" y="22" width="{_f(w * m["pct"] / vmax)}" height="18" rx="4"/>'
+            f'<line class="limit" x1="{_f(limit)}" y1="14" x2="{_f(limit)}" y2="48"/>'
+            f'<text class="tick" x="{_f(limit)}" y="60" text-anchor="middle">límite {format_pct(m["limit_pct"] / 100)}'
+            f'</text><text class="value-label" x="{_f(x(m["pct"]) + 8)}" y="36">{format_pct(m["pct"] / 100)} faltante'
+            '</text></svg>')
+
+
+def _missing_card(data: dict) -> str:
+    waivers = {(w["table"], w["column"]): w["id"] for w in data["quality"]["waivers"]}
+    charts, titles = "", []
+    for table in DATA_TABLES:
+        for column, m in data["quality"]["missing"].get(table, {}).items():
+            if m["limit_pct"] is None or m["count"] <= 0:
+                continue                       # no contract limit (event dates), or nothing missing
+            over = m["pct"] > m["limit_pct"]
+            waiver = waivers.get((table, column))
+            state = "ok" if not over else ("warn" if waiver else "bad")
+            verdict = ("dentro del límite" if not over else
+                       f"por encima del límite; se acepta con la excepción {_e(waiver)}" if waiver else
+                       "por encima del límite y sin excepción")
+            titles.append(f'{_plain(column).capitalize()} falta en el {format_pct(m["pct"] / 100)} de la tabla de '
+                          f'{_e(TABLE_NAMES.get(table, table))}, {verdict}')
+            charts += (f'<figure>{missing_svg(table, column, m, state)}<figcaption>{format_pct(m["pct"] / 100)} '
+                       f'faltante · límite del contrato {format_pct(m["limit_pct"] / 100)}</figcaption></figure>')
+    if not charts:
+        return ('<div class="card" id="data-missing"><p class="plain" id="missing-none">Ninguna columna con límite del '
+                'contrato tiene faltantes.</p></div>')
+    return (f'<div class="card" id="data-missing"><h3>{". ".join(titles)}.</h3>{charts}'
+            + _how("Cada barra es el porcentaje de filas sin dato en esa columna.",
+                   "La marca vertical es el máximo que permite el contrato de datos.",
+                   "Solo se muestran columnas con límite y con faltantes; las fechas de evento faltan por diseño.")
+            + '</div>')
+
+
+def _waiver_card(waiver: dict, data: dict) -> str:
+    plain = f'{_waiver_fragment(waiver, data)}; no se rellena, se evalúa aparte.'
+    plain = plain[0].upper() + plain[1:]
+    run_day = date.fromisoformat(data["meta"]["generated_at"][:10])
+    start, end = date.fromisoformat(str(waiver["date"])), date.fromisoformat(str(waiver["expires"]))
+    days = (end - run_day).days
+    span = (end - start).days or 1
+    elapsed = 100 * min(max((run_day - start).days / span, 0.0), 1.0)
+    soon = days <= WAIVER_WARNING_DAYS
+    expiring = ""
+    if soon:
+        expiring = (f'<p class="note" data-waiver-expiring="{_e(waiver["id"])}">Vence en {format_count(days)} días: '
+                    f'renovar o corregir antes del {_e(waiver["expires"])}.</p>')
+    return (f'<div class="card" data-waiver="{_e(waiver["id"])}"><h3>Excepción {_e(waiver["id"])} · '
+            f'{_plain(waiver["column"])} en la tabla de {_e(TABLE_NAMES.get(waiver["table"], waiver["table"]))}</h3>'
+            f'<p class="plain">{plain}</p>'
+            f'<div class="timeline" data-waiver-timeline="{_e(waiver["id"])}"><div class="track">'
+            f'<span class="elapsed{" soon" if soon else ""}" style="width: {elapsed:.2f}%"></span></div>'
+            f'<div class="ends"><span>Aprobada {_e(waiver["date"])}</span><span>Hoy: faltan {format_count(days)} '
+            f'días</span><span>Vence {_e(waiver["expires"])}</span></div></div>'
+            f'<dl class="kv"><dt>Aprobó</dt><dd>{_e(waiver["approved_by"])}</dd>'
+            f'<dt>Riesgo asociado</dt><dd>{_e(waiver["risk"])}</dd></dl>{expiring}'
+            f'<details class="technical"><summary>Detalle técnico</summary><dl class="kv">'
+            f'<dt>Tabla y columna</dt><dd><code>{_e(waiver["table"])}.{_e(waiver["column"])}</code></dd>'
+            f'<dt>Regla</dt><dd><code>{_e(waiver["rule"])}</code></dd><dt>Motivo</dt><dd>{_e(waiver["reason"])}</dd>'
+            '</dl></details></div>')
+
+
+def _horizon_sentence(target: str, label: str, h: dict, total: float) -> str:
+    future, past, _ = EVENTS.get(target, ("tendrán el evento", "tuvieron el evento", ""))
+    return (f'<p class="plain" data-horizon="{_e(label)}">{_plain(label)}. De '
+            f'{format_count(total)} clientes, {format_count(h["mature_clients"])} tienen su ventana de '
+            f'{format_count(h["horizon_days"])} días completa; {format_count(total - h["mature_clients"])} se '
+            f'excluyen porque aún no se sabe si {future}. De los evaluados, '
+            f'{format_count(h["positive_clients"])} {past} (tasa base {format_pct(h["base_rate"])}).</p>')
+
+
+def _funnel_card(target: str, funnel: dict) -> str:
+    total = funnel["steps"][0]["clients"]
+    bars, parts = "", []
+    for label, h in funnel["horizons"].items():
+        values = {"no_event": h["mature_clients"] - h["positive_clients"], "event": h["positive_clients"],
+                  "immature": total - h["mature_clients"]}
+        segments = "".join(
+            f'<span class="seg {kind}" data-segment="{kind}" style="width: {100 * values[kind] / total if total else 0:.4f}%" '
+            f'title="{name}: {format_count(values[kind])} clientes"></span>' for kind, name in SEGMENTS)
+        bars += (f'<p class="bar-label">{_plain(label)}</p><div class="stacked" data-horizon-bar="{_e(label)}" '
+                 f'role="img" aria-label="{_plain(label)}">{segments}</div>'
+                 f'{_horizon_sentence(target, label, h, total)}')
+        parts.append(f'{format_count(h["mature_clients"])} a {format_count(h["horizon_days"])} días')
+    legend = "".join(f'<li><span class="key {kind}"></span>{name}</li>' for kind, name in SEGMENTS)
+    unverifiable = [s for s in funnel["steps"] if s.get("status") == "not_verifiable"]
+    note = ""
+    if unverifiable:
+        note = (f'<p class="note" data-not-verifiable="{_e(target)}">'
+                f'{_plural(len(unverifiable), "paso del embudo no se puede verificar", "pasos del embudo no se pueden verificar")} '
+                'con las columnas que entrega FinBank hoy: vea el Detalle técnico.</p>')
+    title = f'{_plain(target)}: de {format_count(total)} clientes se pueden evaluar {" y ".join(parts)}'
+    return (f'<div class="card" data-funnel="{_e(target)}"><h3>{title}</h3><ul class="legend">{legend}</ul>{bars}{note}'
+            + _how("Cada barra son todos los clientes de la tabla, al 100 %.",
+                   "Azul oscuro: clientes con el evento dentro del horizonte; azul claro: evaluables sin evento.",
+                   "Gris: clientes cuya ventana aún no termina; no entran en la evaluación porque no se sabe qué pasará.")
+            + '</div>')
+
+
+def _missing_detail(data: dict) -> str:
     waivers = {(w["table"], w["column"]): w["id"] for w in data["quality"]["waivers"]}
     rows = ""
     for table in DATA_TABLES:
         for column, m in data["quality"]["missing"].get(table, {}).items():
             if m["limit_pct"] is None:
-                continue                                   # no contract limit: not a quality rule
+                continue
             if m["pct"] <= m["limit_pct"]:
                 state = '<span class="status ok">dentro del límite</span>'
             elif (table, column) in waivers:
                 state = f'<span class="status warn">con waiver {_e(waivers[(table, column)])}</span>'
             else:
                 state = '<span class="status bad">supera el límite</span>'
-            rows += (f'<tr data-missing="{_e(table)}.{_e(column)}"><td>{_e(table)}</td><td>{_e(column)}</td>'
-                     f'<td>{format_count(m["count"])}</td><td>{format_pct(m["pct"] / 100)}</td>'
-                     f'<td>{format_pct(m["limit_pct"] / 100)}</td><td>{state}</td></tr>')
-    return ('<div class="card" id="data-missing"><table class="data"><caption>Faltantes en las columnas con límite '
-            'del contrato</caption><thead><tr><th>Tabla</th><th>Columna</th><th>Faltantes</th><th>%</th>'
-            f'<th>Límite</th><th>Estado</th></tr></thead><tbody>{rows}</tbody></table></div>')
+            rows += (f'<tr data-missing-all="{_e(table)}.{_e(column)}"><td>{_named(_e(TABLE_NAMES.get(table, table)), table)}'
+                     f'</td><td>{_named(_plain(column), column)}</td><td class="num">{format_count(m["count"])}</td>'
+                     f'<td class="num">{format_pct(m["pct"] / 100)}</td><td class="num">{format_pct(m["limit_pct"] / 100)}'
+                     f'</td><td>{state}</td></tr>')
+    return ('<table class="data"><caption>Faltantes en todas las columnas con límite del contrato</caption><thead><tr>'
+            '<th>Tabla</th><th>Columna</th><th class="num">Faltantes</th><th class="num">%</th>'
+            f'<th class="num">Límite</th><th>Estado</th></tr></thead><tbody>{rows}</tbody></table>')
 
 
-def _waiver_card(waiver: dict, data: dict) -> str:
-    missing = data["quality"]["missing"].get(waiver["table"], {}).get(waiver["column"])
-    column = COLUMN_NAMES.get(waiver["column"], waiver["column"])
-    if waiver["rule"] == "expect_column_values_to_not_be_null" and missing:
-        plain = (f'El {format_pct(missing["pct"] / 100)} de la tabla de {TABLE_NAMES.get(waiver["table"], waiver["table"])} '
-                 f'no tiene {_e(column)} registrada; no se rellena, se evalúa aparte.')
-    else:
-        plain = f'La regla {_e(waiver["rule"])} sobre {_e(column)} falla y se acepta con este waiver.'
-    run_day = date.fromisoformat(data["meta"]["generated_at"][:10])
-    days = (date.fromisoformat(str(waiver["expires"])) - run_day).days
-    expiring = ""
-    if days <= WAIVER_WARNING_DAYS:
-        expiring = (f'<p class="note" data-waiver-expiring="{_e(waiver["id"])}">Vence en {format_count(days)} días: '
-                    f'renovar o corregir antes del {_e(waiver["expires"])}.</p>')
-    return (f'<div class="card" data-waiver="{_e(waiver["id"])}"><h3>Waiver {_e(waiver["id"])}</h3>'
-            f'<p class="plain">{plain}</p><dl class="kv">'
-            f'<dt>Tabla y columna</dt><dd>{_e(waiver["table"])}.{_e(waiver["column"])}</dd>'
-            f'<dt>Regla</dt><dd><code>{_e(waiver["rule"])}</code></dd><dt>Riesgo</dt><dd>{_e(waiver["risk"])}</dd>'
-            f'<dt>Motivo</dt><dd>{_e(waiver["reason"])}</dd><dt>Aprobó</dt><dd>{_e(waiver["approved_by"])}</dd>'
-            f'<dt>Fecha</dt><dd>{_e(waiver["date"])}</dd><dt>Vence</dt><dd>{_e(waiver["expires"])}</dd></dl>'
-            f'{expiring}</div>')
-
-
-def _funnel_card(target: str, funnel: dict) -> str:
-    total = funnel["steps"][0]["clients"]
-    future, past = EVENTS.get(target, ("tendrán el evento", "tuvieron el evento"))
-    plain = ""
-    for label, h in funnel["horizons"].items():
-        plain += (f'<p class="plain" data-horizon="{_e(label)}">{_e(LABEL_NAMES.get(label, label))}. De '
-                  f'{format_count(total)} clientes, {format_count(h["mature_clients"])} tienen su ventana de '
-                  f'{format_count(h["horizon_days"])} días completa; {format_count(total - h["mature_clients"])} se '
-                  f'excluyen porque aún no se sabe si {future}. De los evaluados, '
-                  f'{format_count(h["positive_clients"])} {past} (tasa base {format_pct(h["base_rate"])}).</p>')
+def _funnel_detail(target: str, funnel: dict) -> str:
     steps = ""
     for s in funnel["steps"]:
-        name = _e(STEP_NAMES.get(s["step"], s["step"]))
+        name = _named(_e(STEP_NAMES.get(s["step"], s["step"])), s["step"])
         if s.get("status") == "not_verifiable":
-            steps += (f'<tr data-step="{_e(s["step"])}"><td>{name}</td><td colspan="3"><span class="status warn">'
+            steps += (f'<tr data-step="{_e(s["step"])}"><td>{name}</td><td colspan="2"><span class="status warn">'
                       f'No verificable</span> falta {_e(s["missing_column"])}; FinBank debe añadirlo en '
                       f'{_e(funnel["table"])}_v2.</td></tr>')
             continue
-        width = 100 * s["clients"] / total if total else 0.0
-        steps += (f'<tr data-step="{_e(s["step"])}"><td>{name}</td><td>{format_count(s["rows"])}</td>'
-                  f'<td>{format_count(s["clients"])}</td><td class="bar-cell"><span class="bar" '
-                  f'style="width: {width:.2f}%"></span></td></tr>')
+        steps += (f'<tr data-step="{_e(s["step"])}"><td>{name}</td><td class="num">{format_count(s["rows"])}</td>'
+                  f'<td class="num">{format_count(s["clients"])}</td></tr>')
     horizons = "".join(
-        f'<tr data-horizon-row="{_e(label)}"><td>{_e(LABEL_NAMES.get(label, label))}</td>'
-        f'<td>{format_count(h["mature_clients"])}</td><td>{format_count(h["immature_rows"])}</td>'
-        f'<td>{format_count(h["positive_clients"])}</td><td>{format_pct(h["base_rate"])}</td></tr>'
+        f'<tr data-horizon-row="{_e(label)}"><td>{_named(_plain(label), label)}</td>'
+        f'<td class="num">{format_count(h["mature_clients"])}</td><td class="num">{format_count(h["immature_rows"])}</td>'
+        f'<td class="num">{format_count(h["positive_clients"])}</td><td class="num">{format_pct(h["base_rate"])}</td></tr>'
         for label, h in funnel["horizons"].items())
-    return (f'<div class="card" data-funnel="{_e(target)}"><h3>Embudo de etiquetado · {TARGET_NAMES.get(target, target)}</h3>'
-            f'{plain}<table class="data"><caption>Pasos</caption><thead><tr><th>Paso</th><th>Filas</th><th>Clientes</th>'
-            f'<th></th></tr></thead><tbody>{steps}</tbody></table>'
-            '<table class="data"><caption>Por horizonte</caption><thead><tr><th>Etiqueta</th><th>Clientes maduros</th>'
-            '<th>Filas inmaduras</th><th>Clientes con evento</th><th>Tasa base</th></tr></thead>'
-            f'<tbody>{horizons}</tbody></table></div>')
+    name = _plain(target)
+    return (f'<table class="data"><caption>Pasos del etiquetado · {name}</caption><thead><tr><th>Paso</th>'
+            f'<th class="num">Filas</th><th class="num">Clientes</th></tr></thead><tbody>{steps}</tbody></table>'
+            f'<table class="data"><caption>Por horizonte · {name}</caption><thead><tr><th>Etiqueta</th>'
+            '<th class="num">Clientes maduros</th><th class="num">Filas inmaduras</th><th class="num">Clientes con evento'
+            f'</th><th class="num">Tasa base</th></tr></thead><tbody>{horizons}</tbody></table>')
 
 
-def _data_part(data: dict) -> str:
+def _data_view(data: dict) -> str:
     quality = data["quality"]
+    status, _ = _data_status(data["gates"]["gate1"])
     waivers = "".join(_waiver_card(w, data) for w in quality["waivers"])
     funnels = "".join(_funnel_card(t, f) for t, f in quality["labeling_funnel"].items())
-    return (f'{_data_verdict(data)}{_missing_table(data)}'
-            f'<div class="grid">{waivers}</div><div class="stack">{funnels}</div>')
+    detail = (f'<details class="technical" id="data-technical"><summary>Detalle técnico</summary>'
+              f'<p>Gate 1: {_status(status)}</p>'
+              f'{_gate1_table(data["gates"]["gate1"], DATA_TABLES, "Gate 1 por tabla y regla")}{_missing_detail(data)}'
+              + "".join(_funnel_detail(t, f) for t, f in quality["labeling_funnel"].items()) + '</details>')
+    return (f'<section class="view" id="datos"><h2 class="view-title">{dict(TABS)["datos"]}</h2>'
+            f'<p class="q">{DATA_QUESTION}</p><p class="answer" id="data-answer">{_data_answer(data)}</p>'
+            f'{_table_cards(data)}<div class="grid two">{_missing_card(data)}{waivers}</div>'
+            f'<div class="stack">{funnels}</div>{detail}</section>')
 
 
-def _lineage_view(data: dict) -> str:
+# --- traceability: where does every figure come from? ---------------------------------------------
+
+TRACE_QUESTION = "¿De dónde sale cada cifra?"
+TRACED_FIGURE = "exposure.delinquency.observed_cop_m"
+LOG_STRIP = {
+    "OK": ("ok", "La cadena del registro de linaje está íntegra: ninguna corrida anterior fue alterada."),
+    "TAMPERED": ("bad", "El registro de linaje fue alterado: no confíe en estas cifras hasta revisarlo."),
+    "NOT_CHECKED": ("warn", "El registro no se verificó: esta es la primera corrida anotada en él."),
+}
+FIGURE_GROUPS = (("delinquency", "Mora temprana"), ("churn", "Fuga de clientes preferenciales"),
+                 ("management", "Gestión del proyecto"), ("other", "Otras cifras"))
+METRIC_NAMES = {"observed_cop_m": "Exposición observada", "net_value_at_k_cop_m": "Valor neto con la capacidad actual",
+                "capture_at_k": "Captura con la capacidad actual", "difference_vs_baseline_cop_m": "Ventaja sobre la regla actual",
+                "ci_low_vs_baseline_cop_m": "Ventaja: límite inferior del intervalo",
+                "ci_high_vs_baseline_cop_m": "Ventaja: límite superior del intervalo",
+                "breakeven_effectiveness": "Efectividad mínima para compensar",
+                "pv_cop_m": "Valor planeado (PV)", "ev_cop_m": "Valor ganado (EV)", "ac_cop_m": "Costo real (AC)",
+                "spi": "Índice de cronograma (SPI)", "cpi": "Índice de costo (CPI)", "eac_cop_m": "Estimado al cierre (EAC)",
+                "bac_cop_m": "Presupuesto (BAC)", "ceiling_cop_m": "Techo del charter"}
+
+
+def _figure_name(figure_id: str) -> tuple[str, str]:
+    """(group, reader's name) of a registered figure, from the parts of its id."""
+    family, *rest = figure_id.split(".")
+    metric = METRIC_NAMES.get(rest[-1], rest[-1]) if rest else figure_id
+    if family == "exposure" and rest:
+        return rest[0], metric
+    if family == "models" and len(rest) == 3:
+        group = "delinquency" if rest[0].startswith("delinquency") else "churn" if rest[0].startswith("churn") else "other"
+        return group, f"{PLAIN_NAMES.get(rest[0], rest[0])} · {PLAIN_NAMES.get(rest[1], rest[1])} · {metric}"
+    if family == "management":
+        return "management", metric
+    return "other", metric
+
+
+def _trace_answer(data: dict) -> str:
     manifest = data["lineage"]["manifest"]
-    return (
-        '<section class="view" id="datos"><h2>Datos y linaje</h2>'
-        f'{_data_part(data)}<h2 class="sub">Linaje</h2>'
-        f'<div class="grid">{_log_card(data["lineage"])}</div>'
-        f'<p class="note" id="manifest-snapshot">{SNAPSHOT_NOTE}</p>'
-        f'<div class="card">{_figures_table(data)}</div>'
-        f'<div class="card">{_files_table(manifest["sources"], "Fuentes de la corrida", True)}</div>'
-        f'<div class="card">{_files_table(manifest["outputs"], "Salidas de la corrida", False)}</div>'
-        '</section>'
+    n = len(data["lineage"]["figures"])
+    chain = {"OK": "y la cadena del registro está íntegra", "TAMPERED": "pero el registro fue alterado",
+             "NOT_CHECKED": "y es la primera corrida del registro"}[data["lineage"]["log_status"]]
+    return (f'Las {_plural(n, "cifra rastreable", "cifras rastreables")} de esta corrida salen de '
+            f'{_plural(len(manifest["sources"]), "fuente", "fuentes")}, pasan por 3 controles y quedan en '
+            f'{_plural(len(manifest["outputs"]), "archivo", "archivos")} de salida con su huella; cada una se puede '
+            f'seguir hasta su archivo, script y commit, {chain}.')
+
+
+def _flow(data: dict) -> str:
+    manifest = data["lineage"]["manifest"]
+    steps = (("sources", "db", len(manifest["sources"]), "Fuentes", "datos, configuración y registros de PCM"),
+             ("controls", "shield", 3, "Controles", "Gate 1 datos, Gate 2 fichas, Gate 3 cifras"),
+             ("outputs", "file", len(manifest["outputs"]), "Salidas", "archivos con su huella digital"),
+             ("figures", "check", len(data["lineage"]["figures"]), "Cifras rastreables", "verificadas por el Gate 3"))
+    items = "".join(f'<li data-flow="{key}"><span class="bubble blue">{_icon(icon)}</span><div><strong>'
+                    f'{format_count(count)}</strong><span class="flow-name">{name}</span><span class="flow-sub">{sub}'
+                    '</span></div></li>' for key, icon, count, name, sub in steps)
+    return f'<ol class="flow" id="trace-flow">{items}</ol>'
+
+
+def _log_strip(lineage: dict) -> str:
+    cls, text = LOG_STRIP[lineage["log_status"]]
+    return f'<div class="strip {cls}" id="log-status" role="status">{_icon(PILL_ICONS[cls])}<span>{text}</span></div>'
+
+
+def _trace_story(data: dict) -> str:
+    figure = next((f for f in data["lineage"]["figures"] if f["figure_id"] == TRACED_FIGURE), None)
+    if figure is None:
+        return '<div class="card" id="trace-story"><p class="plain">La exposición de mora no está registrada en esta corrida.</p></div>'
+    manifest, meta, gate3 = data["lineage"]["manifest"], data["meta"], data["gates"]["gate3"]
+    sources = {s["name"]: s for s in manifest["sources"]}
+    source = next((sources[n] for n in _figure_sources(TRACED_FIGURE) if n in sources), None)
+    output = next((o for o in manifest["outputs"] if o["file"] == figure["file"]), None)
+    if gate3["status"] == "NOT_RUN":
+        check = _pill("warn", "El Gate 3 no corrió: la cifra no se verificó")
+    elif any(m["figure_id"] == TRACED_FIGURE for m in gate3["mismatches"]):
+        check = _pill("bad", "El Gate 3 la recalculó desde el archivo y NO coincide")
+    else:
+        check = _pill("ok", "El Gate 3 la recalculó desde el archivo y coincide")
+    dirty = " (con cambios sin commit: no es una corrida oficial)" if meta["commit"].endswith("-dirty") else ""
+    steps = (
+        ("file", "Archivo de origen", "Los datos de la cartera de mora entran en este archivo"
+         + (f', con {_plural(source["rows"], "fila", "filas")}' if source and source["rows"] else ""),
+         (f'<code>{_e(source["file"])}</code> · huella {_short(source["sha256"])}' if source else DASH)),
+        ("script", "Script", "Suma la exposición observada y la concilia con la cifra del banco",
+         f'<code>{_e(figure["script"])}</code>'),
+        ("output", "Archivo de salida", "El resultado queda escrito aquí, en esta ruta",
+         f'<code>{_e(figure["file"])}</code> · <code>{_e(figure["path"])}</code> · huella '
+         f'{_short(output["sha256"] if output else None)}'),
+        ("commit", "Commit", f"La versión exacta del código que la calculó{dirty}",
+         f'<code title="{_e(meta["commit"])}">{_e(meta["commit"][:8])}</code>'),
+        ("check", "Verificación", "Se comprueba en cada corrida", check),
     )
+    items = "".join(f'<li data-trace-step="{key}"><span class="step-n">{n}</span><div><p class="step-title">{title}</p>'
+                    f'<p class="step-text">{text}</p><p class="step-value">{value}</p></div></li>'
+                    for n, (key, title, text, value) in enumerate(steps, start=1))
+    return (f'<div class="card" id="trace-story"><h3>La exposición de {_plain("delinquency").lower()}, '
+            f'{format_cop_m(figure["value"])}, se rastrea en cinco pasos</h3><ol class="steps">{items}</ol></div>')
+
+
+def _finder(data: dict) -> str:
+    outputs = {o["file"]: o["sha256"] for o in data["lineage"]["manifest"]["outputs"]}
+    groups: dict = {}
+    for f in data["lineage"]["figures"]:
+        group, name = _figure_name(f["figure_id"])
+        groups.setdefault(group if group in dict(FIGURE_GROUPS) else "other", []).append((name, f))
+    tables = ""
+    for key, caption in FIGURE_GROUPS:
+        rows = "".join(
+            f'<tr data-figure-row="{_e(f["figure_id"])}"><td>{_named(_e(name), f["figure_id"])}</td>'
+            f'<td class="num">{_e(format_figure(f["value"], f["unit"], "es"))}</td>'
+            f'<td><code>{_e(f["file"])}</code> {_short(outputs.get(f["file"]))}</td></tr>'
+            for name, f in groups.get(key, []))
+        if rows:
+            tables += (f'<table class="data zebra"><caption>{caption}</caption><thead><tr><th>Cifra</th>'
+                       f'<th class="num">Valor</th><th>Archivo y huella</th></tr></thead><tbody>{rows}</tbody></table>')
+    n = len(data["lineage"]["figures"])
+    return (f'<details class="finder" id="figure-finder"><summary>Buscar una cifra · '
+            f'{_plural(n, "cifra rastreable", "cifras rastreables")}</summary><p class="note">Abra la lista y use la '
+            f'búsqueda del navegador (Ctrl+F) con el nombre o el valor.</p>{tables}</details>')
+
+
+def _files_table(entries: list, caption: str, with_name: bool) -> str:
+    head = ("<th>Fuente</th>" if with_name else "") + '<th>Archivo</th><th class="num">Filas</th><th>sha256</th>'
+    rows = "".join(
+        "<tr>" + (f'<td>{_e(e["name"])}</td>' if with_name else "")
+        + f'<td><code>{_e(e["file"])}</code></td><td class="num">{format_count(e["rows"])}</td>'
+          f'<td><code>{_e(e["sha256"])}</code></td></tr>'
+        for e in entries)
+    return (f'<table class="data"><caption>{caption}</caption><thead><tr>{head}</tr></thead>'
+            f'<tbody>{rows}</tbody></table>')
+
+
+def _figures_paths(data: dict) -> str:
+    rows = "".join(f'<tr><td><code>{_e(f["figure_id"])}</code></td><td><code>{_e(f["path"])}</code></td>'
+                   f'<td><code>{_e(f["script"])}</code></td></tr>' for f in data["lineage"]["figures"])
+    return ('<table class="data"><caption>Ruta de cada cifra (la que lee el Gate 3)</caption><thead><tr><th>Cifra</th>'
+            f'<th>Ruta en el archivo</th><th>Script</th></tr></thead><tbody>{rows}</tbody></table>')
+
+
+def _trace_view(data: dict) -> str:
+    lineage = data["lineage"]
+    manifest = lineage["manifest"]
+    head = manifest["lineage_head_sha256"]
+    run = (f'<dl class="kv"><dt>Estado del registro</dt><dd>{_status(lineage["log_status"])}</dd>'
+           f'<dt>Corrida</dt><dd><code>{_e(manifest["run_id"])}</code></dd>'
+           f'<dt>Abierta</dt><dd>{_e(manifest["created_at"])}</dd><dt>Exportada</dt><dd>{_e(manifest["closed_at"])}</dd>'
+           f'<dt>Ancla en el registro</dt><dd>{f"<code>{_e(head)}</code>" if head else "primera entrada del registro"}</dd>'
+           f'<dt>Scores</dt><dd><code>{_e(manifest["scores_sha256"])}</code></dd></dl>')
+    detail = (f'<details class="technical" id="trace-technical"><summary>Detalle técnico</summary>{run}'
+              f'<p class="note" id="manifest-snapshot">{SNAPSHOT_NOTE}</p>'
+              f'{_files_table(manifest["sources"], "Fuentes de la corrida", True)}'
+              f'{_files_table(manifest["outputs"], "Salidas de la corrida", False)}{_figures_paths(data)}</details>')
+    return (f'<section class="view" id="trazabilidad"><h2 class="view-title">{dict(TABS)["trazabilidad"]}</h2>'
+            f'<p class="q">{TRACE_QUESTION}</p><p class="answer" id="trace-answer">{_trace_answer(data)}</p>'
+            f'{_flow(data)}{_log_strip(lineage)}{_trace_story(data)}{_finder(data)}{detail}</section>')
 
 
 # --- stress view: curve and simulator ----------------------------------------------------------
 
-LABEL_NAMES = {"delinquency_30": "Mora a 30 días", "delinquency_60": "Mora a 60 días",
-               "churn_3m": "Fuga a 3 meses"}
 HYPOTHETICAL = ("Escenario hipotético: no cambia el dictamen, que se fijó con los supuestos registrados en el acta.")
 
 
@@ -565,7 +930,7 @@ def curve_svg(label: str, evaluations: list, capacity_k: float | None = None) ->
               f'{format_count(n)} clientes</text>',
               f'<text class="tick" x="{(left + width - right) / 2:.0f}" y="{height - 6}" text-anchor="middle">'
               'Clientes contactados (K)</text>']
-    title = f"Valor neto en COP según K · {LABEL_NAMES.get(label, label)}"
+    title = f"Valor neto en COP según K · {PLAIN_NAMES.get(label, label)}"
     plot_h = height - top - bottom
     return (f'<svg class="curve" data-curve="{_e(label)}" data-x0="{left}" data-xscale="{xscale!r}" '
             f'data-top="{top}" data-plot-h="{plot_h}" viewBox="0 0 {width} {height}" role="img" '
@@ -614,13 +979,13 @@ def _stress_view(data: dict) -> str:
     payload = json.dumps(sim, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
     cards = ""
     for label, evaluations in _by_label(data).items():
-        cards += (f'<div class="card" data-sim-label="{_e(label)}"><h3>{_e(LABEL_NAMES.get(label, label))}</h3>'
+        cards += (f'<div class="card" data-sim-label="{_e(label)}"><h3>{_plain(label)}</h3>'
                   f'{curve_svg(label, evaluations, evaluations[0]["k_applied"])}{_legend(evaluations)}'
                   f'{_stress_table(label, evaluations, sim["rule"])}</div>')
     if not cards:
         cards = '<div class="pending">Sin modelos evaluados: no hay curvas que simular.</div>'
     return (
-        '<section class="view" id="estres"><h2>Estrés</h2>'
+        f'<section class="view" id="estres"><h2>{dict(TABS)["estres"]}</h2>'
         f'<p class="banner warn" id="sim-hypothetical" role="note">{HYPOTHETICAL}</p>'
         '<form class="card sim-controls" id="sim-controls" onsubmit="return false">'
         '<label>Capacidad de gestión (% de clientes) <output id="sim-capacity-out">'
@@ -667,7 +1032,7 @@ def _verdict_card(data: dict) -> str:
     for d in data["models"]["decisions"]:
         text, cls = VERDICTS[d["verdict"]]
         model = f' · {_e(d["model_id"])}' if d["model_id"] else ""
-        items += f'<li>{TARGET_NAMES[d["target"]]}: <span class="status {cls}">{text}</span>{model}</li>'
+        items += f'<li>{_plain(d["target"])}: <span class="status {cls}">{text}</span>{model}</li>'
     authorized = [d for d in data["models"]["decisions"] if d["verdict"] == "authorized_for_shadow_deployment"]
     lead = ("Hay modelos autorizados a despliegue en sombra." if authorized
             else "Ningún objetivo tiene un modelo autorizado: la evidencia no alcanza para reemplazar la regla.")
@@ -699,7 +1064,7 @@ def ci_svg(target: str, rows: list) -> str:
         parts.append(
             f'<g data-ci="{_e(e["label"])}.{_e(e["model_id"])}" class="{cls}">'
             f'<text class="tick" x="{left - 8}" y="{cy + 4:.1f}" text-anchor="end">{_e(e["model_id"])} · '
-            f'{_e(LABEL_NAMES.get(e["label"], e["label"]))}</text>'
+            f'{_plain(e["label"])}</text>'
             f'<line class="ci-range" x1="{_f(x(vs["ci_low_cop_m"]))}" y1="{cy:.1f}" x2="{_f(x(vs["ci_high_cop_m"]))}" '
             f'y2="{cy:.1f}"/><circle class="ci-point" cx="{_f(x(vs["difference_cop_m"]))}" cy="{cy:.1f}" r="4">'
             f'<title>{format_cop_m(vs["difference_cop_m"])} · IC {format_cop_m(vs["ci_low_cop_m"])} a '
@@ -708,7 +1073,7 @@ def ci_svg(target: str, rows: list) -> str:
         if v != 0.0 and abs(x(v) - x(0.0)) < 80:          # keep the zero label readable
             continue
         parts.append(f'<text class="tick" x="{_f(x(v))}" y="{height - 8}" text-anchor="{anchor}">{format_cop_m(v)}</text>')
-    title = f"Ventaja sobre la regla con su intervalo pareado · {TARGET_NAMES[target]}"
+    title = f"Ventaja sobre la regla con su intervalo pareado · {PLAIN_NAMES.get(target, target)}"
     return (f'<svg class="ci" data-ci-target="{_e(target)}" data-vmin="{vmin!r}" data-x0="{left}" '
             f'data-xscale="{scale!r}" viewBox="0 0 {width} {height}" role="img" aria-label="{_e(title)}">'
             f'<title>{_e(title)}</title>{"".join(parts)}</svg>')
@@ -722,7 +1087,7 @@ def _decision_card(decision: dict, data: dict) -> str:
                    and e["vs_baseline"]), key=lambda e: (e["model_id"], e["label"]))
     body = (ci_svg(target, rows) + _comparisons(target, data) if rows
             else f'<p class="label-sm" id="ci-none-{_e(target)}">Sin comparación contra la regla: {_e(decision["reason"])}</p>')
-    return (f'<div class="card" data-decision-card="{_e(target)}"><h3>{TARGET_NAMES[target]}</h3>'
+    return (f'<div class="card" data-decision-card="{_e(target)}"><h3>{_plain(target)}</h3>'
             f'<p><span class="status {cls}" data-decision-tag="{_e(target)}">{tag}</span>{rule}</p>{body}</div>')
 
 
@@ -745,7 +1110,7 @@ def capture_svg(label: str, evaluations: list) -> str:
               f'<text class="tick" x="{x0 + w}" y="{y0 + 16}" text-anchor="end">100 %</text>',
               f'<text class="tick" x="{(left + width - right) / 2:.0f}" y="{height - 6}" text-anchor="middle">'
               '% de clientes contactados</text>']
-    title = f"Exposición en riesgo encontrada según clientes contactados · {LABEL_NAMES.get(label, label)}"
+    title = f"Exposición en riesgo encontrada según clientes contactados · {PLAIN_NAMES.get(label, label)}"
     return (f'<svg class="capture" data-capture-curve="{_e(label)}" data-x0="{x0}" data-y0="{y0}" '
             f'data-w="{w}" data-h="{h}" viewBox="0 0 {width} {height}" role="img" aria-label="{_e(title)}">'
             f'<title>{_e(title)}</title>{"".join(parts)}</svg>')
@@ -757,7 +1122,7 @@ def _capture_card(data: dict) -> str:
         return ""
     inputs, figures, rules = "", "", ""
     for n, (label, evaluations) in enumerate(labels.items()):
-        name = _e(LABEL_NAMES.get(label, label))
+        name = _plain(label)
         checked = " checked" if n == 0 else ""
         inputs += (f'<input type="radio" name="capture-label" id="capture-{_e(label)}"{checked}>'
                    f'<label for="capture-{_e(label)}">{name}</label>')
@@ -782,7 +1147,7 @@ def _cards_table(cards: list) -> str:
         messages = "".join(f'<li><code>{_e(r["rule"])}</code> ({_e(r["severity"])}): {_e(r["message"])}</li>'
                            for r in card["reasons"])
         rows += (f'<tr data-card-row="{_e(card["file"])}"><td>{_e(card["model_id"])}{demo}</td>'
-                 f'<td>{_e(TARGET_NAMES.get(card["target"], card["target"]))}</td>'
+                 f'<td>{_plain(card["target"])}</td>'
                  f'<td><span class="status {cls}">{text}</span></td><td>{_e(reasons)}</td>'
                  f'<td><details><summary>Detalle</summary><code>{_e(card["file"])}</code> · estado '
                  f'{_e(card["status"])}<ul class="plain">{messages}</ul></details></td></tr>')
@@ -825,7 +1190,7 @@ def _technical_detail(data: dict) -> str:
                 f'<td>{format_pct(b["observed_rate"])}</td></tr>' for b in e["metrics"]["calibration"])
         if evaluated:
             rows += _metrics_row(f"{label}.random", "azar", evaluated["random_at_k"], None, None)
-        name = _e(LABEL_NAMES.get(label, label))
+        name = _plain(label)
         tables += ('<table class="data"><caption>Métricas en la K aplicada · ' + name + '</caption><thead><tr>'
                    '<th>Modelo</th><th>Captura</th><th>Capturado</th><th>Valor neto</th><th>Precisión</th>'
                    '<th>Recall</th><th>Lift</th><th>PR-AUC</th><th>Brier</th><th>K*</th><th>Valor neto en K*</th>'
@@ -988,17 +1353,17 @@ def render(data: dict) -> str:
     if errors:
         raise ValueError("dashboard_data_v1: " + "; ".join(errors[:5]))
     css = (ASSETS_DIR / "styles.css").read_text(encoding="utf-8")
-    views = (_summary(data) + _lineage_view(data) + _models_view(data) + _stress_view(data)
+    views = (_summary(data) + _data_view(data) + _trace_view(data) + _models_view(data) + _stress_view(data)
              + _management_view(data) + _pending("entrega", dict(TABS)["entrega"]) + _guided())
     return (
         '<!doctype html>\n<html lang="es"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
         '<title>Predict360 · Tablero del comité</title>'
-        f'<style>{css}</style></head><body>'
-        f'<div class="banners">{_banners(data["meta"])}</div>{_header(data["meta"])}{_nav()}'
+        f'<style>{css}</style>{_active_nav_style()}</head><body><div class="app">{_sidebar()}'
+        f'<div class="main"><div class="banners">{_banners(data["meta"])}</div>{_header(data["meta"])}'
         f'<main>{views}</main>'
         '<footer>Generado por dashboard_render.py desde dashboard_data.json; ninguna cifra se escribe a mano.</footer>'
-        '</body></html>\n'
+        '</div></div></body></html>\n'
     )
 
 
