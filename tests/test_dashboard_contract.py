@@ -170,6 +170,17 @@ def test_at_k_is_the_published_point_at_k_applied(sample):
     assert any("at_k" in e for e in _errors(data))
 
 
+def test_breakeven_effectiveness_is_rebuilt_from_at_k_and_the_assumptions(sample):
+    # «compensa mientras se recuperen al menos X de cada 100» must be the evaluator's figure, not a page's
+    data = copy.deepcopy(sample)
+    assert _errors(data) == []
+    _evaluated(data)["breakeven_effectiveness"] += 0.01
+    assert any("breakeven_effectiveness" in e for e in _errors(data))
+    data = copy.deepcopy(sample)
+    del _evaluated(data)["breakeven_effectiveness"]
+    assert any("models.evaluations[" in e for e in _errors(data))       # required: the evaluated shape no longer matches
+
+
 def test_calibration_cells_are_never_under_30_clients(sample):
     data = copy.deepcopy(sample)
     _evaluated(data)["metrics"]["calibration"][0]["n_clients"] = 29.0

@@ -100,6 +100,8 @@ def test_manifest_is_closed_with_outputs_figures_and_gate_detail(ordinary):
     figures = {f["figure_id"]: f for f in manifest["figures"]}
     assert figures["exposure.delinquency.observed_cop_m"]["value"] == pytest.approx(58800.0)
     assert "models.delinquency_30.model_a.net_value_at_k_cop_m" in figures
+    breakeven = figures["models.delinquency_30.model_a.breakeven_effectiveness"]   # the «Decisión en COP» threshold
+    assert breakeven["unit"] == "share" and breakeven["path"].endswith("].breakeven_effectiveness")
     assert all("[" in f["path"] for f in manifest["figures"] if f["file"] == "evaluation.json")
     assert manifest["stations"]["management"] == "RUN"
 
