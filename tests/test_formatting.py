@@ -22,6 +22,17 @@ def test_percent_by_locale(value, locale, expected):
     assert format_pct(value, locale) == expected
 
 
+
+@pytest.mark.parametrize("value,decimals,locale,expected", [
+    (0.1, 0, "es", "10 %"), (0.1, 0, "en", "10%"), (0.096, 0, "es", "10 %"), (0.279, 1, "es", "27,9 %"),
+])
+def test_percent_with_explicit_decimals(value, decimals, locale, expected):
+    assert format_pct(value, locale, decimals=decimals) == expected
+
+
+def test_percent_keeps_one_decimal_by_default():
+    assert format_pct(0.1) == "10,0 %"
+
 @pytest.mark.parametrize("value,unit,locale,expected", [
     (58800.0, "COP_m", "es", "COP 58.800 M"),
     (0.2788484320217882, "share", "en", "27.9%"),

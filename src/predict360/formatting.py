@@ -28,10 +28,10 @@ def format_cop_m(value, locale: str = "es") -> str:
     return f"COP {_number(value, 0 if abs(value) >= 1000 else 1, locale)} M"
 
 
-def format_pct(share, locale: str = "es") -> str:
+def format_pct(share, locale: str = "es", decimals: int = 1) -> str:
     if share is None:
         return DASH
-    number = _number(share * 100, 1, locale)
+    number = _number(share * 100, decimals, locale)
     return f"{number} %" if locale == "es" else f"{number}%"
 
 

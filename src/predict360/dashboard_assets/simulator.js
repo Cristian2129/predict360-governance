@@ -59,7 +59,7 @@
       var m = label.models[i];
       var point = appliedPoint(m.curve, a.capacity_share * m.n_clients);
       var star = kStar(m.curve, a);
-      var row = { model_id: m.model_id, k_applied: point.k, net: netValue(point, a), k_star: star.k,
+      var row = { model_id: m.model_id, name: m.name, k_applied: point.k, net: netValue(point, a), k_star: star.k,
                   below_k_star: star.k > point.k };
       if (m.model_id === rule) { ruleNet = row.net; }
       if (random === null) { random = randomNet(m.event_exposure_cop_m, m.n_clients, point.k, a); }
@@ -84,7 +84,7 @@
       }
       series.push({ model_id: m.model_id, points: line });
       var star = kStar(m.curve, a);
-      stars.push({ model_id: m.model_id, k: star.k, net: star.net_value_cop_m });
+      stars.push({ model_id: m.model_id, name: m.name, k: star.k, net: star.net_value_cop_m });
     }
     var last = label.models[0].curve[label.models[0].curve.length - 1];
     var randomEnd = [last.k, netValue(last, a)];
@@ -200,8 +200,9 @@
             if (row.below_k_star) { slot.setAttribute("data-sim-warning", key); }
             else { slot.removeAttribute("data-sim-warning"); }
             slot.textContent = row.below_k_star
-              ? row.model_id + ": la capacidad (" + formatCount(row.k_applied) + " clientes) queda por debajo de K* (" +
-                formatCount(row.k_star) + "): más capacidad de gestión aumentaría el valor neto."
+              ? row.name + ": la capacidad de hoy (" + formatCount(row.k_applied) + " clientes) queda por debajo " +
+                "del mejor número de contactos (" + formatCount(row.k_star) + "): más capacidad de gestión aumentaría " +
+                "el valor neto."
               : "";
           }
         });
@@ -232,7 +233,7 @@
           dot.setAttribute("cx", X(s.k));
           dot.setAttribute("cy", Y(s.net));
           var title = dot.querySelector("title");
-          if (title) { title.textContent = "K* " + s.model_id + ": " + formatCount(s.k) + " clientes, " + formatCopM(s.net); }
+          if (title) { title.textContent = "Mejor número de contactos, " + s.name + ": " + formatCount(s.k) + " clientes, " + formatCopM(s.net); }
         }
       });
       var random = svg.querySelector('[data-series="random"]');
