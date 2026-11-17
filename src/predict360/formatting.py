@@ -35,6 +35,11 @@ def format_pct(share, locale: str = "es", decimals: int = 1) -> str:
     return f"{number} %" if locale == "es" else f"{number}%"
 
 
+def format_decimal(value, decimals: int = 1, locale: str = "es") -> str:
+    """A plain number («40», «1,2»), e.g. «se recuperan al menos 1,2 de cada 100»."""
+    return DASH if value is None else _number(value, decimals, locale)
+
+
 def format_ratio(value, locale: str = "es") -> str:
     return DASH if value is None else _number(value, 2, locale)
 

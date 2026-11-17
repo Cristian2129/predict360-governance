@@ -221,10 +221,6 @@ form.sim-controls input[type="range"] { width: 100%; accent-color: var(--accent)
 form.sim-controls button { justify-self: start; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border);
   background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
 form.sim-controls .note { grid-column: 1 / -1; margin: 0; }
-p#sim-hypothetical { border-radius: var(--radius); margin: 0 0 8px; }
-p.sim-warning { margin: 6px 0 0; padding: 6px 10px; border-left: 3px solid var(--warn); background: var(--warn-bg);
-  color: var(--warn); font-size: 0.9rem; }
-section.view > .card[data-sim-label] + .card[data-sim-label] { margin-top: 16px; }
 
 /* --- Models view (B12e-5): intervals, capture curve, calibration ------------------------- */
 svg.ci, svg.capture { width: 100%; height: auto; display: block; margin: 8px 0 4px; }
@@ -249,12 +245,14 @@ svg.capture .diagonal { stroke: var(--c-random); stroke-width: 1.75; stroke-dash
 svg.capture .capacity { stroke: var(--text); stroke-width: 1.25; stroke-dasharray: 2 4; }
 figure[data-capture-for] h4 { font-size: 15px; font-weight: 600; line-height: 1.45; margin: 14px 0 4px; max-width: 80ch; }
 .capture-switch figure { margin: 0; }
-.capture-switch > label, .metrics-switch > label { display: inline-block; margin: 0 6px 6px 0; padding: 6px 14px;
+.capture-switch > label, .metrics-switch > label, .stress-switch > label { display: inline-block; margin: 0 6px 6px 0; padding: 6px 14px;
   border: 1px solid var(--border); border-radius: 999px; cursor: pointer; font-size: 14px; }
-.capture-switch > input, .metrics-switch > input { position: absolute; opacity: 0; pointer-events: none; }
-.capture-switch > input:checked + label, .metrics-switch > input:checked + label {
+.capture-switch > input, .metrics-switch > input, .stress-switch > input { position: absolute; opacity: 0; pointer-events: none; }
+.capture-switch > input:checked + label, .metrics-switch > input:checked + label,
+.stress-switch > input:checked + label {
   background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
-.capture-switch > input:focus-visible + label, .metrics-switch > input:focus-visible + label {
+.capture-switch > input:focus-visible + label, .metrics-switch > input:focus-visible + label,
+.stress-switch > input:focus-visible + label {
   outline: 2px solid var(--accent); outline-offset: 2px; }
 details.figures { margin-top: 8px; font-size: 14px; }
 details.figures > summary, details.deciles > summary, details.original > summary {
@@ -359,4 +357,35 @@ table.data tbody tr:nth-child(even) { background: #f9fafb; }
   ol.flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   ol.flow li + li::before { display: none; }
   .grid.two { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* --- Decisión en COP: one label at a time, bars, bridge and threshold --------------------- */
+.stress-panel > * + * { margin-top: 16px; }
+.stress-panel p.answer { margin: 8px 0 0; }
+p.verdict-line { margin: 8px 0 0; padding: 8px 12px; border-left: 3px solid var(--warn); background: var(--warn-bg);
+  color: var(--warn); font-weight: 600; font-size: 14px; border-radius: 4px; }
+.bars { display: flex; flex-direction: column; gap: 10px; margin: 8px 0 4px; }
+.bar-row { display: grid; grid-template-columns: 120px minmax(0, 1fr) 130px; gap: 12px; align-items: center; }
+.bar-name { font-size: 14px; white-space: nowrap; }
+.bar-track { position: relative; height: 24px; }
+.bar-zero { position: absolute; top: -4px; bottom: -4px; width: 1px; background: var(--text); }
+.bar { position: absolute; top: 2px; bottom: 2px; border-radius: 4px; }
+.tone-best .bar { background: #2563eb; }
+.tone-other .bar { background: #98a2b3; }
+.tone-neg .bar { background: var(--res-bad); }
+.bar-value { text-align: right; font-variant-numeric: tabular-nums; font-size: 14px; white-space: nowrap; }
+.tone-best .bar-name, .tone-best .bar-value { font-weight: 700; }
+.bridge { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 8px; }
+.bridge-step { position: relative; border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+.bridge-step + .bridge-step::before { content: "→"; position: absolute; left: -12px; top: 50%; transform: translate(-50%, -50%);
+  color: var(--muted); }
+.bridge-step h4 { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.bridge-step p.value { margin: 0; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.bridge-step p.label-sm { margin: 4px 0 0; }
+p.bridge-net { margin: 12px 0 0; font-size: 17px; font-weight: 700; }
+p.threshold { font-size: 16px; line-height: 1.5; margin: 16px 0 0; max-width: 80ch; }
+@media (max-width: 760px) {
+  .bridge { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bridge-step + .bridge-step::before { display: none; }
+  .bar-row { grid-template-columns: 90px minmax(0, 1fr) 100px; }
 }

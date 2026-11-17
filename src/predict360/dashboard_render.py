@@ -36,7 +36,9 @@ from html import escape
 from pathlib import Path
 
 from src.predict360.dashboard_contract import validate_dashboard_data
-from src.predict360.formatting import DASH, format_cop_m, format_count, format_figure, format_pct, format_ratio
+from src.predict360.evaluator import _contact_cost_cop_m, _gain_cop_m
+from src.predict360.formatting import (DASH, format_cop_m, format_count, format_decimal, format_figure,
+                                       format_pct, format_ratio)
 
 ASSETS_DIR = Path(__file__).resolve().parent / "dashboard_assets"
 
@@ -840,7 +842,6 @@ def _trace_view(data: dict) -> str:
 
 # --- stress view: curve and simulator ----------------------------------------------------------
 
-HYPOTHETICAL = ("Escenario hipotético: no cambia el dictamen, que se fijó con los supuestos registrados en el acta.")
 
 
 def _by_label(data: dict) -> dict:
@@ -871,32 +872,10 @@ def _k_definition(key: str, label_ks: list, data: dict) -> str:
             'más valor neto si no hubiera límite de capacidad.</p>')
 
 
-def simulator_data(data: dict) -> dict:
-    """What simulator.js needs: the acta's assumptions and, per label and model, the published
-    curve plus the evaluator's own numbers for the browser self-check."""
-    values = {k: v for item in data["assumptions"] for k, v in item["value"].items()}
-    return {
-        "defaults": {"capacity_share": values["value.default_capacity_share"],
-                     "action_effectiveness": values["value.action_effectiveness"],
-                     "loss_given_event": values["value.loss_given_event"],
-                     "cost_per_contact_cop": values["value.cost_per_contact_cop"]},
-        "rule": _rule(data),
-        "labels": {label: {"target": rows[0]["target"], "models": [{
-            "model_id": e["model_id"], "name": PLAIN_NAMES.get(e["model_id"], e["model_id"]),
-            "n_clients": e["n_clients"],
-            "event_exposure_cop_m": e["event_exposure_cop_m"], "k_applied": e["k_applied"],
-            "k_star_k": e["k_star"]["k"], "at_k_net_value_cop_m": e["at_k"]["net_value_cop_m"],
-            "random_net_value_cop_m": e["random_at_k"]["net_value_cop_m"],
-            "curve": [{"k": p["k"], "captured_cop_m": p["captured_cop_m"], "net_value_cop_m": p["net_value_cop_m"]}
-                      for p in e["curve"]]} for e in rows]}
-            for label, rows in _by_label(data).items()},
-    }
-
-
 def curve_svg(label: str, evaluations: list, capacity_k: float | None = None) -> str:
     """Net value against the clients contacted for each model, the random line and the best number of contacts.
     Drawn with the assumptions of the acta (the values the evaluator published)."""
-    width, height, left, right, top, bottom = 640, 300, 100, 16, 16, 40   # left fits "COP -1.358 M"
+    width, height, left, right, top, bottom = 960, 340, 100, 16, 16, 40   # left fits "COP -1.358 M"
     n = max(e["n_clients"] for e in evaluations)
     last = evaluations[0]["curve"][-1]
     nets = [p["net_value_cop_m"] for e in evaluations for p in e["curve"]] + [0.0, last["net_value_cop_m"]]
@@ -936,15 +915,192 @@ def curve_svg(label: str, evaluations: list, capacity_k: float | None = None) ->
             f'aria-label="{_e(title)}"><title>{_e(title)}</title>{"".join(parts)}</svg>')
 
 
-def _legend(evaluations: list) -> str:
+def _acta(data: dict) -> dict:
+    """The value assumptions recorded in the acta, in the simulator's shape."""
+    values = {k: v for item in data["assumptions"] for k, v in item["value"].items()}
+    return {"capacity_share": values["value.default_capacity_share"],
+            "action_effectiveness": values["value.action_effectiveness"],
+            "loss_given_event": values["value.loss_given_event"],
+            "cost_per_contact_cop": values["value.cost_per_contact_cop"]}
+
+
+def _phrase(model_id: str, rule: str) -> str:
+    name = PLAIN_NAMES.get(model_id, model_id)
+    return f"la {name}" if model_id == rule else name
+
+
+def simulator_data(data: dict) -> dict:
+    """What simulator.js needs: the acta's assumptions and, per label and model, the published
+    curve plus the evaluator's own numbers for the browser self-check."""
+    rule = _rule(data)
+    return {
+        "defaults": _acta(data),
+        "rule": rule,
+        "random_name": PLAIN_NAMES["random"],
+        "labels": {label: {"target": rows[0]["target"], "name": PLAIN_NAMES.get(label, label), "models": [{
+            "model_id": e["model_id"], "name": PLAIN_NAMES.get(e["model_id"], e["model_id"]),
+            "phrase": _phrase(e["model_id"], rule),
+            "n_clients": e["n_clients"],
+            "event_exposure_cop_m": e["event_exposure_cop_m"], "k_applied": e["k_applied"],
+            "k_star_k": e["k_star"]["k"], "at_k_net_value_cop_m": e["at_k"]["net_value_cop_m"],
+            "random_net_value_cop_m": e["random_at_k"]["net_value_cop_m"],
+            "curve": [{"k": p["k"], "captured_cop_m": p["captured_cop_m"], "net_value_cop_m": p["net_value_cop_m"]}
+                      for p in e["curve"]]} for e in rows]}
+            for label, rows in _by_label(data).items()},
+    }
+
+
+def _bar_layout(options: list, best: str) -> dict:
+    """Bars of net value from a zero line, highest first; mirrors bars() in simulator.js."""
+    nets = [o["net"] for o in options]
+    low, high = min([0.0] + nets), max([0.0] + nets)
+    span = (high - low) or 1.0
+    zero = (0.0 - low) / span * 100
+    rows = []
+    for o in sorted(options, key=lambda o: -o["net"]):
+        pos = (o["net"] - low) / span * 100
+        tone = "neg" if o["net"] < 0 else "best" if o["id"] == best else "other"
+        rows.append({"id": o["id"], "name": o["name"], "net": o["net"], "tone": tone,
+                     "left": min(zero, pos), "width": abs(pos - zero)})
+    return {"zero": zero, "rows": rows}
+
+
+def _capacity_texts(k: float, k_today: float, scenario: bool) -> dict:
+    """«capacidad de hoy» at the acta's capacity; «capacidad del escenario: N clientes (hoy: M)» away from it."""
+    if not scenario:
+        return {"barsTitle": f"Valor neto llamando a {format_count(k)} clientes (capacidad de hoy)",
+                "scope": f"Con la capacidad de hoy: {format_count(k)} clientes",
+                "capacityHeader": "Capacidad de hoy (clientes)", "netHeader": "Valor neto con la capacidad de hoy",
+                "legendCapacity": "Capacidad de hoy",
+                "belowLead": f"Con la capacidad de hoy ({format_count(k)} clientes) quedan"}
+    where = f"capacidad del escenario: {format_count(k)} clientes (hoy: {format_count(k_today)})"
+    return {"barsTitle": f"Valor neto con la {where}", "scope": f"Con la {where}",
+            "capacityHeader": f"Capacidad del escenario (clientes; hoy: {format_count(k_today)})",
+            "netHeader": "Valor neto con la capacidad del escenario", "legendCapacity": "Capacidad del escenario",
+            "belowLead": f"Con la {where}, quedan"}
+
+
+def _story_texts(label_name: str, k: float, a: dict, best: dict, rule: dict | None, rule_id: str,
+                 recovered: float, cost: float, breakeven, below: list, k_today: float, scenario: bool) -> dict:
+    """Every sentence of the view for one label; mirrors storyTexts() in simulator.js word by word."""
+    phrase = _phrase(best["model_id"], rule_id)
+    capacity = _capacity_texts(k, k_today, scenario)
+    if best["net"] < 0:
+        answer = (f"Con su equipo de hoy, llamar no compensa el costo en {label_name}: la mejor opción, "
+                  f"{phrase}, deja {format_cop_m(best['net'])}.")
+    elif rule is None or rule is best:
+        answer = f"Con su equipo de hoy, {phrase} deja {format_cop_m(best['net'])} netos en {label_name}."
+    else:
+        answer = (f"Con su equipo de hoy, {phrase} deja {format_cop_m(best['net'])} netos en {label_name}; "
+                  f"{_phrase(rule_id, rule_id)}, {format_cop_m(rule['net'])}.")
+    effectiveness = format_decimal(a["action_effectiveness"] * 100, 0)
+    if breakeven is None:
+        threshold = f"Con {phrase}, en la lista no hay plata en riesgo: llamar no compensa con ninguna efectividad."
+    else:
+        margin = (a["action_effectiveness"] - breakeven) * 100
+        needed = ("aunque se recupere menos de 1 de cada 100" if breakeven * 100 < 1
+                  else f"mientras se recuperen al menos {format_decimal(breakeven * 100, 1)} de cada 100")
+        threshold = (f"Con {phrase}, llamar compensa {needed}. Hoy suponemos {effectiveness}: "
+                     + (f"margen de {format_decimal(margin, 1)} puntos." if margin >= 0
+                        else f"faltan {format_decimal(-margin, 1)} puntos."))
+    below_text = ""
+    if below:
+        below_text = (f"{capacity.pop('belowLead')} por debajo de su mejor número "
+                      "de contactos: " + _and([f"{name} ({format_count(star)})" for name, star in below]) + ".")
+    capacity.pop("belowLead", None)
+    return {**capacity, "answer": answer, "k": format_count(k), "capacity": f"{format_count(k)} clientes",
+            "who": f"{format_count(best['k'])} clientes", "whoNote": f"los de mayor riesgo según {phrase}",
+            "captured": format_cop_m(best["captured"]), "recovered": format_cop_m(recovered),
+            "recoveredNote": f"se recuperan {effectiveness} de cada 100",
+            "cost": format_cop_m(cost),
+            "costNote": f"{format_count(best['k'])} × COP {format_count(a['cost_per_contact_cop'])}",
+            "net": f"Quedan {format_cop_m(best['net'])} netos", "threshold": threshold, "below": below_text}
+
+
+def stress_story(label: str, evaluations: list, data: dict) -> dict:
+    """What the view says for one label with the acta's assumptions, from the evaluator's numbers.
+    simulator.js computes the same story in the browser; the parity tests compare both."""
+    a, rule_id = _acta(data), _rule(data)
+    values = {"value": a}
+    options, best, rule = [], None, None
+    for e in evaluations:
+        option = {"id": e["model_id"], "model_id": e["model_id"], "name": PLAIN_NAMES.get(e["model_id"], e["model_id"]),
+                  "net": e["at_k"]["net_value_cop_m"], "captured": e["at_k"]["captured_cop_m"],
+                  "breakeven": e["breakeven_effectiveness"], "k": e["k_applied"]}
+        options.append(option)
+        if best is None or option["net"] > best["net"]:
+            best = option
+        if e["model_id"] == rule_id:
+            rule = option
+    k = evaluations[0]["k_applied"]
+    options.append({"id": "random", "name": PLAIN_NAMES["random"], "net": evaluations[0]["random_at_k"]["net_value_cop_m"]})
+    below = [(PLAIN_NAMES.get(e["model_id"], e["model_id"]), e["k_star"]["k"]) for e in evaluations
+             if e["k_star"]["k"] > e["k_applied"]]
+    texts = _story_texts(PLAIN_NAMES.get(label, label), k, a, best, rule, rule_id,
+                         _gain_cop_m(best["captured"], values), _contact_cost_cop_m(best["k"], values), best["breakeven"],
+                         below, k, scenario=False)
+    return {"best": best["id"], "breakeven": best["breakeven"], "bars": _bar_layout(options, best["id"]),
+            "texts": texts}
+
+
+STRESS_QUESTION = ("Con el equipo de hoy, ¿cuánta plata deja cada opción, y qué tan equivocados pueden estar "
+                   "los supuestos antes de que deje de convenir?")
+SCENARIO_NOTE = "esto es un escenario y no cambia el dictamen."
+
+
+def _verdict_line(target: str, data: dict) -> str:
+    decision = next((d for d in data["models"]["decisions"] if d["target"] == target), None)
+    if decision is None:
+        text = "sin dictamen"
+    else:
+        verdict, _ = VERDICTS[decision["verdict"]]
+        tag, _ = DECISION_TAGS[decision["reason_code"]]
+        model = (f" ({_plain(decision['model_id'])})" if decision["verdict"] == "authorized_for_shadow_deployment"
+                 and decision["model_id"] else "")
+        text = f"{verdict}{model}, {tag[0].lower() + tag[1:]}"
+    return (f'<p class="verdict-line" data-verdict-line="{_e(target)}">Dictamen oficial en {_plain(target)}: '
+            f'{text}; {SCENARIO_NOTE}</p>')
+
+
+def _t(label: str, key: str, texts: dict, tag: str = "span", cls: str = "") -> str:
+    attr = f' class="{cls}"' if cls else ""
+    return f'<{tag}{attr} data-sim-text="{_e(label)}.{key}">{_e(texts[key])}</{tag}>'
+
+
+def _bars_html(label: str, bars: dict) -> str:
+    rows = ""
+    for n, r in enumerate(bars["rows"]):
+        rows += (f'<div class="bar-row tone-{r["tone"]}" data-bar="{_e(label)}.{_e(r["id"])}" style="order:{n}">'
+                 f'<span class="bar-name">{_e(r["name"])}</span><span class="bar-track">'
+                 f'<span class="bar-zero" style="left:{bars["zero"]:.2f}%"></span>'
+                 f'<span class="bar" style="left:{r["left"]:.2f}%;width:{r["width"]:.2f}%"></span></span>'
+                 f'<span class="bar-value" data-bar-value="{_e(label)}.{_e(r["id"])}">{format_cop_m(r["net"])}</span></div>')
+    return f'<div class="bars" data-sim-bars="{_e(label)}">{rows}</div>'
+
+
+def _bridge(label: str, texts: dict) -> str:
+    def step(title, key, note):
+        note_html = (_t(label, note, texts, "p", "label-sm") if note
+                     else '<p class="label-sm">lo que está en riesgo entre esos clientes</p>')
+        return f'<article class="bridge-step"><h4>{title}</h4>{_t(label, key, texts, "p", "value")}{note_html}</article>'
+    return (f'<div class="card"><h3>¿De dónde sale esa cifra?</h3>{_t(label, "scope", texts, "p", "label-sm")}'
+            f'<div class="bridge" data-sim-bridge="{_e(label)}">'
+            + step("A quién llamar", "who", "whoNote")
+            + step("Plata en riesgo en la lista", "captured", None)
+            + step("Se recupera", "recovered", "recoveredNote")
+            + step("Menos el costo de llamar", "cost", "costNote")
+            + f'</div>{_t(label, "net", texts, "p", "bridge-net")}</div>')
+
+
+def _legend(label: str, evaluations: list, texts: dict) -> str:
     return _model_legend(evaluations, '<li><span class="swatch random"></span>Al azar</li>',
-                         '<li><span class="swatch capacity"></span>Capacidad de hoy</li>',
+                         f'<li><span class="swatch capacity"></span>{_t(label, "legendCapacity", texts)}</li>',
                          '<li><span class="dot"></span>Mejor número de contactos</li>')
 
 
-def _stress_table(label: str, evaluations: list, rule: str) -> str:
+def _stress_table(label: str, evaluations: list, rule: str, texts: dict) -> str:
     rule_net = next((e["at_k"]["net_value_cop_m"] for e in evaluations if e["model_id"] == rule), None)
-    rows, warnings = "", ""
+    rows = ""
     for e in evaluations:
         key = f'{label}.{e["model_id"]}'
         net = e["at_k"]["net_value_cop_m"]
@@ -954,22 +1110,32 @@ def _stress_table(label: str, evaluations: list, rule: str) -> str:
                  f'<td data-sim-kapplied="{_e(key)}">{format_count(e["k_applied"])}</td>'
                  f'<td data-sim-net="{_e(key)}">{format_cop_m(net)}</td>'
                  f'<td data-sim-diff="{_e(key)}">{diff}</td></tr>')
-        if e["k_star"]["k"] > e["k_applied"]:
-            warnings += (f'<p class="sim-warning" data-sim-slot="{_e(key)}" data-sim-warning="{_e(key)}">'
-                         f'{_plain(e["model_id"])}: la capacidad de hoy ({format_count(e["k_applied"])} clientes) '
-                         f'queda por debajo del mejor número de contactos ({format_count(e["k_star"]["k"])}): más '
-                         'capacidad de gestión aumentaría '
-                         'el valor neto.</p>')
-        else:
-            warnings += f'<p class="sim-warning" data-sim-slot="{_e(key)}" hidden></p>'
     random_net = evaluations[0]["random_at_k"]["net_value_cop_m"]
     rows += (f'<tr class="random"><td>{_plain("random")}</td><td>{DASH}</td><td>{DASH}</td>'
              f'<td data-sim-net="{_e(label)}.random">{format_cop_m(random_net)}</td><td>{DASH}</td></tr>')
     return ('<table class="compare"><thead><tr><th>Modelo</th><th>Mejor número de contactos</th>'
-            '<th>Capacidad de hoy (clientes)</th>'
-            f'<th>Valor neto con la capacidad de hoy</th><th>Diferencia vs {_plain(rule)}<br><span class="label-sm">'
+            f'{_t(label, "capacityHeader", texts, "th")}'
+            f'{_t(label, "netHeader", texts, "th")}<th>Diferencia vs {_plain(rule)}<br><span class="label-sm">'
             'estimación puntual, sin intervalo</span></th></tr></thead>'
-            f'<tbody>{rows}</tbody></table>{warnings}')
+            f'<tbody>{rows}</tbody></table>')
+
+
+def _stress_panel(label: str, evaluations: list, data: dict, rule: str) -> str:
+    story = stress_story(label, evaluations, data)
+    texts = story["texts"]
+    below = _t(label, "below", texts, "p", "note")
+    return (f'<div class="stress-panel" data-stress-for="{_e(label)}">'
+            f'{_t(label, "answer", texts, "p", "answer")}{_verdict_line(evaluations[0]["target"], data)}'
+            f'<div class="card">{_t(label, "barsTitle", texts, "h3")}'
+            f'{_bars_html(label, story["bars"])}'
+            '<p class="note">Azul: la opción que más deja. Gris: las demás. Rojo: pierden plata.</p></div>'
+            f'{_bridge(label, texts)}'
+            f'{_t(label, "threshold", texts, "p", "threshold")}'
+            f'<details class="technical"><summary>Detalle técnico</summary>'
+            f'{_k_definition(label, [(label, evaluations[0]["k_applied"])], data)}'
+            f'{curve_svg(label, evaluations, evaluations[0]["k_applied"])}{_legend(label, evaluations, texts)}'
+            f'{_stress_table(label, evaluations, rule, texts)}{below}</details>'
+            '</div><!-- /stress-panel -->')
 
 
 def _stress_view(data: dict) -> str:
@@ -977,33 +1143,41 @@ def _stress_view(data: dict) -> str:
     d = sim["defaults"]
     script = (ASSETS_DIR / "simulator.js").read_text(encoding="utf-8")
     payload = json.dumps(sim, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
-    cards = ""
-    for label, evaluations in _by_label(data).items():
-        cards += (f'<div class="card" data-sim-label="{_e(label)}"><h3>{_plain(label)}</h3>'
-                  f'{_k_definition(label, [(label, evaluations[0]["k_applied"])], data)}'
-                  f'{curve_svg(label, evaluations, evaluations[0]["k_applied"])}{_legend(evaluations)}'
-                  f'{_stress_table(label, evaluations, sim["rule"])}</div>')
-    if not cards:
-        cards = '<div class="pending">Sin modelos evaluados: no hay curvas que simular.</div>'
+    labels = _by_label(data)
+    if not labels:
+        return (f'<section class="view" id="estres"><h2 class="view-title">{dict(TABS)["estres"]}</h2>'
+                f'<p class="q">{STRESS_QUESTION}</p>'
+                '<div class="pending">Sin modelos evaluados: no hay escenarios que simular.</div></section>')
+    inputs, capacity, panels, rules = "", "", "", ""
+    for n, (label, evaluations) in enumerate(labels.items()):
+        checked = " checked" if n == 0 else ""
+        inputs += (f'<input type="radio" name="stress-label" id="stress-{_e(label)}"{checked}>'
+                   f'<label for="stress-{_e(label)}">{_plain(label)}</label>')
+        capacity += (f'<span class="for-label" data-sim-capacity-for="{_e(label)}">'
+                     f'{format_count(evaluations[0]["k_applied"])} clientes</span>')
+        panels += _stress_panel(label, evaluations, data, sim["rule"])
+        rules += (f'#stress-{label}:checked ~ .stress-panel[data-stress-for="{label}"] {{ display: block; }} '
+                  f'#stress-{label}:checked ~ form [data-sim-capacity-for="{label}"] {{ display: inline; }} ')
+    effectiveness = round(d["action_effectiveness"] * 100)
     return (
-        f'<section class="view" id="estres"><h2>{dict(TABS)["estres"]}</h2>'
-        f'<p class="banner warn" id="sim-hypothetical" role="note">{HYPOTHETICAL}</p>'
+        f'<section class="view" id="estres"><h2 class="view-title">{dict(TABS)["estres"]}</h2>'
+        f'<p class="q">{STRESS_QUESTION}</p>'
+        f'<style>.stress-switch .stress-panel, .stress-switch .for-label {{ display: none; }} {rules}</style>'
+        f'<div class="stress-switch">{inputs}'
         '<form class="card sim-controls" id="sim-controls" onsubmit="return false">'
-        '<label>Capacidad de gestión (% de clientes) <output id="sim-capacity-out">'
-        f'{format_pct(d["capacity_share"])}</output>'
+        f'<label>Capacidad de gestión <output id="sim-capacity-out">{capacity} · '
+        f'<span id="sim-capacity-share">{format_pct(d["capacity_share"], decimals=0)}</span> de los clientes</output>'
         f'<input type="range" id="sim-capacity" min="1" max="100" step="1" value="{round(d["capacity_share"] * 100)}"></label>'
-        '<label>Efectividad de la acción <output id="sim-effectiveness-out">'
-        f'{format_pct(d["action_effectiveness"])}</output>'
-        f'<input type="range" id="sim-effectiveness" min="0" max="100" step="5" '
-        f'value="{round(d["action_effectiveness"] * 100)}"></label>'
+        f'<label>Efectividad de la acción <output id="sim-effectiveness-out">se recuperan {effectiveness} de cada 100 '
+        'en riesgo contactados</output>'
+        f'<input type="range" id="sim-effectiveness" min="0" max="100" step="5" value="{effectiveness}"></label>'
         f'<label>Costo por contacto <output id="sim-cost-out">COP {format_count(d["cost_per_contact_cop"])}</output>'
         f'<input type="range" id="sim-cost" min="0" max="200000" step="1000" value="{d["cost_per_contact_cop"]}"></label>'
         '<button type="button" id="sim-reset">Restablecer supuestos</button>'
         f'<p class="note">Pérdida por evento fija en {format_pct(d["loss_given_event"])} de la exposición. '
-        'Las curvas, el mejor número de contactos, la línea de capacidad y la tabla se recalculan con los controles. '
         'Sin JavaScript se muestran los valores del acta.</p></form>'
         '<p class="note" id="sim-status" role="status" hidden></p>'
-        f'{cards}'
+        f'{panels}</div>'
         f'<script type="application/json" id="sim-data">{payload}</script>'
         f'<script>{script}</script></section>'
     )
