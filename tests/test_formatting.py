@@ -2,7 +2,7 @@
 import pytest
 
 from src.predict360 import dashboard_render
-from src.predict360.formatting import format_cop_m, format_figure, format_pct
+from src.predict360.formatting import format_cop_m, format_decimal, format_figure, format_pct
 
 
 @pytest.mark.parametrize("value,locale,expected", [
@@ -54,3 +54,11 @@ def test_unknown_locale_or_unit_is_refused(unit, locale):
 def test_spanish_is_the_dashboard_default():
     assert format_cop_m(58800.0) == "COP 58.800 M"
     assert dashboard_render.format_cop_m is format_cop_m   # one formatter for the page and for Gate 3
+
+
+@pytest.mark.parametrize("value,decimals,locale,expected", [
+    (1.234, 1, "es", "1,2"), (40.0, 0, "es", "40"), (-3.25, 1, "es", "-3,2"), (1234.5, 1, "es", "1.234,5"),
+    (1.234, 1, "en", "1.2"),
+])
+def test_decimal_by_locale(value, decimals, locale, expected):
+    assert format_decimal(value, decimals, locale) == expected
