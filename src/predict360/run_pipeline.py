@@ -84,7 +84,8 @@ def _register_figures(manifest: dict, reconciliation: dict, evaluation: dict, ma
             continue
         base, select = f"models.{e['label']}.{e['model_id']}", f"evaluations[model_id={e['model_id']},label={e['label']}]"
         figures = [("net_value_at_k_cop_m", e["at_k"]["net_value_cop_m"], "COP_m", "at_k.net_value_cop_m"),
-                   ("capture_at_k", e["at_k"]["capture"], "share", "at_k.capture")]
+                   ("capture_at_k", e["at_k"]["capture"], "share", "at_k.capture"),
+                   ("breakeven_effectiveness", e["breakeven_effectiveness"], "share", "breakeven_effectiveness")]
         if e["vs_baseline"]:
             figures += [(f"{name}_vs_baseline_cop_m", e["vs_baseline"][key], "COP_m", f"vs_baseline.{key}")
                         for name, key in (("difference", "difference_cop_m"), ("ci_low", "ci_low_cop_m"),
