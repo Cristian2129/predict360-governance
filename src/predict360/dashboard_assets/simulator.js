@@ -1,4 +1,4 @@
-/* Predict360 stress simulator (US-10, B12b-2). Inlined into index.html by dashboard_render.py.
+/* Predict360 «Decisión en COP» simulator (US-10). Inlined into index.html by dashboard_render.py.
  *
  * A hypothetical scenario: it never changes the verdict, which was fixed by the paired
  * bootstrap with the assumptions recorded in the evidence record (acta).
@@ -11,6 +11,9 @@
  *   appliedPoint     = last published point with k <= K requested         (applied_point)
  *   randomNet        = gain(total * (K / N)) - cost(K)                    (random_baseline)
  *   kStar            = best published point, the first one on ties        (_published)
+ *   breakeven        = cost(K) / (loss_given_event * captured)            (breakeven_effectiveness)
+ * story() writes every sentence of the view as dashboard_render.stress_story() does in Python,
+ * and the numbers are written as formatting.py writes them (exact ties round half to even).
  */
 (function (root) {
   "use strict";
@@ -52,7 +55,13 @@
     return gain(totalCopM * share, a) - cost(kApplied, a);
   }
 
-  /* One label at one set of assumptions: what the stress view shows. */
+  function breakeven(capturedCopM, kApplied, a) {
+    var gainPerUnit = a.loss_given_event * capturedCopM;
+    if (gainPerUnit <= 0) { return null; }
+    return cost(kApplied, a) / gainPerUnit;
+  }
+
+  /* One label at one set of assumptions: the rows of the technical table. */
   function scenario(label, rule, a) {
     var rows = [], ruleNet = null, random = null;
     for (var i = 0; i < label.models.length; i++) {
@@ -71,8 +80,109 @@
     return { rows: rows, random: random };
   }
 
+  /* Bars of net value from a zero line, highest first (mirrors _bar_layout). */
+  function bars(options, bestId) {
+    var low = 0, high = 0;
+    options.forEach(function (o) { low = Math.min(low, o.net); high = Math.max(high, o.net); });
+    var span = (high - low) || 1;
+    var zero = (0 - low) / span * 100;
+    var sorted = options.slice().sort(function (x, y) { return y.net - x.net; });
+    return { zero: zero, rows: sorted.map(function (o) {
+      var pos = (o.net - low) / span * 100;
+      var tone = o.net < 0 ? "neg" : (o.id === bestId ? "best" : "other");
+      return { id: o.id, name: o.name, net: o.net, tone: tone, left: Math.min(zero, pos), width: Math.abs(pos - zero) };
+    }) };
+  }
+
+  function joinAnd(items) {
+    return items.length === 1 ? items[0] : items.slice(0, -1).join(", ") + " y " + items[items.length - 1];
+  }
+
+  /* «capacidad de hoy» at the acta's capacity, «capacidad del escenario» away from it (mirrors _capacity_texts). */
+  function capacityTexts(k, kToday, scenario) {
+    if (!scenario) {
+      return { barsTitle: "Valor neto llamando a " + formatCount(k) + " clientes (capacidad de hoy)",
+               scope: "Con la capacidad de hoy: " + formatCount(k) + " clientes",
+               capacityHeader: "Capacidad de hoy (clientes)", netHeader: "Valor neto con la capacidad de hoy",
+               legendCapacity: "Capacidad de hoy",
+               belowLead: "Con la capacidad de hoy (" + formatCount(k) + " clientes) quedan" };
+    }
+    var where = "capacidad del escenario: " + formatCount(k) + " clientes (hoy: " + formatCount(kToday) + ")";
+    return { barsTitle: "Valor neto con la " + where, scope: "Con la " + where,
+             capacityHeader: "Capacidad del escenario (clientes; hoy: " + formatCount(kToday) + ")",
+             netHeader: "Valor neto con la capacidad del escenario", legendCapacity: "Capacidad del escenario",
+             belowLead: "Con la " + where + ", quedan" };
+  }
+
+  /* Every sentence of the view for one label (mirrors _story_texts word by word). */
+  function storyTexts(labelName, k, a, best, ruleOpt, recovered, costCopM, be, below, kToday, scenario) {
+    var capacity = capacityTexts(k, kToday, scenario);
+    var answer;
+    if (best.net < 0) {
+      answer = "Con su equipo de hoy, llamar no compensa el costo en " + labelName + ": la mejor opción, " +
+        best.phrase + ", deja " + formatCopM(best.net) + ".";
+    } else if (ruleOpt === null || ruleOpt === best) {
+      answer = "Con su equipo de hoy, " + best.phrase + " deja " + formatCopM(best.net) + " netos en " + labelName + ".";
+    } else {
+      answer = "Con su equipo de hoy, " + best.phrase + " deja " + formatCopM(best.net) + " netos en " + labelName +
+        "; " + ruleOpt.phrase + ", " + formatCopM(ruleOpt.net) + ".";
+    }
+    var effectiveness = formatDecimal(a.action_effectiveness * 100, 0);
+    var threshold;
+    if (be === null) {
+      threshold = "Con " + best.phrase + ", en la lista no hay plata en riesgo: llamar no compensa con ninguna efectividad.";
+    } else {
+      var margin = (a.action_effectiveness - be) * 100;
+      var needed = be * 100 < 1 ? "aunque se recupere menos de 1 de cada 100"
+        : "mientras se recuperen al menos " + formatDecimal(be * 100, 1) + " de cada 100";
+      threshold = "Con " + best.phrase + ", llamar compensa " + needed + ". Hoy suponemos " + effectiveness + ": " +
+        (margin >= 0 ? "margen de " + formatDecimal(margin, 1) + " puntos." : "faltan " + formatDecimal(-margin, 1) + " puntos.");
+    }
+    var belowText = "";
+    if (below.length) {
+      belowText = capacity.belowLead + " por debajo de su mejor número " +
+        "de contactos: " + joinAnd(below.map(function (b) { return b[0] + " (" + formatCount(b[1]) + ")"; })) + ".";
+    }
+    var texts = {
+      barsTitle: capacity.barsTitle, scope: capacity.scope, capacityHeader: capacity.capacityHeader,
+      netHeader: capacity.netHeader, legendCapacity: capacity.legendCapacity,
+      answer: answer, k: formatCount(k), capacity: formatCount(k) + " clientes",
+      who: formatCount(best.k) + " clientes", whoNote: "los de mayor riesgo según " + best.phrase,
+      captured: formatCopM(best.captured), recovered: formatCopM(recovered),
+      recoveredNote: "se recuperan " + effectiveness + " de cada 100",
+      cost: formatCopM(costCopM),
+      costNote: formatCount(best.k) + " × COP " + formatCount(a.cost_per_contact_cop),
+      net: "Quedan " + formatCopM(best.net) + " netos", threshold: threshold, below: belowText
+    };
+    return texts;
+  }
+
+  /* What the view says for one label at some assumptions (mirrors stress_story). actaShare, when
+     given, is the acta's capacity: away from it every capacity text speaks of the scenario. */
+  function story(label, rule, a, randomName, actaShare) {
+    var options = [], best = null, ruleOpt = null, below = [], k = null;
+    for (var i = 0; i < label.models.length; i++) {
+      var m = label.models[i];
+      var point = appliedPoint(m.curve, a.capacity_share * m.n_clients);
+      if (k === null) { k = point.k; }
+      var opt = { id: m.model_id, name: m.name, phrase: m.phrase, net: netValue(point, a),
+                  captured: point.captured_cop_m, k: point.k };
+      options.push(opt);
+      if (best === null || opt.net > best.net) { best = opt; }
+      if (m.model_id === rule) { ruleOpt = opt; }
+      var star = kStar(m.curve, a);
+      if (star.k > point.k) { below.push([m.name, star.k]); }
+    }
+    var first = label.models[0];
+    options.push({ id: "random", name: randomName, net: randomNet(first.event_exposure_cop_m, first.n_clients, k, a) });
+    var be = breakeven(best.captured, best.k, a);
+    return { best: best.id, breakeven: be, bars: bars(options, best.id),
+             texts: storyTexts(label.name, k, a, best, ruleOpt, gain(best.captured, a), cost(best.k, a), be, below,
+                               first.k_applied, actaShare !== undefined && a.capacity_share !== actaShare) };
+  }
+
   /* What the curve shows at some assumptions: every model's net value per published point,
-     its K*, the random line (0 to the last point) and the vertical range (always with 0). */
+     its best number of contacts, the random line (0 to the last point) and the vertical range. */
   function curveGeometry(label, a) {
     var series = [], stars = [], values = [0];
     for (var i = 0; i < label.models.length; i++) {
@@ -116,9 +226,21 @@
     return problems;
   }
 
+  /* Python's rounding: correctly rounded, exact ties to even. toFixed is correctly rounded but
+     sends exact ties up; a double is an exact tie at d decimals iff x * 2^(d+1) is an odd integer. */
+  function fixedEven(x, d) {
+    var text = x.toFixed(d);
+    var t = x * Math.pow(2, d + 1);
+    if (Number.isInteger(t) && t % 2 === 1) {
+      var n = Math.floor(x * Math.pow(10, d));
+      if (n % 2 === 0) { text = (n / Math.pow(10, d)).toFixed(d); }
+    }
+    return text;
+  }
+
   /* Same display rules as formatting.py (es): whole millions from a thousand up, else one decimal. */
   function groupEs(value, decimals) {
-    var fixed = Math.abs(value).toFixed(decimals).split(".");
+    var fixed = fixedEven(Math.abs(value), decimals).split(".");
     var whole = fixed[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
     return (value < 0 ? "-" : "") + whole + (decimals ? "," + fixed[1] : "");
   }
@@ -131,10 +253,14 @@
     return groupEs(value, 0);
   }
 
+  function formatDecimal(value, decimals) {
+    return groupEs(value, decimals);
+  }
+
   var api = { gain: gain, cost: cost, netValue: netValue, appliedPoint: appliedPoint, kStar: kStar,
-              randomNet: randomNet, scenario: scenario, curveGeometry: curveGeometry, selfCheck: selfCheck,
-              formatCopM: formatCopM,
-              formatCount: formatCount };
+              randomNet: randomNet, breakeven: breakeven, scenario: scenario, bars: bars, story: story,
+              curveGeometry: curveGeometry, selfCheck: selfCheck,
+              formatCopM: formatCopM, formatCount: formatCount, formatDecimal: formatDecimal };
 
   if (typeof module !== "undefined" && module.exports) {
     module.exports = api;          /* Node: parity tests */
@@ -167,8 +293,7 @@
       cost_per_contact_cop: document.getElementById("sim-cost")
     };
     var set = function (selector, text) {
-      var el = document.querySelector(selector);
-      if (el) { el.textContent = text; }
+      Array.prototype.forEach.call(document.querySelectorAll(selector), function (el) { el.textContent = text; });
     };
 
     function current() {
@@ -182,10 +307,26 @@
 
     function update() {
       var a = current();
-      set("#sim-capacity-out", groupEs(a.capacity_share * 100, 0) + " %");
-      set("#sim-effectiveness-out", groupEs(a.action_effectiveness * 100, 0) + " %");
+      set("#sim-capacity-share", groupEs(a.capacity_share * 100, 0) + " %");
+      set("#sim-effectiveness-out", "se recuperan " + groupEs(a.action_effectiveness * 100, 0) +
+        " de cada 100 en riesgo contactados");
       set("#sim-cost-out", "COP " + formatCount(a.cost_per_contact_cop));
       Object.keys(sim.labels).forEach(function (name) {
+        var st = story(sim.labels[name], sim.rule, a, sim.random_name, sim.defaults.capacity_share);
+        Object.keys(st.texts).forEach(function (key) { set('[data-sim-text="' + name + "." + key + '"]', st.texts[key]); });
+        set('[data-sim-capacity-for="' + name + '"]', st.texts.capacity);
+        var zero = st.bars.zero.toFixed(2) + "%";
+        st.bars.rows.forEach(function (r, i) {
+          var row = document.querySelector('[data-bar="' + name + "." + r.id + '"]');
+          if (!row) { return; }
+          row.style.order = i;
+          row.className = "bar-row tone-" + r.tone;
+          var bar = row.querySelector(".bar");
+          bar.style.left = r.left.toFixed(2) + "%";
+          bar.style.width = r.width.toFixed(2) + "%";
+          row.querySelector(".bar-zero").style.left = zero;
+          row.querySelector(".bar-value").textContent = formatCopM(r.net);
+        });
         var result = scenario(sim.labels[name], sim.rule, a);
         set('[data-sim-net="' + name + '.random"]', formatCopM(result.random));
         result.rows.forEach(function (row) {
@@ -194,23 +335,12 @@
           set('[data-sim-kapplied="' + key + '"]', formatCount(row.k_applied));
           set('[data-sim-kstar="' + key + '"]', formatCount(row.k_star));
           set('[data-sim-diff="' + key + '"]', row.difference === null ? "—" : formatCopM(row.difference));
-          var slot = document.querySelector('[data-sim-slot="' + key + '"]');
-          if (slot) {
-            slot.hidden = !row.below_k_star;
-            if (row.below_k_star) { slot.setAttribute("data-sim-warning", key); }
-            else { slot.removeAttribute("data-sim-warning"); }
-            slot.textContent = row.below_k_star
-              ? row.name + ": la capacidad de hoy (" + formatCount(row.k_applied) + " clientes) queda por debajo " +
-                "del mejor número de contactos (" + formatCount(row.k_star) + "): más capacidad de gestión aumentaría " +
-                "el valor neto."
-              : "";
-          }
         });
         redraw(name, a, result.rows.length ? result.rows[0].k_applied : null);
       });
     }
 
-    /* The whole curve follows the controls: lines, K*, random line, zero axis and the range. */
+    /* The whole curve follows the controls: lines, best number of contacts, random line, zero axis and range. */
     function redraw(name, a, kApplied) {
       var svg = document.querySelector('svg[data-curve="' + name + '"]');
       if (!svg) { return; }

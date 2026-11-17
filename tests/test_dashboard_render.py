@@ -217,14 +217,214 @@ def _evaluated_by_label(data):
     return out
 
 
-def test_stress_view_is_a_hypothetical_scenario_that_never_issues_a_verdict(html):
+STRESS_QUESTION = ("Con el equipo de hoy, ¿cuánta plata deja cada opción, y qué tan equivocados pueden estar "
+                   "los supuestos antes de que deje de convenir?")
+
+
+def _acta(data):
+    values = {k: v for item in data["assumptions"] for k, v in item["value"].items()}
+    return {"capacity_share": values["value.default_capacity_share"],
+            "action_effectiveness": values["value.action_effectiveness"],
+            "loss_given_event": values["value.loss_given_event"],
+            "cost_per_contact_cop": values["value.cost_per_contact_cop"]}
+
+
+def _panel(view, label):
+    return re.search(rf'<div class="stress-panel" data-stress-for="{label}">(.*?)<!-- /stress-panel -->',
+                     view, re.S).group(1)
+
+
+def _text(fragment, key):
+    found = re.search(rf'data-sim-text="{re.escape(key)}"[^>]*>([^<]*)<', fragment)
+    assert found, key
+    return found.group(1)
+
+
+def _best(evaluations):
+    best = None
+    for e in evaluations:
+        if best is None or e["at_k"]["net_value_cop_m"] > best["at_k"]["net_value_cop_m"]:
+            best = e
+    return best
+
+
+def test_stress_view_asks_its_question_and_states_the_official_verdict(sample, html):
     view = _view(html, "estres")
+    assert f'<p class="q">{STRESS_QUESTION}</p>' in view
     assert "Vista en construcción" not in view
-    assert ("Escenario hipotético: no cambia el dictamen, que se fijó con los supuestos registrados en el acta."
-            in view)
+    verdicts = {d["target"]: d for d in sample["models"]["decisions"]}
+    for label, evaluations in _evaluated_by_label(sample).items():
+        line = re.search(r'<p class="verdict-line"[^>]*>(.*?)</p>', _panel(view, label), re.S).group(1)
+        decision = verdicts[evaluations[0]["target"]]
+        assert line.startswith(f'Dictamen oficial en {_plain_name(evaluations[0]["target"])}: ')
+        assert ("No autorizado" in line) is (decision["verdict"] == "not_authorized")
+        assert line.endswith("esto es un escenario y no cambia el dictamen.")
+    assert "pasa a producción" not in view
+
+
+def test_one_label_at_a_time_behind_a_selector(sample, html):
+    view = _view(html, "estres")
+    labels = list(_evaluated_by_label(sample))
+    radios = re.findall(r'<input type="radio" name="stress-label" id="stress-([^"]+)"( checked)?>', view)
+    assert [r[0] for r in radios] == labels and radios[0][1] == " checked" and not any(r[1] for r in radios[1:])
+    for label in labels:
+        assert f'<label for="stress-{label}">{_plain_name(label)}</label>' in view
+        assert f'data-stress-for="{label}"' in view
+
+
+def test_three_sliders_with_capacity_in_clients_and_a_reset(sample, html):
+    view = _view(html, "estres")
+    a = _acta(sample)
+    for slider in ("sim-capacity", "sim-effectiveness", "sim-cost"):
+        assert f'id="{slider}"' in view
     assert 'id="sim-reset"' in view and "Restablecer supuestos" in view
-    assert "estimación puntual, sin intervalo" in view
-    assert "utorizado" not in view                     # neither "Autorizado" nor "No autorizado"
+    for label, evaluations in _evaluated_by_label(sample).items():
+        out = re.search(rf'<span class="for-label" data-sim-capacity-for="{label}">([^<]*)<', view).group(1)
+        assert out == f'{format_count(evaluations[0]["k_applied"])} clientes'
+    assert f'{format_pct(a["capacity_share"], decimals=0)}' in re.search(r'<output id="sim-capacity-out">(.*?)</output>',
+                                                                        view, re.S).group(1)
+    effectiveness = re.search(r'<output id="sim-effectiveness-out">([^<]*)</output>', view).group(1)
+    assert effectiveness == f'se recuperan {round(a["action_effectiveness"] * 100)} de cada 100 en riesgo contactados'
+
+
+def test_the_answer_names_the_best_option_and_the_rule(sample, html):
+    view = _view(html, "estres")
+    for label, evaluations in _evaluated_by_label(sample).items():
+        answer = _text(_panel(view, label), f"{label}.answer")
+        best = _best(evaluations)
+        assert answer.startswith("Con su equipo de hoy, ")
+        assert format_cop_m(best["at_k"]["net_value_cop_m"]) in answer and _plain_name(label) in answer
+        rule = next((e for e in evaluations if e["model_id"] == "baseline_rule"), None)
+        if rule and rule is not best:
+            assert f'la Regla actual, {format_cop_m(rule["at_k"]["net_value_cop_m"])}' in answer
+
+
+def test_when_every_option_loses_money_the_answer_says_calling_does_not_pay(sample):
+    data = copy.deepcopy(sample)
+    for e in data["models"]["evaluations"]:
+        if e["status"] == "evaluated":
+            loss = -abs(e["at_k"]["net_value_cop_m"]) - 1.0
+            e["at_k"]["net_value_cop_m"] = loss
+            for point in e["curve"]:
+                if point["k"] == e["k_applied"]:
+                    point["net_value_cop_m"] = loss
+            if e["k_star"]["k"] == e["k_applied"]:
+                e["k_star"]["net_value_cop_m"] = loss
+    view = _view(render(data), "estres")
+    for label in _evaluated_by_label(data):
+        assert "llamar no compensa el costo" in _text(_panel(view, label), f"{label}.answer")
+
+
+def _bars(panel):
+    return re.findall(r'<div class="bar-row tone-(best|other|neg)" data-bar="([^"]+)" style="order:(\d+)">'
+                      r'.*?<span class="bar" style="left:([\d.]+)%;width:([\d.]+)%"></span>.*?'
+                      r'<span class="bar-value"[^>]*>([^<]*)</span>', panel, re.S)
+
+
+def test_the_bars_are_sorted_and_coloured_by_what_they_mean(sample, html):
+    view = _view(html, "estres")
+    for label, evaluations in _evaluated_by_label(sample).items():
+        panel = _panel(view, label)
+        k = format_count(evaluations[0]["k_applied"])
+        assert _text(panel, f"{label}.barsTitle") == f"Valor neto llamando a {k} clientes (capacidad de hoy)"
+        bars = _bars(panel)
+        nets = {e["model_id"]: e["at_k"]["net_value_cop_m"] for e in evaluations}
+        nets["random"] = evaluations[0]["random_at_k"]["net_value_cop_m"]
+        assert sorted(b[1] for b in bars) == sorted(f"{label}.{m}" for m in nets)
+        ordered = sorted(bars, key=lambda b: int(b[2]))
+        values = [nets[b[1].split(".", 1)[1]] for b in ordered]
+        assert values == sorted(values, reverse=True)
+        best = _best(evaluations)["model_id"]
+        for tone, key, _, left, width, shown in bars:
+            model = key.split(".", 1)[1]
+            assert shown == format_cop_m(nets[model])
+            expected = "neg" if nets[model] < 0 else "best" if model == best else "other"
+            assert tone == expected, (key, tone)
+            assert 0 <= float(left) <= 100 and 0 <= float(width) <= 100
+
+
+def test_the_bridge_of_the_best_option_adds_up(sample, html):
+    view = _view(html, "estres")
+    a = _acta(sample)
+    for label, evaluations in _evaluated_by_label(sample).items():
+        panel = _panel(view, label)
+        best = _best(evaluations)
+        k, captured = best["k_applied"], best["at_k"]["captured_cop_m"]
+        assert len(re.findall(r'<article class="bridge-step"', panel)) == 4
+        assert _text(panel, f"{label}.who") == f"{format_count(k)} clientes"
+        assert _plain_name(best["model_id"]) in _text(panel, f"{label}.whoNote")
+        assert _text(panel, f"{label}.captured") == format_cop_m(captured)
+        recovered = a["action_effectiveness"] * a["loss_given_event"] * captured
+        assert _text(panel, f"{label}.recovered") == format_cop_m(recovered)
+        assert _text(panel, f"{label}.cost") == format_cop_m(k * a["cost_per_contact_cop"] / 1_000_000)
+        assert _text(panel, f"{label}.net") == f'Quedan {format_cop_m(best["at_k"]["net_value_cop_m"])} netos'
+        for title in ("A quién llamar", "Plata en riesgo en la lista", "Se recupera", "Menos el costo de llamar"):
+            assert title in panel
+
+
+def test_the_threshold_uses_the_registered_breakeven(sample, html):
+    from src.predict360.formatting import format_decimal
+    view = _view(html, "estres")
+    a = _acta(sample)
+    for label, evaluations in _evaluated_by_label(sample).items():
+        best = _best(evaluations)
+        text = _text(_panel(view, label), f"{label}.threshold")
+        be = best["breakeven_effectiveness"]
+        if be is None:
+            assert "no compensa con ninguna efectividad" in text
+            continue
+        assert f"llamar compensa mientras se recuperen al menos {format_decimal(be * 100, 1)} de cada 100" in text
+        assert f"Hoy suponemos {format_decimal(a['action_effectiveness'] * 100, 0)}: " in text
+        margin = (a["action_effectiveness"] - be) * 100
+        assert (f"margen de {format_decimal(margin, 1)} puntos" if margin >= 0
+                else f"faltan {format_decimal(-margin, 1)} puntos") in text
+
+
+def test_every_capacity_text_says_today_at_the_acta(sample, html):
+    view = _view(html, "estres")
+    for label, evaluations in _evaluated_by_label(sample).items():
+        panel = _panel(view, label)
+        k = format_count(evaluations[0]["k_applied"])
+        assert _text(panel, f"{label}.scope") == f"Con la capacidad de hoy: {k} clientes"
+        assert re.search(rf'<th data-sim-text="{label}.capacityHeader">Capacidad de hoy \(clientes\)</th>', panel)
+        assert re.search(rf'<th data-sim-text="{label}.netHeader">Valor neto con la capacidad de hoy</th>', panel)
+        assert _text(panel, f"{label}.legendCapacity") == "Capacidad de hoy"
+        bridge = panel[panel.index("¿De dónde sale esa cifra?"):panel.index('data-sim-bridge=')]
+        assert f'data-sim-text="{label}.scope"' in bridge
+
+
+def test_a_threshold_below_one_in_a_hundred_is_written_as_less_than_one(sample):
+    from src.predict360.dashboard_render import stress_story
+    for label, evaluations in _evaluated_by_label(sample).items():
+        evaluations = copy.deepcopy(evaluations)
+        for e in evaluations:
+            e["breakeven_effectiveness"] = 0.004
+        text = stress_story(label, evaluations, sample)["texts"]["threshold"]
+        assert "menos de 1 de cada 100" in text and "al menos 0,4" not in text
+
+
+def test_curves_table_and_one_capacity_line_live_in_the_technical_detail(sample, html):
+    view = _view(html, "estres")
+    assert "data-sim-warning" not in view and "sim-warning" not in view
+    for label, evaluations in _evaluated_by_label(sample).items():
+        panel = _panel(view, label)
+        detail = panel[panel.index('<details class="technical"'):]
+        assert f'data-curve="{label}"' in detail and f'data-sim-net="{label}.' in detail
+        assert f'data-curve="{label}"' not in panel[:panel.index('<details class="technical"')]
+        below = [e for e in evaluations if e["k_star"]["k"] > e["k_applied"]]
+        line = _text(detail, f"{label}.below")
+        if below:
+            assert line.startswith(f'Con la capacidad de hoy ({format_count(evaluations[0]["k_applied"])} clientes)')
+            for e in below:
+                assert f'{_plain_name(e["model_id"])} ({format_count(e["k_star"]["k"])})' in line
+        else:
+            assert line == ""
+
+
+def test_the_bar_tones_are_in_the_css():
+    css = (ROOT / "src" / "predict360" / "dashboard_assets" / "styles.css").read_text(encoding="utf-8")
+    for tone in ("tone-best", "tone-other", "tone-neg"):
+        assert f".{tone}" in css
 
 
 def test_one_curve_per_label_with_models_random_and_k_star(html, sample):
@@ -262,14 +462,6 @@ def test_defaults_are_the_evaluator_values_without_javascript(html, sample):
         assert random == format_cop_m(evaluations[0]["random_at_k"]["net_value_cop_m"])
 
 
-def test_capacity_below_k_star_is_flagged(html, sample):
-    view = _view(html, "estres")
-    for label, evaluations in _evaluated_by_label(sample).items():
-        for e in evaluations:
-            flagged = f'data-sim-warning="{label}.{e["model_id"]}"' in view
-            assert flagged == (e["k_star"]["k"] > e["k_applied"]), (label, e["model_id"])
-
-
 def test_simulator_data_and_script_are_inline(html, sample):
     view = _view(html, "estres")
     raw = re.search(r'<script type="application/json" id="sim-data">(.*?)</script>', view, re.S).group(1)
@@ -281,6 +473,12 @@ def test_simulator_data_and_script_are_inline(html, sample):
                                "loss_given_event": values["value.loss_given_event"],
                                "cost_per_contact_cop": values["value.cost_per_contact_cop"]}
     assert set(sim["labels"]) == set(_evaluated_by_label(sample))
+    assert sim["random_name"] == "Al azar"
+    for label, entry in sim["labels"].items():
+        assert entry["name"] == _plain_name(label)
+        for m in entry["models"]:
+            assert m["name"] == _plain_name(m["model_id"])
+            assert m["phrase"] == ("la Regla actual" if m["model_id"] == "baseline_rule" else m["name"])
     assert "function appliedPoint" in html and "function selfCheck" in html
 
 
@@ -1280,21 +1478,9 @@ def test_the_comparisons_say_how_many_clients_were_called(sample, html):
     assert "Clientes llamados (capacidad de hoy)" in view
 
 
-def test_stress_warnings_use_plain_names_and_no_k(sample, html):
-    view = _view(html, "estres")
-    for label, evaluations in _evaluated_by_label(sample).items():
-        for e in evaluations:
-            warning = re.search(rf'data-sim-warning="{label}.{e["model_id"]}">([^<]*)<', view)
-            if warning:
-                assert warning.group(1).startswith(_plain_name(e["model_id"]) + ":")
-                assert "mejor número de contactos" in warning.group(1) and "K*" not in warning.group(1)
-    assert "<td>Al azar</td>" in view
+def test_the_simulator_script_speaks_plain_spanish():
     script = (ROOT / "src" / "predict360" / "dashboard_assets" / "simulator.js").read_text(encoding="utf-8")
     assert "row.model_id + \": la capacidad" not in script and "K* (" not in script
-    raw = re.search(r'<script type="application/json" id="sim-data">(.*?)</script>', view, re.S).group(1)
-    for label, entry in json.loads(raw)["labels"].items():
-        for m in entry["models"]:
-            assert m["name"] == _plain_name(m["model_id"])
 
 
 # --- management view (B12c) ------------------------------------------------------------------

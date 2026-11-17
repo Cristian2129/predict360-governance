@@ -19,9 +19,10 @@ import pytest
 
 from src.predict360.config import ROOT, load_assumptions
 from src.predict360.dashboard_contract import SAMPLE_PATH
-from src.predict360.dashboard_render import ASSETS_DIR, simulator_data
+from src.predict360.dashboard_render import ASSETS_DIR, _by_label, simulator_data, stress_story
 from src.predict360.evaluator import (_contact_cost_cop_m, _gain_cop_m, _published, applied_point,
-                                      capture_curve)
+                                      breakeven_effectiveness, capture_curve)
+from src.predict360.formatting import format_cop_m, format_count, format_decimal
 
 SIMULATOR = ASSETS_DIR / "simulator.js"
 NODE = shutil.which("node")
@@ -46,7 +47,7 @@ def node(tmp_path_factory):
         path = folder / "calls.json"
         path.write_text(json.dumps(calls), encoding="utf-8")
         proc = subprocess.run([NODE, str(folder / "harness.js"), str(SIMULATOR), str(path)],
-                              capture_output=True, text=True, check=True)
+                              capture_output=True, text=True, encoding="utf-8", check=True)
         return json.loads(proc.stdout)
     return call
 
@@ -122,6 +123,81 @@ def test_the_redrawn_curve_at_the_acta_is_the_drawn_one(node, run_data):
         assert geometry["low"] == pytest.approx(min(nets + [0.0, last]), abs=TOLERANCE)
         assert geometry["high"] == pytest.approx(max(nets + [0.0, last]), abs=TOLERANCE)
         assert [s["k"] for s in geometry["stars"]] == [m["k_star_k"] for m in label["models"]]
+
+
+@pytest.mark.parametrize("dataset", ["fixture", "run"])
+def test_the_story_at_the_acta_is_the_rendered_one(node, run_data, dataset):
+    """Answer, bars, bridge and threshold: what the browser writes is what the page was rendered with."""
+    data = _datasets(run_data)[dataset]
+    sim = simulator_data(data)
+    for name, evaluations in _by_label(data).items():
+        (js,) = node([["story", sim["labels"][name], sim["rule"], sim["defaults"], sim["random_name"]]])
+        py = stress_story(name, evaluations, data)
+        assert js["texts"] == py["texts"], name
+        assert [(r["id"], r["tone"]) for r in js["bars"]["rows"]] == [(r["id"], r["tone"]) for r in py["bars"]["rows"]]
+        for r_js, r_py in zip(js["bars"]["rows"], py["bars"]["rows"]):
+            assert r_js["left"] == pytest.approx(r_py["left"], abs=1e-9)
+            assert r_js["width"] == pytest.approx(r_py["width"], abs=1e-9)
+        assert js["bars"]["zero"] == pytest.approx(py["bars"]["zero"], abs=1e-9)
+        best = next(e for e in evaluations if e["model_id"] == js["best"])
+        if best["breakeven_effectiveness"] is None:
+            assert js["breakeven"] is None
+        else:
+            assert js["breakeven"] == pytest.approx(best["breakeven_effectiveness"], abs=TOLERANCE)
+
+
+def test_the_story_follows_the_evaluator_formulas_at_other_assumptions(node, run_data):
+    a = {"capacity_share": 0.23, "action_effectiveness": 0.3, "loss_given_event": 0.8, "cost_per_contact_cop": 50000}
+    v = _values(a)
+    sim = simulator_data(run_data)
+    for name, label in sim["labels"].items():
+        (js,) = node([["story", label, sim["rule"], a, sim["random_name"]]])
+        nets = {}
+        for m in label["models"]:
+            point = applied_point(m["curve"], a["capacity_share"] * m["n_clients"])
+            nets[m["model_id"]] = (_gain_cop_m(point["captured_cop_m"], v) - _contact_cost_cop_m(point["k"], v), point)
+        best = max(nets, key=lambda m: nets[m][0])
+        net, point = nets[best]
+        assert js["best"] == best
+        assert js["texts"]["captured"] == format_cop_m(point["captured_cop_m"])
+        assert js["texts"]["recovered"] == format_cop_m(_gain_cop_m(point["captured_cop_m"], v))
+        assert js["texts"]["cost"] == format_cop_m(_contact_cost_cop_m(point["k"], v))
+        assert js["texts"]["net"] == f"Quedan {format_cop_m(net)} netos"
+        be = breakeven_effectiveness(point["captured_cop_m"], point["k"], v)
+        assert js["breakeven"] == pytest.approx(be, abs=TOLERANCE)
+
+
+def test_away_from_the_acta_capacity_every_text_says_scenario(node, run_data):
+    sim = simulator_data(run_data)
+    a = dict(sim["defaults"], capacity_share=0.23)
+    for name, label in sim["labels"].items():
+        (js,) = node([["story", label, sim["rule"], a, sim["random_name"], sim["defaults"]["capacity_share"]]])
+        k = applied_point(label["models"][0]["curve"], 0.23 * label["models"][0]["n_clients"])["k"]
+        scenario = f"capacidad del escenario: {format_count(k)} clientes (hoy: {format_count(label['models'][0]['k_applied'])})"
+        assert js["texts"]["barsTitle"] == f"Valor neto con la {scenario}"
+        assert js["texts"]["scope"] == f"Con la {scenario}"
+        assert js["texts"]["legendCapacity"] == "Capacidad del escenario"
+        assert js["texts"]["capacityHeader"].startswith("Capacidad del escenario")
+        assert all("capacidad de hoy" not in t.lower() for t in js["texts"].values()), name
+        (same,) = node([["story", label, sim["rule"], sim["defaults"], sim["random_name"],
+                         sim["defaults"]["capacity_share"]]])
+        assert "capacidad de hoy" in same["texts"]["barsTitle"]
+
+
+def test_a_threshold_below_one_in_a_hundred_reads_less_than_one_in_the_browser(node, run_data):
+    sim = simulator_data(run_data)
+    a = dict(sim["defaults"], cost_per_contact_cop=1)
+    for name, label in sim["labels"].items():
+        (js,) = node([["story", label, sim["rule"], a, sim["random_name"]]])
+        if js["breakeven"] is not None and js["breakeven"] * 100 < 1:
+            assert "menos de 1 de cada 100" in js["texts"]["threshold"], name
+
+
+@pytest.mark.parametrize("value", [5312.5, 562.5, 1187.5, 0.5, 2.5, 133.25, 133.75, -92.25, 0.15, 58800.0, 12000.0])
+def test_numbers_are_written_as_python_writes_them(node, value):
+    """Exact ties round half to even, as Python does, so the page never changes a figure on load."""
+    count, cop, dec = node([["formatCount", value], ["formatCopM", value], ["formatDecimal", value, 1]])
+    assert (count, cop, dec) == (format_count(value), format_cop_m(value), format_decimal(value, 1))
 
 
 # --- with other assumptions: the same formulas and K rule as the evaluator -----------------------
