@@ -274,3 +274,38 @@ def test_pipeline_output_meets_the_same_contract(tmp_path):
     data = json.loads((result["run_dir"] / "dashboard_data.json").read_text(encoding="utf-8"))
     assert _errors(data) == []
     assert list(data) == TOP_LEVEL and data["meta"]["sample"] is False
+
+
+# --- management view: one source for SP, burndown, team reading, risk type ---------------------
+
+@pytest.mark.parametrize("key", ["completed_sp", "planned_sp"])
+def test_velocity_and_earned_value_take_their_sp_from_the_same_log(sample, key):
+    data = copy.deepcopy(sample)
+    data["management"]["velocity"][-1][key] += 1
+    assert any("velocity" in e for e in _errors(data))
+
+
+def test_the_burndown_starts_at_the_committed_sp_and_ends_at_the_open_ones(sample):
+    for burndown in sample["management"]["burndown"]:
+        sprint = next(s for s in sample["management"]["sprints"] if s["sprint"] == burndown["sprint"])
+        assert burndown["blocks"][0]["actual_remaining"] == sprint["committed_sp"]
+        assert burndown["blocks"][-1]["actual_remaining"] == sprint["committed_sp"] - sprint["done_sp"]
+    data = copy.deepcopy(sample)
+    data["management"]["burndown"][-1]["blocks"][-1]["actual_remaining"] += 1
+    assert any("burndown" in e for e in _errors(data))
+
+
+@pytest.mark.parametrize("reading", [None, "Texto del equipo."])
+def test_the_team_reading_is_text_or_null(sample, reading):
+    data = copy.deepcopy(sample)
+    data["management"]["team_reading"] = reading
+    assert _errors(data) == []
+    data["management"]["team_reading"] = 3
+    assert any(e.startswith("$.management") for e in _errors(data))
+
+
+def test_every_risk_says_whether_it_is_a_risk_or_an_impediment(sample):
+    assert {r["type"] for r in sample["management"]["risks"]} == {"Risk", "Impediment"}
+    data = copy.deepcopy(sample)
+    data["management"]["risks"][0]["type"] = "Other"
+    assert any(e.startswith("$.management") for e in _errors(data))

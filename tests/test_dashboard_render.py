@@ -17,8 +17,9 @@ import pytest
 
 from src.predict360.config import ROOT
 from src.predict360.dashboard_contract import SAMPLE_PATH
-from src.predict360.formatting import format_ratio
+from src.predict360.formatting import format_decimal, format_ratio
 from src.predict360.dashboard_render import (
+    MANAGEMENT_QUESTION,
     TABS,
     format_cop_m,
     format_count,
@@ -1483,24 +1484,67 @@ def test_the_simulator_script_speaks_plain_spanish():
     assert "row.model_id + \": la capacidad" not in script and "K* (" not in script
 
 
-# --- management view (B12c) ------------------------------------------------------------------
+# --- management view (B12c; redesign: answer, three questions, budget bar, charts) ---------
 
 def _management(data):
     return _view(render(data), "gestion")
 
 
+def _delivered(sample, ac_scale=1.0):
+    """The sample with every committed SP closed (as in the real run); ac_scale moves the spend."""
+    data = copy.deepcopy(sample)
+    m = data["management"]
+    for s in m["sprints"]:
+        s["done_sp"], s["ev_cop_m"], s["spi"] = s["committed_sp"], s["pv_cop_m"], 1.0
+        s["ac_cop_m"] *= ac_scale
+        s["cpi"] = s["ev_cop_m"] / s["ac_cop_m"]
+    for v in m["velocity"]:
+        v["completed_sp"], v["completion_rate_pct"] = v["planned_sp"], 100.0
+    for b in m["burndown"]:
+        b["blocks"][-1]["actual_remaining"] = 0.0
+    c = m["cumulative"]
+    c["ev_cop_m"], c["spi"] = c["pv_cop_m"], 1.0
+    c["ac_cop_m"] = sum(s["ac_cop_m"] for s in m["sprints"])
+    c["cpi"] = c["ev_cop_m"] / c["ac_cop_m"]
+    c["eac_cop_m"] = c["bac_cop_m"] / c["cpi"]
+    c["eac_minus_ceiling_cop_m"] = c["eac_cop_m"] - c["ceiling_cop_m"]
+    c["eac_over_ceiling"] = c["eac_minus_ceiling_cop_m"] > 0
+    return data
+
+
 def test_management_view_is_built(html):
     view = _view(html, "gestion")
-    assert "Vista en construcción" not in view and 'id="management-cumulative"' in view
+    assert "Vista en construcción" not in view and f'<p class="q">{MANAGEMENT_QUESTION}</p>' in view
+    assert 'id="management-cards"' in view
+    assert 'id="management-answer"' not in view          # the question is the title; the cards answer it
 
 
-def test_cumulative_figures_come_from_the_json_with_their_trace(sample, html):
+def _card(view, question):
+    found = re.search(rf'<article class="mgmt-card" data-question="{question}">(.*?)</article>', view, re.S)
+    assert found, question
+    return found.group(1)
+
+
+def test_three_cards_answer_in_plain_words_with_the_index_in_brackets(sample):
+    c = sample["management"]["cumulative"]
+    view = _management(sample)                                          # fixture: SPI and CPI below 1
+    on_time, on_budget, final = (_card(view, q) for q in ("on-time", "on-budget", "final-cost"))
+    assert "¿Vamos a tiempo?" in on_time and '<p class="mgmt-answer no">No</p>' in on_time
+    assert f"Por cada $1 de trabajo planeado se entregaron ${format_ratio(c['spi'])}" in _visible(on_time)
+    assert re.search(rf"\(SPI\s+{re.escape(format_ratio(c['spi']))}\s*\)", _visible(on_time))
+    assert "¿Gastamos lo previsto?" in on_budget and '<p class="mgmt-answer no">No</p>' in on_budget
+    assert f"Por cada $1 gastado se generaron ${format_ratio(c['cpi'])} de valor" in _visible(on_budget)
+    assert re.search(rf"\(CPI\s+{re.escape(format_ratio(c['cpi']))}\s*\)", _visible(on_budget))
+    assert "¿Cuánto costará al final?" in final and format_cop_m(c["eac_cop_m"]) in final
+    assert "proyección si se mantiene el ritmo de gasto" in final and 'id="eac-ceiling"' in final
+
+    view = _management(_delivered(sample, ac_scale=0.5))                # on time and under budget
+    assert '<p class="mgmt-answer yes">Sí</p>' in _card(view, "on-time")
+    assert '<p class="mgmt-answer yes">Sí</p>' in _card(view, "on-budget")
+
+
+def test_registered_management_figures_keep_their_trace(sample, html):
     view = _view(html, "gestion")
-    cumulative = sample["management"]["cumulative"]
-    for key in ("pv_cop_m", "ev_cop_m", "ac_cop_m", "eac_cop_m", "ceiling_cop_m"):
-        assert format_cop_m(cumulative[key]) in view, key
-    for key in ("spi", "cpi"):
-        assert format_ratio(cumulative[key]) in view, key
     registered = [f["figure_id"] for f in sample["lineage"]["figures"] if f["figure_id"].startswith("management.")]
     assert registered
     for figure_id in registered:
@@ -1523,6 +1567,122 @@ def test_eac_is_compared_with_the_ceiling(sample, eac, over, cls, words):
     assert f'class="status {cls}"' in line and words in line
     if eac is not None:
         assert format_cop_m(abs(eac - cumulative["ceiling_cop_m"])) in line
+
+
+def _budget(view):
+    return re.search(r'<div class="card" id="budget">(.*?)<!-- /budget -->', view, re.S).group(1)
+
+
+def _left(budget, mark):
+    return float(re.search(rf'data-mark="{mark}"[^>]*style="left:([\d.]+)%', budget).group(1))
+
+
+@pytest.mark.parametrize("ac_scale", [None, 1.0])
+def test_the_budget_bar_shows_spent_bac_ceiling_and_the_eac_in_red_only_over_the_ceiling(sample, ac_scale):
+    data = sample if ac_scale is None else _delivered(sample, ac_scale)
+    c = data["management"]["cumulative"]
+    budget = _budget(_management(data))
+    for value in (c["ac_cop_m"], c["bac_cop_m"], c["ceiling_cop_m"], c["eac_cop_m"]):
+        assert format_cop_m(value) in budget
+    spent = float(re.search(r'data-mark="spent" style="width:([\d.]+)%', budget).group(1))
+    assert spent < _left(budget, "bac") < _left(budget, "ceiling")
+    assert (_left(budget, "eac") > _left(budget, "ceiling")) is c["eac_over_ceiling"]
+    eac_mark = re.search(r'<span class="([^"]*)" data-mark="eac"', budget).group(1)
+    assert ("over" in eac_mark.split()) is c["eac_over_ceiling"]
+    assert "lo gastado hasta hoy" in _visible(budget).lower()
+
+
+def test_without_an_eac_the_budget_bar_has_no_eac_point(sample):
+    data = copy.deepcopy(sample)
+    data["management"]["cumulative"].update(eac_cop_m=None, eac_minus_ceiling_cop_m=None, eac_over_ceiling=None)
+    assert 'data-mark="eac"' not in _budget(_management(data))
+
+
+def test_the_team_reading_is_shown_as_written_and_escaped(sample):
+    data = copy.deepcopy(sample)
+    data["management"]["team_reading"] = "Primer párrafo <b>sin</b> HTML.\n\nSegundo párrafo."
+    reading = re.search(r'<div class="card" id="team-reading">(.*?)</div>', _management(data), re.S).group(1)
+    assert "<h3>Lectura del equipo</h3>" in reading
+    assert "<p>Primer párrafo &lt;b&gt;sin&lt;/b&gt; HTML.</p><p>Segundo párrafo.</p>" in reading
+    data["management"]["team_reading"] = None
+    reading = re.search(r'<div class="card" id="team-reading">(.*?)</div>', _management(data), re.S).group(1)
+    assert "config/management_notes.yaml" in reading and "pending" in reading
+
+
+def test_charts_come_in_order_cumulative_velocity_burndown(html):
+    view = _without_details(_view(html, "gestion"))
+    positions = [view.index(f'id="chart-{c}"') for c in ("evm", "velocity", "burndown")]
+    assert positions == sorted(positions)
+
+
+def _points(svg, series):
+    found = re.search(rf'<polyline[^>]*data-series="{series}"[^>]*points="([^"]*)"', svg)
+    assert found, series
+    return found.group(1).split()
+
+
+def _chart(view, name):
+    return re.search(rf'<div class="card" id="chart-{name}">(.*?)</div>', view, re.S).group(1)
+
+
+def test_the_cumulative_chart_draws_pv_ev_and_ac_summed_sprint_by_sprint(sample, html):
+    m = sample["management"]
+    chart = _chart(_view(html, "gestion"), "evm")
+    for series, key in (("pv", "pv_cop_m"), ("ev", "ev_cop_m"), ("ac", "ac_cop_m")):
+        assert len(_points(chart, series)) == len(m["sprints"])
+        running = 0.0
+        for s in m["sprints"]:
+            running += s[key]
+            assert f'<title>Sprint {s["sprint"]} · {series.upper()} acumulado: {format_cop_m(running)}</title>' in chart
+        assert abs(running - m["cumulative"][key]) < 1e-6
+    for name in ("Valor planeado (PV)", "Valor ganado (EV)", "Costo real (AC)"):
+        assert name in chart
+
+
+def test_the_velocity_chart_has_planned_and_completed_bars_per_sprint(sample, html):
+    chart = _chart(_view(html, "gestion"), "velocity")
+    for v in sample["management"]["velocity"]:
+        assert (f'<title>Sprint {v["sprint"]}: {format_count(v["planned_sp"])} SP planeados</title>') in chart
+        assert (f'<title>Sprint {v["sprint"]}: {format_count(v["completed_sp"])} SP completados</title>') in chart
+    assert "Planeados" in chart and "Completados" in chart
+
+
+def test_the_burndown_is_the_last_reported_sprint_from_sprint_metrics(sample, html):
+    chart = _chart(_view(html, "gestion"), "burndown")
+    last = sample["management"]["burndown"][-1]
+    assert f'Burndown del Sprint {last["sprint"]}' in chart
+    assert len(_points(chart, "actual")) == len(_points(chart, "ideal")) == len(last["blocks"])
+    for b in last["blocks"]:
+        assert f'<title>Bloque {b["block"]}: quedan {format_decimal(b["actual_remaining"], 0)} SP</title>' in chart
+
+
+def test_only_active_risks_are_in_the_view_and_closed_ones_in_the_detail(sample):
+    data = copy.deepcopy(sample)
+    risks = data["management"]["risks"]
+    closed_risk = next(r for r in risks if r["type"] == "Risk")
+    closed_risk["status"] = "Closed"
+    view = _management(data)
+    main = _without_details(view)
+    for r in risks:
+        assert (f'data-risk="{r["risk_id"]}"' in main) is (r["status"] != "Closed"), r["risk_id"]
+    closed = view[view.index('id="risks-closed"'):]
+    impediment = next(r for r in risks if r["type"] == "Impediment" and r["status"] == "Closed")
+    assert "Resuelto" in _risk_row(closed, impediment["risk_id"])
+    assert "Impedimento" in _risk_row(closed, impediment["risk_id"])
+    assert "Cerrado" in _risk_row(closed, closed_risk["risk_id"])
+
+
+def test_the_sample_closes_i01_as_a_resolved_impediment(sample):
+    i01 = next(r for r in sample["management"]["risks"] if r["risk_id"] == "I-01")
+    assert (i01["type"], i01["status"]) == ("Impediment", "Closed")
+
+
+def test_tables_baseline_and_hours_gate_live_in_the_technical_detail(sample, html):
+    view = _view(html, "gestion")
+    detail = view[view.index('id="management-technical"'):]
+    main = _without_details(view)
+    for marker in ('data-sprint="1"', 'data-velocity="1"', 'id="management-baseline"', 'data-gate1-table="hours_log"'):
+        assert marker in detail and marker not in main, marker
 
 
 def test_baseline_shows_bac_reserve_change_requests_and_rate(sample, html):
@@ -1550,13 +1710,11 @@ def test_one_row_per_sprint_with_reconstructed_hours_marked(sample):
 
 
 def test_an_open_sprint_is_explained_only_while_open(sample):
-    data = copy.deepcopy(sample)
-    data["management"]["sprints"][-1]["done_sp"] = data["management"]["sprints"][-1]["committed_sp"] - 5
-    note = re.search(r'<p class="note" id="open-sprint">(.*?)</p>', _management(data), re.S)
+    sprint = sample["management"]["sprints"][-1]
+    assert sprint["done_sp"] < sprint["committed_sp"]                    # the fixture's sprint 3 is open
+    note = re.search(r'<p class="note" id="open-sprint">(.*?)</p>', _management(sample), re.S)
     assert note and "DoD" in note.group(1)
-    for s in data["management"]["sprints"]:
-        s["done_sp"] = s["committed_sp"]
-    assert 'id="open-sprint"' not in _management(data)
+    assert 'id="open-sprint"' not in _management(_delivered(sample))
 
 
 def test_velocity_has_one_row_per_sprint(sample, html):
@@ -1622,7 +1780,7 @@ def test_management_that_did_not_run_shows_only_its_reason(sample):
     data["management"] = {"status": "NOT_RUN", "reason": "hours_log failed Gate 1"}
     view = _management(data)
     assert 'id="management-not-run"' in view and "hours_log failed Gate 1" in view
-    assert "data-sprint=" not in view and 'id="management-cumulative"' not in view   # only the hours log gate
+    assert "data-sprint=" not in view and 'id="management-cards"' not in view   # only the hours log gate
 
 
 def test_renderer_source_has_no_hand_written_figures():
