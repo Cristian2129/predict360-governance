@@ -41,7 +41,8 @@ from src.predict360.config import CONFIG_DIR, ROOT, load_assumptions, load_confi
 from src.predict360.consistency import CITATIONS_PATH, run_gate3
 from src.predict360.dashboard_render import write as render_dashboard
 from src.predict360.evaluator import evaluate_models
-from src.predict360.export_dashboard_data import HANDOVER_PATH, build_dashboard_data, write_dashboard_data
+from src.predict360.export_dashboard_data import (HANDOVER_PATH, MANAGEMENT_NOTES_PATH, build_dashboard_data,
+                                                  write_dashboard_data)
 from src.predict360.risk_register import DEFAULT_REGISTER, DEFAULT_REVIEWS
 from src.predict360.labeling import label_all
 from src.predict360.budget_schedule import budget_schedule
@@ -180,7 +181,7 @@ def run_pipeline(config_path: str | Path = CONFIG_DIR / "synthetic.yaml", *, off
     sprint_log = ROOT / management_cfg["sprint_log"] if management_cfg.get("sprint_log") else None
     for name, path in (("hours_log", management_cfg.get("hours_log")), ("sprint_log", management_cfg.get("sprint_log")),
                        ("risk_register", DEFAULT_REGISTER), ("risk_reviews", DEFAULT_REVIEWS),
-                       ("handover", HANDOVER_PATH)):
+                       ("handover", HANDOVER_PATH), ("management_notes", MANAGEMENT_NOTES_PATH)):
         if path and (ROOT / path).exists():
             add_source(manifest, name, ROOT / path)
     result = {"run_id": manifest["run_id"], "official": False, "stopped_at": None, "refused": []}

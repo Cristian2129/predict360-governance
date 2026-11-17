@@ -1572,10 +1572,14 @@ def _models_view(data: dict) -> str:
             f'<p class="note" id="models-simulated">{SIMULATED_NOTE}</p></section>')
 
 
-# --- management view: EVM, velocity and risks ------------------------------------------------
+# --- management view: answer, three questions, budget bar, charts, active risks ------------------
 
+MANAGEMENT_QUESTION = "¿Vamos a tiempo y dentro del presupuesto?"
 OPEN_SPRINT_NOTE = ("EV solo reconoce los SP cerrados con DoD («No attachment, no Done»): un sprint sin cerrar "
                     "baja el EV y arrastra SPI, CPI y EAC hasta su cierre.")
+TEAM_READING_PENDING = ("El equipo aún no ha escrito su lectura de estas cifras (config/management_notes.yaml).")
+SP_TICK_STEPS = (1, 2, 5, 10, 20, 50)
+COP_TICK_STEPS = (5, 10, 20, 25, 50, 100, 200)
 
 
 def _hours(value) -> str:
@@ -1594,18 +1598,180 @@ def _eac_line(cumulative: dict) -> str:
     return f'<p id="eac-ceiling"><span class="status {cls}">EAC</span> {text}</p>'
 
 
-def _cumulative_card(management: dict, data: dict) -> str:
+def _yes_no(index) -> str:
+    if index is None:
+        return '<p class="mgmt-answer warn">Sin datos</p>'
+    return '<p class="mgmt-answer yes">Sí</p>' if index >= 1 else '<p class="mgmt-answer no">No</p>'
+
+
+def _traced_value(key: str, text: str, data: dict) -> tuple[str, str]:
+    """(the value in its span, its trace): the trace goes after the sentence, never inside it."""
+    attribute, trace = _traced(f"management.cumulative.{key}", data)
+    return f'<span{attribute}>{text}</span>', trace
+
+
+def _management_cards(management: dict, data: dict) -> str:
     c = management["cumulative"]
-    rows = ""
-    for key, name, fmt in (("pv_cop_m", "PV (valor planeado)", format_cop_m), ("ev_cop_m", "EV (valor ganado)", format_cop_m),
-                           ("ac_cop_m", "AC (costo real)", format_cop_m), ("spi", "SPI", format_ratio),
-                           ("cpi", "CPI", format_ratio), ("eac_cop_m", "EAC (estimado al cierre)", format_cop_m),
-                           ("bac_cop_m", "BAC", format_cop_m), ("ceiling_cop_m", "Techo del charter", format_cop_m)):
-        attribute, trace = _traced(f"management.cumulative.{key}", data)
-        rows += f'<dt>{name}</dt><dd><span{attribute}>{fmt(c[key])}</span>{trace}</dd>'
-    sprints = ", ".join(str(s) for s in c["sprints"])
-    return (f'<div class="card" id="management-cumulative"><h3>Acumulado · sprints {_e(sprints)}</h3>'
-            f'<dl class="kv">{rows}</dl>{_eac_line(c)}</div>')
+    spi, cpi = format_ratio(c["spi"]), format_ratio(c["cpi"])
+    (spi_v, spi_t), (cpi_v, cpi_t) = _traced_value("spi", spi, data), _traced_value("cpi", cpi, data)
+    eac_v, eac_t = _traced_value("eac_cop_m", format_cop_m(c["eac_cop_m"]), data)
+    on_time = (f'<article class="mgmt-card" data-question="on-time"><h3>¿Vamos a tiempo?</h3>{_yes_no(c["spi"])}'
+               f'<p>Por cada $1 de trabajo planeado se entregaron ${spi} (SPI {spi_v}).</p>{spi_t}</article>')
+    on_budget = (f'<article class="mgmt-card" data-question="on-budget"><h3>¿Gastamos lo previsto?</h3>'
+                 f'{_yes_no(c["cpi"])}<p>Por cada $1 gastado se generaron ${cpi} de valor (CPI {cpi_v}).</p>'
+                 f'{cpi_t}</article>')
+    final = (f'<article class="mgmt-card" data-question="final-cost"><h3>¿Cuánto costará al final?</h3>'
+             f'<p class="mgmt-value">{eac_v}</p>'
+             f'<p class="label-sm">EAC: proyección si se mantiene el ritmo de gasto</p>{_eac_line(c)}{eac_t}</article>')
+    return f'<div class="mgmt-cards" id="management-cards">{on_time}{on_budget}{final}</div>'
+
+
+def _budget_bar(management: dict) -> str:
+    c = management["cumulative"]
+    eac = c["eac_cop_m"]
+    scale = max(v for v in (c["ceiling_cop_m"], c["bac_cop_m"], c["ac_cop_m"], eac or 0.0)) * 1.08
+    pct = lambda v: f"{100 * v / scale:.2f}"
+    marks = (f'<span class="mark" data-mark="bac" style="left:{pct(c["bac_cop_m"])}%"></span>'
+             f'<span class="mark ceiling" data-mark="ceiling" style="left:{pct(c["ceiling_cop_m"])}%"></span>')
+    eac_item = ""
+    if eac is not None:
+        over = c["eac_over_ceiling"]
+        cls = "eac-dot over" if over else "eac-dot"
+        marks += f'<span class="{cls}" data-mark="eac" style="left:{pct(eac)}%"></span>'
+        eac_item = (f'<li><span class="swatch {"eac over" if over else "eac"}"></span>EAC, costo proyectado: '
+                    f'<strong>{format_cop_m(eac)}</strong>{" (supera el techo)" if over else ""}</li>')
+    return ('<div class="card" id="budget"><h3>Presupuesto</h3>'
+            f'<p class="label-sm">Lo gastado hasta hoy (AC): <strong>{format_cop_m(c["ac_cop_m"])}</strong></p>'
+            f'<div class="budget-track"><span class="budget-spent" data-mark="spent" style="width:{pct(c["ac_cop_m"])}%">'
+            f'</span>{marks}</div>'
+            '<ul class="legend budget-legend"><li><span class="swatch spent"></span>Gastado hasta hoy</li>'
+            f'<li><span class="swatch bac"></span>BAC, presupuesto aprobado: <strong>{format_cop_m(c["bac_cop_m"])}'
+            f'</strong></li><li><span class="swatch ceiling"></span>Techo del charter: '
+            f'<strong>{format_cop_m(c["ceiling_cop_m"])}</strong></li>{eac_item}</ul></div><!-- /budget -->')
+
+
+def _team_reading(management: dict) -> str:
+    text = management["team_reading"]
+    if text is None:
+        body = f'<p class="pending">{_e(TEAM_READING_PENDING)}</p>'
+    else:
+        body = "".join(f"<p>{_e(p.strip())}</p>" for p in re.split(r"\n\s*\n", text) if p.strip())
+    return f'<div class="card" id="team-reading"><h3>Lectura del equipo</h3>{body}</div>'
+
+
+def _chart_frame(ticks: list[float], fmt, width: int, height: int, left: int, right: int, top: int, bottom: int):
+    """Horizontal grid lines with their labels; returns (svg parts, y scale)."""
+    low, high = ticks[0], ticks[-1]
+    y = lambda v: top + (high - v) / ((high - low) or 1.0) * (height - top - bottom)
+    parts = [f'<line class="grid" x1="{left}" y1="{y(t):.1f}" x2="{width - right}" y2="{y(t):.1f}"/>'
+             f'<text class="tick" x="{left - 8}" y="{y(t) + 4:.1f}" text-anchor="end">{fmt(t)}</text>' for t in ticks]
+    return parts, y
+
+
+def _ticks(high: float, steps: tuple) -> list[float]:
+    for step in steps:
+        last = math.ceil(high / step) * step
+        if last / step <= 5:
+            break
+    return [float(i * step) for i in range(int(round(last / step)) + 1)]
+
+
+def _evm_chart(management: dict) -> str:
+    sprints = management["sprints"]
+    series = []
+    for key, sid, name in (("ev_cop_m", "ev", "Valor ganado (EV)"), ("ac_cop_m", "ac", "Costo real (AC)"),
+                           ("pv_cop_m", "pv", "Valor planeado (PV)")):   # PV last: dashed, over EV
+        running, values = 0.0, []
+        for s in sprints:
+            running += s[key]
+            values.append(running)
+        series.append((sid, name, values))
+    width, height, left, right, top, bottom = 960, 320, 100, 64, 16, 40
+    ticks = _ticks(max(v for _, _, vs in series for v in vs), COP_TICK_STEPS)
+    parts, y = _chart_frame(ticks, format_cop_m, width, height, left, right, top, bottom)
+    n = len(sprints)
+    x = lambda i: left + (width - left - right) * (i / (n - 1) if n > 1 else 0.5)
+    for i, s in enumerate(sprints):
+        parts.append(f'<text class="tick" x="{x(i):.1f}" y="{height - bottom + 20}" text-anchor="middle">'
+                     f'Sprint {_e(s["sprint"])}</text>')
+    for sid, name, values in series:
+        points = " ".join(f"{x(i):.1f},{y(v):.1f}" for i, v in enumerate(values))
+        parts.append(f'<polyline class="series evm-{sid}" data-series="{sid}" points="{points}"/>')
+        for i, v in enumerate(values):
+            parts.append(f'<circle class="dot evm-{sid}" cx="{x(i):.1f}" cy="{y(v):.1f}" r="5"><title>Sprint '
+                         f'{_e(sprints[i]["sprint"])} · {sid.upper()} acumulado: {format_cop_m(v)}</title></circle>')
+    # direct labels at the end, nudged apart when PV and EV coincide
+    ends, used = sorted(((y(vs[-1]), sid) for sid, _, vs in series)), []
+    for ly, sid in ends:
+        while any(abs(ly - u) < 16 for u in used):
+            ly += 16
+        used.append(ly)
+        parts.append(f'<text class="series-label" x="{x(n - 1) + 10:.1f}" y="{ly + 5:.1f}">{sid.upper()}</text>')
+    legend = "".join(f'<li><span class="swatch evm-{sid}"></span>{name}</li>' for sid, name, _ in series)
+    title = "PV, EV y AC acumulados por sprint, en COP"
+    return (f'<div class="card" id="chart-evm"><h3>Valor planeado, ganado y costo real (acumulado)</h3>'
+            f'<svg class="mgmt-chart" viewBox="0 0 {width} {height}" role="img" aria-label="{title}">'
+            f'<title>{title}</title>{"".join(parts)}</svg><ul class="legend">{legend}</ul>'
+            '<p class="note">PV va punteada encima de EV: si coinciden, se entregó lo planeado; si AC queda por encima de EV, '
+            'cuesta más de lo que vale lo entregado.</p></div>')
+
+
+def _velocity_chart(management: dict) -> str:
+    velocity = management["velocity"]
+    width, height, left, right, top, bottom = 640, 300, 56, 16, 16, 40
+    ticks = _ticks(max([v["planned_sp"] for v in velocity] + [v["completed_sp"] for v in velocity]), SP_TICK_STEPS)
+    parts, y = _chart_frame(ticks, format_count, width, height, left, right, top, bottom)
+    slot = (width - left - right) / len(velocity)
+    bar = min(48.0, slot / 3)
+    for i, v in enumerate(velocity):
+        center = left + slot * (i + 0.5)
+        for offset, key, cls, word in ((-bar - 1, "planned_sp", "planned", "planeados"),
+                                       (1, "completed_sp", "completed", "completados")):
+            top_y = y(v[key])
+            parts.append(f'<rect class="vbar {cls}" data-bar="{cls}-{_e(v["sprint"])}" x="{center + offset:.1f}" '
+                         f'y="{top_y:.1f}" width="{bar:.1f}" height="{y(0) - top_y:.1f}" rx="3">'
+                         f'<title>Sprint {_e(v["sprint"])}: {format_count(v[key])} SP {word}</title></rect>'
+                         f'<text class="bar-label" x="{center + offset + bar / 2:.1f}" y="{top_y - 6:.1f}" '
+                         f'text-anchor="middle">{format_count(v[key])}</text>')
+        parts.append(f'<text class="tick" x="{center:.1f}" y="{height - bottom + 20}" text-anchor="middle">'
+                     f'Sprint {_e(v["sprint"])}</text>')
+    title = "SP planeados y completados por sprint"
+    return (f'<div class="card" id="chart-velocity"><h3>Velocidad: SP planeados y completados</h3>'
+            f'<svg class="mgmt-chart" viewBox="0 0 {width} {height}" role="img" aria-label="{title}">'
+            f'<title>{title}</title>{"".join(parts)}</svg>'
+            '<ul class="legend"><li><span class="swatch planned"></span>Planeados</li>'
+            '<li><span class="swatch completed"></span>Completados</li></ul></div>')
+
+
+def _burndown_chart(management: dict) -> str:
+    if not management["burndown"]:
+        return ""
+    last = management["burndown"][-1]
+    blocks = last["blocks"]
+    width, height, left, right, top, bottom = 640, 300, 56, 40, 16, 40
+    ticks = _ticks(max(max(b["ideal_remaining"], b["actual_remaining"]) for b in blocks), SP_TICK_STEPS)
+    parts, y = _chart_frame(ticks, format_count, width, height, left, right, top, bottom)
+    n = len(blocks)
+    x = lambda i: left + (width - left - right) * (i / (n - 1) if n > 1 else 0.5)
+    for i, b in enumerate(blocks):
+        parts.append(f'<text class="tick" x="{x(i):.1f}" y="{height - bottom + 20}" text-anchor="middle">'
+                     f'Bloque {_e(b["block"])}</text>')
+    ideal = " ".join(f"{x(i):.1f},{y(b['ideal_remaining']):.1f}" for i, b in enumerate(blocks))
+    actual = " ".join(f"{x(i):.1f},{y(b['actual_remaining']):.1f}" for i, b in enumerate(blocks))
+    parts.append(f'<polyline class="series ideal" data-series="ideal" points="{ideal}"/>')
+    parts.append(f'<polyline class="series actual" data-series="actual" points="{actual}"/>')
+    for i, b in enumerate(blocks):
+        parts.append(f'<circle class="dot actual" cx="{x(i):.1f}" cy="{y(b["actual_remaining"]):.1f}" r="5">'
+                     f'<title>Bloque {_e(b["block"])}: quedan {format_decimal(b["actual_remaining"], 0)} SP</title>'
+                     '</circle>')
+    title = f"Burndown del Sprint {last['sprint']}: SP que quedan por bloque"
+    return (f'<div class="card" id="chart-burndown"><h3>Burndown del Sprint {_e(last["sprint"])}</h3>'
+            f'<svg class="mgmt-chart" viewBox="0 0 {width} {height}" role="img" aria-label="{_e(title)}">'
+            f'<title>{_e(title)}</title>{"".join(parts)}</svg>'
+            '<ul class="legend"><li><span class="swatch actual"></span>SP que quedan</li>'
+            '<li><span class="swatch ideal"></span>Ritmo ideal</li></ul>'
+            '<p class="note">Serie de sprint_metrics sobre docs/sprint_log.csv: cada historia baja en el bloque '
+            'en que se cerró con DoD.</p></div>')
 
 
 def _baseline_card(baseline: dict) -> str:
@@ -1625,6 +1791,18 @@ def _baseline_card(baseline: dict) -> str:
     )
 
 
+def _cumulative_kv(management: dict) -> str:
+    c = management["cumulative"]
+    rows = ""
+    for key, name, fmt in (("pv_cop_m", "PV (valor planeado)", format_cop_m), ("ev_cop_m", "EV (valor ganado)", format_cop_m),
+                           ("ac_cop_m", "AC (costo real)", format_cop_m), ("spi", "SPI", format_ratio),
+                           ("cpi", "CPI", format_ratio), ("eac_cop_m", "EAC (estimado al cierre)", format_cop_m),
+                           ("bac_cop_m", "BAC", format_cop_m), ("ceiling_cop_m", "Techo del charter", format_cop_m)):
+        rows += f'<dt>{name}</dt><dd>{fmt(c[key])}</dd>'
+    sprints = ", ".join(str(s) for s in c["sprints"])
+    return f'<div class="card"><h3>Acumulado · sprints {_e(sprints)}</h3><dl class="kv">{rows}</dl></div>'
+
+
 def _sprints_table(management: dict) -> str:
     rows = ""
     for s in management["sprints"]:
@@ -1640,7 +1818,8 @@ def _sprints_table(management: dict) -> str:
             '<th>Sprint</th><th>SP cerrados</th><th>PV</th><th>EV</th><th>AC</th><th>SPI</th><th>CPI</th>'
             '<th>Horas registradas</th><th>Horas de gestión</th></tr></thead>'
             f'<tbody>{rows}</tbody></table>{note}'
-            '<p class="note">Las horas de gestión (MGMT) cuentan en el AC, no en el EV.</p></div>')
+            '<p class="note">Las horas de gestión (MGMT) cuentan en el AC, no en el EV. SP cerrados y velocidad '
+            'salen del mismo docs/sprint_log.csv.</p></div>')
 
 
 def _velocity_table(management: dict) -> str:
@@ -1655,9 +1834,12 @@ def _velocity_table(management: dict) -> str:
 RISK_CATEGORIES = {"Data quality": "Calidad de datos", "Schedule": "Cronograma", "Scope": "Alcance",
                    "Compliance": "Cumplimiento normativo", "Business adoption": "Adopción del negocio",
                    "Budget": "Presupuesto", "Technology": "Tecnología"}
+RISK_TYPES = {"Risk": "Riesgo", "Impediment": "Impedimento"}
 RISK_PROBABILITY = {"High": "Alta", "Medium": "Media", "Low": "Baja"}
 RISK_IMPACT = {"High": "Alto", "Medium": "Medio", "Low": "Bajo"}
-RISK_STATUS = {"Open": "Abierto", "Mitigating": "En mitigación", "Closed": "Cerrado", "Monitoring": "En seguimiento"}
+RISK_STATUS = {"Open": "Abierto", "Mitigating": "En mitigación", "Closed": "Cerrado", "Monitoring": "En seguimiento",
+               "Occurred": "Materializado"}
+CLOSED_STATUS = "Closed"
 # Translation of the register's text, by risk id: (the English text it translates, the Spanish text).
 # Numbers are taken from the original; if the original changes, the original is shown, never a stale translation.
 RISK_TEXT_ES = {
@@ -1685,33 +1867,57 @@ def _risk_text(risk: dict) -> str:
     return _e(spanish.format(*(format_count(int(g)) for g in match.groups())))
 
 
-def _risks_table(management: dict) -> str:
-    rows, originals = "", ""
-    for r in management["risks"]:
-        rows += (f'<tr data-risk="{_e(r["risk_id"])}"><td>{_e(r["risk_id"])}</td>'
-                 f'<td>{_e(RISK_CATEGORIES.get(r["category"], r["category"]))}</td><td>{_risk_text(r)}'
-                 f'<details class="original"><summary>Original</summary>{_e(r["description"])}</details></td>'
-                 f'<td>{_e(RISK_PROBABILITY.get(r["probability"], r["probability"]))}</td>'
-                 f'<td>{_e(RISK_IMPACT.get(r["impact"], r["impact"]))}</td><td>{_e(r["owner"])}</td>'
-                 f'<td>{_e(RISK_STATUS.get(r["status"], r["status"]))}</td></tr>')
-        originals += (f'<tr><td>{_e(r["risk_id"])}</td><td>{_e(r["category"])}</td><td>{_e(r["description"])}</td>'
-                      f'<td>{_e(r["probability"])}</td><td>{_e(r["impact"])}</td><td>{_e(r["status"])}</td></tr>')
+def _risk_status(risk: dict) -> str:
+    """A closed impediment was resolved; a closed risk, closed."""
+    if risk["status"] == CLOSED_STATUS and risk["type"] == "Impediment":
+        return "Resuelto"
+    return RISK_STATUS.get(risk["status"], risk["status"])
+
+
+def _risk_rows(risks: list) -> str:
+    return "".join(
+        f'<tr data-risk="{_e(r["risk_id"])}"><td>{_e(r["risk_id"])}</td>'
+        f'<td>{_e(RISK_TYPES.get(r["type"], r["type"]))}</td>'
+        f'<td>{_e(RISK_CATEGORIES.get(r["category"], r["category"]))}</td><td>{_risk_text(r)}'
+        f'<details class="original"><summary>Original</summary>{_e(r["description"])}</details></td>'
+        f'<td>{_e(RISK_PROBABILITY.get(r["probability"], r["probability"]))}</td>'
+        f'<td>{_e(RISK_IMPACT.get(r["impact"], r["impact"]))}</td><td>{_e(r["owner"])}</td>'
+        f'<td>{_e(_risk_status(r))}</td></tr>' for r in risks)
+
+
+RISK_HEAD = ('<thead><tr><th>Id</th><th>Tipo</th><th>Categoría</th><th>Descripción</th><th>Probabilidad</th>'
+             '<th>Impacto</th><th>Responsable</th><th>Estado</th></tr></thead>')
+
+
+def _risks_card(management: dict) -> str:
+    active = [r for r in management["risks"] if r["status"] != CLOSED_STATUS]
     count = management["risk_reviews_count"]
     reviews = ("Sin revisiones registradas." if count == 0
                else f'{format_count(count)} revisiones registradas.')
-    return ('<div class="card"><table class="data"><caption>Registro de riesgos</caption><thead><tr><th>Id</th>'
-            '<th>Categoría</th><th>Descripción</th><th>Probabilidad</th><th>Impacto</th><th>Responsable</th>'
-            f'<th>Estado</th></tr></thead><tbody>{rows}</tbody></table>'
-            f'<p class="note" id="risk-reviews">{reviews}</p>'
-            '<details class="technical" id="risks-technical"><summary>Detalle técnico: registro original</summary>'
-            '<table class="data"><caption>data/risk_register.csv, tal como está</caption><thead><tr><th>Id</th>'
-            '<th>Category</th><th>Description</th><th>Probability</th><th>Impact</th><th>Status</th></tr></thead>'
-            f'<tbody>{originals}</tbody></table></details></div>')
+    return ('<div class="card"><table class="data"><caption>Riesgos e impedimentos activos</caption>'
+            f'{RISK_HEAD}<tbody>{_risk_rows(active)}</tbody></table>'
+            f'<p class="note" id="risk-reviews">{reviews}</p></div>')
+
+
+def _risks_detail(management: dict) -> str:
+    closed = [r for r in management["risks"] if r["status"] == CLOSED_STATUS]
+    closed_table = (f'<table class="data"><caption>Cerrados y resueltos (no se borran del registro)</caption>'
+                    f'{RISK_HEAD}<tbody>{_risk_rows(closed)}</tbody></table>' if closed
+                    else '<p class="note">Ningún riesgo ni impedimento cerrado.</p>')
+    originals = "".join(
+        f'<tr><td>{_e(r["risk_id"])}</td><td>{_e(r["type"])}</td><td>{_e(r["category"])}</td>'
+        f'<td>{_e(r["description"])}</td><td>{_e(r["probability"])}</td><td>{_e(r["impact"])}</td>'
+        f'<td>{_e(r["status"])}</td></tr>' for r in management["risks"])
+    return (f'<div id="risks-closed">{closed_table}</div>'
+            '<div id="risks-technical"><table class="data"><caption>data/risk_register.csv, tal como está</caption>'
+            '<thead><tr><th>Id</th><th>Type</th><th>Category</th><th>Description</th><th>Probability</th>'
+            f'<th>Impact</th><th>Status</th></tr></thead><tbody>{originals}</tbody></table></div>')
 
 
 def _management_view(data: dict) -> str:
     management = data["management"]
-    head = f'<section class="view" id="gestion"><h2>{dict(TABS)["gestion"]}</h2>'
+    head = (f'<section class="view" id="gestion"><h2 class="view-title">{dict(TABS)["gestion"]}</h2>'
+            f'<p class="q">{MANAGEMENT_QUESTION}</p>')
     hours_gate = ('<div class="card" id="management-hours-gate">'
                   + _gate1_table(data["gates"]["gate1"], ("hours_log",),
                                  "Gate 1 · registro de horas (control de proyecto de PCM, no es dato de FinBank)")
@@ -1725,9 +1931,15 @@ def _management_view(data: dict) -> str:
         listed = ", ".join(f"sprint {_e(s)}: {_hours(h)}" for s, h in sorted(outside.items()))
         hours_note = (f'<p class="note" id="hours-outside">Horas registradas en sprints que aún no están en el '
                       f'sprint_log ({listed}): no entran en el valor ganado.</p>')
-    return (head + f'<div class="grid">{_cumulative_card(management, data)}{_baseline_card(management["baseline"])}</div>'
-            f'{_sprints_table(management)}{hours_note}<div class="grid">{_velocity_table(management)}</div>'
-            f'{_risks_table(management)}{hours_gate}</section>')
+    technical = ('<details class="technical" id="management-technical"><summary>Detalle técnico: tablas por sprint, '
+                 'línea base, registro de riesgos y Gate 1 de horas</summary>'
+                 f'{_sprints_table(management)}{hours_note}<div class="grid two">{_velocity_table(management)}'
+                 f'{_cumulative_kv(management)}</div>{_baseline_card(management["baseline"])}'
+                 f'{_risks_detail(management)}{hours_gate}</details>')
+    return (head + f'{_management_cards(management, data)}{_budget_bar(management)}{_team_reading(management)}'
+            f'<div class="stack">{_evm_chart(management)}<div class="grid two">{_velocity_chart(management)}'
+            f'{_burndown_chart(management)}</div></div>'
+            f'{_risks_card(management)}{technical}</section>')
 
 
 def render(data: dict) -> str:

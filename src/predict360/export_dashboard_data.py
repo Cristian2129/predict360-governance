@@ -4,7 +4,8 @@
 renders ``index.html`` from it; both files go into the run folder and the final manifest
 records their hashes. Nothing is recomputed here: every value is copied from the run's
 aggregate outputs (gate reports, reconciliation, funnel, evaluation, management) or from
-the files people write (assumptions, sprint log, risk register, handover runbook).
+the files people write (assumptions, sprint log, risk register, handover runbook, the team's
+reading of the management figures in ``config/management_notes.yaml``, shown as written).
 
 - ``lineage.manifest`` is a snapshot of the manifest at export time. A file cannot carry
   its own hash, so its outputs list everything except ``dashboard_data.json`` and
@@ -27,13 +28,14 @@ from src.predict360.config import CONFIG_DIR, load_assumptions, load_contract
 from src.predict360.dashboard_contract import CONTRACT, validate_dashboard_data
 from src.predict360.lineage import _iso, _utc, log_head_sha256, verify_lineage_log
 from src.predict360.risk_register import DEFAULT_REGISTER, DEFAULT_REVIEWS
-from src.predict360.sprint_metrics import calculate_velocity
+from src.predict360.sprint_metrics import calculate_velocity, get_burndown_series
 
 HANDOVER_PATH = CONFIG_DIR / "handover.yaml"
+MANAGEMENT_NOTES_PATH = CONFIG_DIR / "management_notes.yaml"
 DASHBOARD_OUTPUTS = ("dashboard_data.json", "index.html")
 NOT_RUN_HOURS_LOG = "hours_log failed Gate 1"
 NOT_RUN_NO_HOURS_LOG = "no hours_log configured"
-RISK_FIELDS = ("risk_id", "category", "description", "probability", "impact", "owner", "status")
+RISK_FIELDS = ("risk_id", "type", "category", "description", "probability", "impact", "owner", "status")
 FAILED_RULE_FIELDS = ("rule", "column", "critical", "unexpected_count", "unexpected_pct", "waived_by")
 WAIVER_FIELDS = ("id", "table", "column", "rule", "risk", "reason", "approved_by", "date", "expires")
 
@@ -57,14 +59,32 @@ def _log_status(log_path: Path, runs_dir: Path | None) -> str:
     return verify_lineage_log(log_path, runs_dir)["status"]
 
 
+def _team_reading(path: Path) -> str | None:
+    """The team's reading, as written (outer blank lines trimmed); None when nobody wrote it yet."""
+    if not path.exists():
+        return None
+    text = (yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("team_reading")
+    return text.strip() if isinstance(text, str) and text.strip() else None
+
+
+def _burndown(log: pd.DataFrame) -> list[dict]:
+    """Remaining SP per block of every reported sprint, as sprint_metrics computes it."""
+    return [{"sprint": int(s),
+             "blocks": [{"block": int(r["block"]), "ideal_remaining": float(r["ideal_remaining"]),
+                         "actual_remaining": float(r["actual_remaining"])}
+                        for r in get_burndown_series(log, s).to_dict("records")]}
+            for s in sorted(log["sprint"].unique())]
+
+
 def _management(run_dir: Path, cfg: dict, gate1: dict, sprint_log: Path | None,
-                risk_register: Path, risk_reviews: Path) -> dict:
+                risk_register: Path, risk_reviews: Path, notes: Path) -> dict:
     if not (run_dir / "management.json").exists():
         configured = (cfg.get("management") or {}).get("hours_log")
         failed = gate1["tables"].get("hours_log", {}).get("status") == "FAIL"
         return {"status": "NOT_RUN", "reason": NOT_RUN_HOURS_LOG if configured and failed else NOT_RUN_NO_HOURS_LOG}
     management = _read(run_dir, "management.json")
-    velocity = calculate_velocity(pd.read_csv(sprint_log)).to_dict("records")
+    log = pd.read_csv(sprint_log)
+    velocity = calculate_velocity(log).to_dict("records")
     register = pd.read_csv(risk_register, dtype=str).fillna("")
     return {
         "status": "RUN",
@@ -74,6 +94,8 @@ def _management(run_dir: Path, cfg: dict, gate1: dict, sprint_log: Path | None,
                       "completion_rate_pct": float(v["completion_rate_pct"])} for v in velocity],
         "risks": [{k: row[k] for k in RISK_FIELDS} for row in register.to_dict("records")],
         "risk_reviews_count": len(pd.read_csv(risk_reviews)),
+        "burndown": _burndown(log),
+        "team_reading": _team_reading(notes),
     }
 
 
@@ -92,7 +114,8 @@ def build_dashboard_data(run_dir: str | Path, manifest: dict, cfg: dict, *, log_
                          assumptions_path: str | Path = CONFIG_DIR / "assumptions.yaml",
                          sprint_log: str | Path | None = None, risk_register: str | Path = DEFAULT_REGISTER,
                          risk_reviews: str | Path = DEFAULT_REVIEWS,
-                         handover_path: str | Path = HANDOVER_PATH) -> dict:
+                         handover_path: str | Path = HANDOVER_PATH,
+                         management_notes: str | Path = MANAGEMENT_NOTES_PATH) -> dict:
     """The dashboard_data_v1 document of an open run (its aggregate outputs already written)."""
     run_dir, log_path = Path(run_dir), Path(log_path)
     gate1, gate2, gate3 = (_read(run_dir, n) for n in ("gate1.json", "gate2.json", "consistency.json"))
@@ -145,7 +168,7 @@ def build_dashboard_data(run_dir: str | Path, manifest: dict, cfg: dict, *, log_
         "assumptions": [{"id": i["id"], "name": i["name"], "type": i["type"], "value": i["value"],
                          "rationale": i["rationale"]} for i in assumptions["items"]],
         "management": _management(run_dir, cfg, gate1, Path(sprint_log) if sprint_log else None,
-                                  Path(risk_register), Path(risk_reviews)),
+                                  Path(risk_register), Path(risk_reviews), Path(management_notes)),
         "handover": _handover(funnel, Path(handover_path)),
     }
 

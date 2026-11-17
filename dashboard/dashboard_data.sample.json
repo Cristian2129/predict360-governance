@@ -2995,6 +2995,7 @@
     "risks": [
       {
         "risk_id": "R-01",
+        "type": "Risk",
         "category": "Data quality",
         "description": "Records may be incomplete or fragmented for forecasting use",
         "probability": "High",
@@ -3004,6 +3005,7 @@
       },
       {
         "risk_id": "R-02",
+        "type": "Risk",
         "category": "Schedule",
         "description": "Analytical and validation work may extend beyond planned effort",
         "probability": "High",
@@ -3013,6 +3015,7 @@
       },
       {
         "risk_id": "R-03",
+        "type": "Risk",
         "category": "Scope",
         "description": "Requests for model development or system integration",
         "probability": "Low",
@@ -3022,6 +3025,7 @@
       },
       {
         "risk_id": "R-04",
+        "type": "Risk",
         "category": "Compliance",
         "description": "Data of 125000 clients falls under Ley 1581 de 2012 (Habeas Data)",
         "probability": "Low",
@@ -3031,6 +3035,7 @@
       },
       {
         "risk_id": "R-05",
+        "type": "Risk",
         "category": "Business adoption",
         "description": "Low uptake by the Risk and Analytics function",
         "probability": "Low",
@@ -3040,15 +3045,109 @@
       },
       {
         "risk_id": "I-01",
+        "type": "Impediment",
         "category": "Schedule",
         "description": "Sponsor sign-off delayed stories at closure in the Cut 1 simulation",
         "probability": "High",
         "impact": "Medium",
         "owner": "Marco Jimenez",
-        "status": "Mitigating"
+        "status": "Closed"
       }
     ],
-    "risk_reviews_count": 0
+    "risk_reviews_count": 0,
+    "burndown": [
+      {
+        "sprint": 1,
+        "blocks": [
+          {
+            "block": 0,
+            "ideal_remaining": 15.0,
+            "actual_remaining": 15.0
+          },
+          {
+            "block": 1,
+            "ideal_remaining": 11.25,
+            "actual_remaining": 13.0
+          },
+          {
+            "block": 2,
+            "ideal_remaining": 7.5,
+            "actual_remaining": 13.0
+          },
+          {
+            "block": 3,
+            "ideal_remaining": 3.75,
+            "actual_remaining": 8.0
+          },
+          {
+            "block": 4,
+            "ideal_remaining": 0.0,
+            "actual_remaining": 0.0
+          }
+        ]
+      },
+      {
+        "sprint": 2,
+        "blocks": [
+          {
+            "block": 0,
+            "ideal_remaining": 13.0,
+            "actual_remaining": 13.0
+          },
+          {
+            "block": 1,
+            "ideal_remaining": 9.75,
+            "actual_remaining": 10.0
+          },
+          {
+            "block": 2,
+            "ideal_remaining": 6.5,
+            "actual_remaining": 5.0
+          },
+          {
+            "block": 3,
+            "ideal_remaining": 3.25,
+            "actual_remaining": 5.0
+          },
+          {
+            "block": 4,
+            "ideal_remaining": 0.0,
+            "actual_remaining": 0.0
+          }
+        ]
+      },
+      {
+        "sprint": 3,
+        "blocks": [
+          {
+            "block": 0,
+            "ideal_remaining": 16.0,
+            "actual_remaining": 16.0
+          },
+          {
+            "block": 1,
+            "ideal_remaining": 12.0,
+            "actual_remaining": 16.0
+          },
+          {
+            "block": 2,
+            "ideal_remaining": 8.0,
+            "actual_remaining": 13.0
+          },
+          {
+            "block": 3,
+            "ideal_remaining": 4.0,
+            "actual_remaining": 5.0
+          },
+          {
+            "block": 4,
+            "ideal_remaining": 0.0,
+            "actual_remaining": 5.0
+          }
+        ]
+      }
+    ],
+    "team_reading": null
   },
   "handover": {
     "steps": [

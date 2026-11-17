@@ -389,3 +389,61 @@ p.threshold { font-size: 16px; line-height: 1.5; margin: 16px 0 0; max-width: 80
   .bridge-step + .bridge-step::before { display: none; }
   .bar-row { grid-template-columns: 90px minmax(0, 1fr) 100px; }
 }
+
+/* Gestión: three questions, budget bar, cumulative EVM, velocity and burndown */
+:root { --c-pv: #98a2b3; --c-ev: #2563eb; --c-ac: #e8710a; }
+.mgmt-cards { display: grid; gap: var(--gap); grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: var(--gap); }
+.mgmt-card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px 20px; min-width: 0; }
+.mgmt-card h3 { margin: 0 0 6px; font-size: 15px; color: var(--muted); font-weight: 600; }
+.mgmt-card p { margin: 6px 0 0; }
+p.mgmt-answer { font-size: 26px; font-weight: 700; margin: 0; }
+p.mgmt-answer.yes { color: var(--res-ok); }
+p.mgmt-answer.no { color: var(--res-bad); }
+p.mgmt-answer.warn { color: var(--res-warn); }
+p.mgmt-value { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; margin: 0; }
+#budget { margin-bottom: var(--gap); }
+.budget-track { position: relative; height: 18px; background: var(--grid); border-radius: 4px; margin: 20px 0 16px; }
+.budget-spent { position: absolute; left: 0; top: 0; bottom: 0; background: var(--c-ev); border-radius: 4px; }
+.budget-track .mark { position: absolute; top: -8px; bottom: -8px; width: 0; border-left: 2px solid var(--text); }
+.budget-track .mark.ceiling { border-left: 2px dashed var(--res-bad); }
+.budget-track .eac-dot { position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%;
+  background: var(--surface); border: 3px solid var(--c-ev); }
+.budget-track .eac-dot.over { border-color: var(--res-bad); background: var(--res-bad); }
+.mark-label { position: absolute; bottom: 100%; transform: translateX(-50%); white-space: nowrap; font-size: 12.5px;
+  color: var(--muted); font-variant-numeric: tabular-nums; padding-bottom: 2px; }
+.mark.ceiling .mark-label { transform: translateX(-100%); padding-right: 4px; }
+.mark[data-mark="bac"] .mark-label { transform: translateX(-100%); padding-right: 4px; }
+.eac-dot .mark-label { bottom: auto; top: 100%; padding: 6px 0 0; color: var(--text); font-weight: 600; }
+.eac-dot.over .mark-label { color: var(--res-bad); }
+.swatch.spent { border-top: 8px solid var(--c-ev); }
+.swatch.bac { width: 0; height: 14px; border-top: 0; border-left: 2px solid var(--text); }
+.swatch.ceiling { width: 0; height: 14px; border-top: 0; border-left: 2px dashed var(--res-bad); }
+.swatch.eac { width: 10px; height: 10px; border: 3px solid var(--c-ev); border-radius: 50%; }
+.swatch.eac.over { border-color: var(--res-bad); background: var(--res-bad); }
+svg.mgmt-chart .tick { font-size: 15px; }
+.mgmt-card details.trace { margin-top: 6px; }
+#team-reading { margin-bottom: var(--gap); }
+#team-reading p { max-width: 75ch; line-height: 1.55; }
+svg.mgmt-chart { width: 100%; height: auto; display: block; margin: 8px 0 4px; }
+svg.mgmt-chart .series { stroke-width: 2.5; }
+svg.mgmt-chart .dot { stroke: var(--surface); stroke-width: 2; }
+svg .evm-pv { --c: var(--c-pv); } svg .series.evm-pv { stroke-dasharray: 7 5; }
+svg .evm-ev { --c: var(--c-ev); }
+svg .evm-ac { --c: var(--c-ac); }
+svg .dot.evm-pv, svg .dot.evm-ev, svg .dot.evm-ac, svg .dot.actual { fill: var(--c); }
+svg .actual { --c: var(--c-ev); }
+svg .series.ideal { stroke: var(--c-pv); stroke-dasharray: 7 5; stroke-width: 2; }
+svg .vbar.planned { fill: var(--c-pv); }
+svg .vbar.completed { fill: var(--c-ev); }
+svg .bar-label { fill: var(--text); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.swatch.evm-pv { border-top: 3px dashed var(--c-pv); }
+.swatch.evm-ev { border-top-color: var(--c-ev); }
+.swatch.evm-ac { border-top-color: var(--c-ac); }
+.swatch.planned { width: 12px; height: 12px; border: 0; border-radius: 3px; background: var(--c-pv); }
+.swatch.completed { width: 12px; height: 12px; border: 0; border-radius: 3px; background: var(--c-ev); }
+.swatch.actual { border-top-color: var(--c-ev); }
+.swatch.ideal { border-top: 2px dashed var(--c-pv); }
+#management-technical .card, #management-technical > div { margin-top: var(--gap); }
+@media (max-width: 760px) {
+  .mgmt-cards { grid-template-columns: minmax(0, 1fr); }
+}
