@@ -11,6 +11,7 @@ from src.predict360.evaluator import (
     MIN_PUBLISHED_CLIENTS,
     applied_point,
     bootstrap_net_values,
+    breakeven_effectiveness,
     brier_score,
     calibration_table,
     capture_curve,
@@ -69,6 +70,30 @@ def test_spec_case_rule_and_model(assumptions, events_in_top_100, capture, captu
     assert result["capture"] == pytest.approx(capture)
     assert result["captured_cop_m"] == pytest.approx(captured)
     assert result["net_value_cop_m"] == pytest.approx(net_value)
+
+
+@pytest.mark.parametrize("captured,k,expected", [
+    (150.0, 100, 2.0 / 150.0),    # rule of the spec case: 100 calls of COP 20.000 = COP 2 M against 150 M found
+    (300.0, 100, 2.0 / 300.0),    # model of the spec case
+    (0.0, 100, None),             # nothing found: no effectiveness pays the calls
+    (0.0, 0, None),
+])
+def test_breakeven_effectiveness_is_where_net_value_at_k_is_zero(assumptions, captured, k, expected):
+    value = breakeven_effectiveness(captured, k, assumptions)
+    assert value == (None if expected is None else pytest.approx(expected))
+
+
+def test_breakeven_effectiveness_is_reported_per_evaluation(assumptions):
+    models = {"baseline_rule": (15, 15), "model_a": (30, 30)}
+    report = evaluate_models(_labeled_delinquency(), _scores_long(models), _gate2(*models), assumptions)
+    for model_id, captured in (("baseline_rule", 150.0), ("model_a", 300.0)):
+        entry = _find(report, model_id, "delinquency_30")
+        assert entry["breakeven_effectiveness"] == pytest.approx(2.0 / captured)
+        # at that effectiveness the net value at the applied K is exactly zero
+        at_k = entry["at_k"]
+        cost = entry["k_applied"] * assumptions["value"]["cost_per_contact_cop"] / 1e6
+        gain = entry["breakeven_effectiveness"] * assumptions["value"]["loss_given_event"] * at_k["captured_cop_m"]
+        assert gain - cost == pytest.approx(0.0)
 
 
 def test_spec_case_random_baseline(assumptions):

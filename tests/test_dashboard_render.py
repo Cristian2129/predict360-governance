@@ -6,6 +6,8 @@ are manual and live in the PR checklist.
 """
 import copy
 import json
+from datetime import date
+from html import escape
 import os
 import re
 import subprocess
@@ -179,29 +181,31 @@ def _view(html, view_id):
 
 
 def test_lineage_view_lists_every_figure_source_and_output(html, sample):
-    view = _view(html, "datos")
+    view = _view(html, "trazabilidad")
     assert "Vista en construcción" not in view
     for figure in sample["lineage"]["figures"]:
         assert figure["figure_id"] in view
+    detail = view[view.index('id="trace-technical"'):]
     for entry in sample["lineage"]["manifest"]["sources"] + sample["lineage"]["manifest"]["outputs"]:
-        assert entry["file"] in view and entry["sha256"] in view
+        assert entry["file"] in detail and entry["sha256"] in detail          # full hashes in the detail
 
 
 def test_lineage_view_says_the_manifest_is_a_snapshot(html):
     assert ("Foto del manifiesto al exportar; el manifiesto final registra también este archivo y el tablero."
-            in _view(html, "datos"))
+            in _view(html, "trazabilidad"))
 
 
 @pytest.mark.parametrize("status,cls,words", [
-    ("OK", "ok", "cadena de hashes"),
-    ("TAMPERED", "bad", "alterado"),
+    ("OK", "ok", "está íntegra"),
+    ("TAMPERED", "bad", "fue alterado"),
     ("NOT_CHECKED", "warn", "no se verificó"),
 ])
-def test_the_log_status_is_explained(sample, status, cls, words):
+def test_the_log_status_is_a_strip_in_plain_words(sample, status, cls, words):
     data = copy.deepcopy(sample)
     data["lineage"]["log_status"] = status
-    block = re.search(r'<div class="card" id="log-status">(.*?)</div>', render(data), re.S).group(1)
-    assert f'<span class="status {cls}">{status}</span>' in block and words in block
+    strip = re.search(r'<div class="strip (\w+)" id="log-status"[^>]*>(.*?)</div>', render(data), re.S)
+    assert strip and strip.group(1) == cls and words in strip.group(2)
+    assert status not in _visible(strip.group(2))                           # the code stays in the detail
 
 
 # --- stress view: curve and simulator (B12b-2) -------------------------------------------------
@@ -281,8 +285,9 @@ def test_simulator_data_and_script_are_inline(html, sample):
     assert "function appliedPoint" in html and "function selfCheck" in html
 
 
-def test_the_six_views_of_the_spec_exist(html):
-    assert [tab_id for tab_id, _ in TABS] == ["resumen", "datos", "modelos", "estres", "gestion", "entrega"]
+def test_the_views_of_the_spec_exist(html):
+    assert [tab_id for tab_id, _ in TABS] == ["resumen", "datos", "trazabilidad", "modelos", "estres", "gestion",
+                                              "entrega"]
     ids = _ids(html)
     for tab_id, _ in TABS:
         assert tab_id in ids and f'href="#{tab_id}"' in html
@@ -397,7 +402,211 @@ def test_decision_shows_point_difference_next_to_the_paired_interval(sample, htm
             assert format_cop_m(value) in fragment
 
 
-# --- data view (B12c-3): can the data of this run be trusted? ---------------------------------
+# --- redesign (B12e-1): shell, header and summary ------------------------------------------------
+
+def _without_details(fragment):
+    """The fragment with every <details> (and what it holds, nested ones included) removed."""
+    out, depth, i = [], 0, 0
+    for match in re.finditer(r"<details\b|</details>", fragment):
+        if depth == 0:
+            out.append(fragment[i:match.start()])
+        depth += 1 if match.group(0) == "<details" else -1
+        i = match.end()
+    if depth == 0:
+        out.append(fragment[i:])
+    return "".join(out)
+
+
+def _visible(fragment):
+    """Text a reader sees without opening any detail: no tags, no attributes, no <style>."""
+    fragment = re.sub(r"<style>.*?</style>", "", _without_details(fragment), flags=re.S)
+    return re.sub(r"<[^>]+>", " ", fragment)
+
+
+def _header(html):
+    return re.search(r'<header class="top">(.*?)</header>', html, re.S).group(1)
+
+
+def test_the_sidebar_links_every_view_with_an_inline_icon(html):
+    side = re.search(r'<aside class="side"[^>]*>(.*?)</aside>', html, re.S).group(1)
+    for tab_id, label in TABS:
+        link = re.search(rf'<a class="nav" href="#{tab_id}">(.*?)</a>', side, re.S)
+        assert link, tab_id
+        assert '<svg class="ico"' in link.group(1) and label in link.group(1)
+    assert re.search(r'<a class="present" href="#guia-1">', side)          # «Presentar» (B12e-6 makes it slides)
+
+
+def test_the_active_view_is_highlighted_without_javascript(html):
+    for tab_id, _ in TABS:
+        assert f'.app:has(#{tab_id}:target) .nav[href="#{tab_id}"]' in html
+    assert '.app:not(:has(section.view:target)) .nav[href="#resumen"]' in html
+
+
+def test_one_discreet_synthetic_label_in_the_header(html):
+    header = _header(html)
+    label = re.search(r'<span class="tag" id="banner-synthetic">(.*?)</span>\s*</div>', header, re.S)
+    assert label and "Datos sintéticos" in label.group(1) and 'id="banner-simulated"' in label.group(1)
+    assert 'class="banner' not in header                                    # no full-width strip for the demo
+
+
+def test_real_data_keeps_a_loud_banner(sample):
+    data = copy.deepcopy(sample)
+    data["meta"].update(synthetic=False, scores_simulated=False)
+    page = render(data)
+    assert re.search(r'<div class="banner bad" id="banner-real"', page) and 'id="banner-synthetic"' not in page
+
+
+@pytest.mark.parametrize("commit,words", [
+    ("a" * 40 + "-dirty", "cambios sin commit"), ("unknown", "No se pudo identificar el commit"),
+])
+def test_the_commit_warning_is_in_the_header(sample, commit, words):
+    data = copy.deepcopy(sample)
+    data["meta"]["commit"] = commit
+    warning = re.search(r'<span class="pill warn" id="banner-commit"[^>]*>(.*?)</span>\s*</span>',
+                        _header(render(data)), re.S)
+    assert warning and words in warning.group(1)
+
+
+def _summary(data):
+    return _view(render(data), "resumen")
+
+
+def _answer(view):
+    return re.search(r'<p class="answer" id="summary-answer">(.*?)</p>', view, re.S).group(1)
+
+
+def test_the_summary_answers_its_question_from_the_json(sample, html):
+    view = _view(html, "resumen")
+    assert "¿Cuánto está en riesgo y podemos confiar en la respuesta?" in view
+    total = sum(t["actual_cop_m"] for t in sample["exposure"]["tables"].values())
+    answer = _answer(view)
+    assert f"FinBank tiene {format_cop_m(total)} expuestos" in answer
+    assert "cuadran con las del banco" in answer
+    assert "ningún modelo tiene todavía evidencia suficiente" in answer
+
+
+def test_the_answer_says_when_a_figure_does_not_reconcile(sample):
+    data = copy.deepcopy(sample)
+    data["exposure"]["tables"]["churn"].update(status="FAIL", difference_cop_m=5.0)
+    answer = _answer(_summary(data))
+    assert "no cuadran" in answer and "Fuga de clientes preferenciales" in answer
+
+
+def test_the_answer_names_an_authorized_model_in_plain_words(sample):
+    answer = _answer(_summary(_authorized(sample)))
+    decision = _authorized(sample)["models"]["decisions"][0]
+    target = {"delinquency": "Mora temprana", "churn": "Fuga de clientes preferenciales"}[decision["target"]]
+    assert f"{target} tiene un modelo autorizado a despliegue en sombra (Modelo A)" in answer
+    assert "producción" not in answer.lower()
+
+
+def _kpis(view):
+    return dict(re.findall(r'<article class="kpi" data-kpi="([^"]+)">(.*?)</article>', view, re.S))
+
+
+def test_three_kpi_cards_exposure_and_verdict(sample, html):
+    kpis = _kpis(_view(html, "resumen"))
+    assert list(kpis) == ["delinquency", "churn", "verdict"]
+    for table in ("delinquency", "churn"):
+        rec = sample["exposure"]["tables"][table]
+        assert format_cop_m(rec["actual_cop_m"]) in kpis[table]
+        assert f'data-figure-id="exposure.{table}.observed_cop_m"' in kpis[table]
+        assert 'class="pill ok"' in kpis[table] and "Cuadra con la cifra del banco" in kpis[table]
+    assert "No autorizado" in kpis["verdict"] and "Evidencia insuficiente" in kpis["verdict"]
+
+
+def test_a_kpi_that_does_not_reconcile_says_by_how_much(sample):
+    data = copy.deepcopy(sample)
+    data["exposure"]["tables"]["churn"].update(status="FAIL", difference_cop_m=5.0)
+    churn = _kpis(_summary(data))["churn"]
+    assert 'class="pill bad"' in churn and f"No cuadra: difiere en {format_cop_m(5.0)}" in churn
+
+
+def test_an_authorized_verdict_kpi_says_shadow_deployment(sample):
+    verdict = _kpis(_summary(_authorized(sample)))["verdict"]
+    assert "Autorizado a despliegue en sombra" in verdict and 'class="pill ok"' in verdict
+
+
+def _controls(view):
+    parts = re.split(r'<div class="control" data-gate="(gate\d)">', view)
+    return {gate: body.split('<div class="control"')[0] for gate, body in zip(parts[1::2], parts[2::2])}
+
+
+def test_the_controls_row_says_each_gate_in_plain_words(sample, html):
+    controls = _controls(_view(html, "resumen"))
+    assert list(controls) == ["gate1", "gate2", "gate3"]
+    assert 'class="pill warn"' in controls["gate1"] and "Pasan con 1 excepción aprobada" in controls["gate1"]
+    counts = sample["models"]["cards"]
+    admitted = sum(c["decision"] == "ADMITTED" for c in counts)
+    assert f"{admitted} admitidas · 1 rechazada" in controls["gate2"]
+    assert 'class="pill warn"' in controls["gate3"] and "No se verificó en esta corrida" in controls["gate3"]
+
+
+@pytest.mark.parametrize("status,mismatches,cls,words", [
+    ("PASS", [], "ok", "6 cifras verificadas · 0 diferencias"),
+    ("FAIL", [{"figure_id": "x.y", "source": "output_file", "reason": "value_differs", "where": "evaluation.json",
+               "expected": 1.0, "found": 2.0}], "bad", "1 diferencia"),
+])
+def test_the_consistency_control_follows_gate3(sample, status, mismatches, cls, words):
+    data = copy.deepcopy(sample)
+    data["gates"]["gate3"].update(status=status, checked=6, figures_checked=6, citations_checked=0,
+                                  mismatches=mismatches)
+    gate3 = _controls(_summary(data))["gate3"]
+    assert f'class="pill {cls}"' in gate3 and words in gate3
+
+
+def test_the_data_control_matches_the_data_view(sample):
+    data = copy.deepcopy(sample)
+    data["gates"]["gate1"]["tables"]["churn"].update(status="PASS", failed_rules=[])
+    data["gates"]["gate1"]["tables"]["hours_log"].update(status="FAIL")   # PCM's own log: shown in Gestión
+    gate1 = _controls(_summary(data))["gate1"]
+    assert 'class="pill ok"' in gate1 and "Cumplen sus contratos" in gate1
+
+
+def test_one_dictionary_names_every_model_label_and_target_in_plain_spanish(sample):
+    from src.predict360 import dashboard_render
+    names = dashboard_render.PLAIN_NAMES
+    models = sample["models"]
+    ids = ({e["model_id"] for e in models["evaluations"]} | {e["label"] for e in models["evaluations"]}
+           | {e["target"] for e in models["evaluations"]} | {c["model_id"] for c in models["cards"]})
+    assert ids <= set(names)
+    assert names["baseline_rule"] == "Regla actual" and names["model_a"] == "Modelo A"
+    assert names["delinquency_30"] == "Mora a 30 días" and names["delinquency"] == "Mora temprana"
+    for old in ("TARGET_NAMES", "LABEL_NAMES", "COLUMN_NAMES"):
+        assert not hasattr(dashboard_render, old), old
+
+
+def test_the_summary_shows_no_technical_ids_outside_its_detail(sample, html):
+    view = _view(html, "resumen")
+    assert '<details class="technical" id="summary-technical">' in view
+    text = _visible(view)
+    tokens = ({e["model_id"] for e in sample["models"]["evaluations"]} | {e["label"] for e in sample["models"]["evaluations"]}
+              | {"delinquency", "churn", "PASS", "FAIL", "gate1", "gate2", "gate3", "temporal_split", "W-01"})
+    for token in tokens:
+        assert token not in text, token
+    assert not re.search(r"\b[a-z]+_[a-z0-9_]+\b", text)                    # no snake_case identifiers
+
+
+def test_the_summary_detail_keeps_run_reconciliation_and_reasons(sample, html):
+    view = _view(html, "resumen")
+    detail = view[view.index('id="summary-technical"'):]
+    meta = sample["meta"]
+    for value in (meta["run_id"], meta["config"], meta["snapshot_date"], meta["commit"]):
+        assert value in detail
+    for rec in sample["exposure"]["tables"].values():
+        for key in ("expected_cop_m", "difference_cop_m", "tolerance_cop_m"):
+            assert format_cop_m(rec[key]) in detail
+    for decision in sample["models"]["decisions"]:
+        assert f'data-decision="{decision["target"]}"' in detail
+        assert escape(decision["reason"]) in detail
+    assert 'data-demo-card="' in detail and 'data-trace="exposure.delinquency.observed_cop_m"' in detail
+
+
+def test_the_summary_says_exposure_is_not_loss(html):
+    assert "Son exposición en riesgo, no pérdida." in _visible(_view(html, "resumen"))
+
+
+# --- data view (B12e-4): can the data of this run be trusted? -----------------------------------
 
 DATA_TABLES = ("delinquency", "churn", "scores")
 
@@ -406,35 +615,56 @@ def _data(data):
     return _view(render(data), "datos")
 
 
-def test_data_comes_before_lineage(html):
+def _data_answer(view):
+    return re.search(r'<p class="answer" id="data-answer">(.*?)</p>', view, re.S).group(1)
+
+
+def test_the_data_view_answers_its_question(sample, html):
     view = _view(html, "datos")
-    assert view.index('id="data-verdict"') < view.index('id="log-status"')
+    assert "¿Se puede confiar en los datos?" in view
+    waiver = sample["quality"]["waivers"][0]
+    pct = sample["quality"]["missing"][waiver["table"]][waiver["column"]]["pct"]
+    answer = _data_answer(view)
+    assert answer.startswith("Sí, con 1 excepción aprobada")
+    assert format_pct(pct / 100) in answer and "antigüedad" in answer and waiver["expires"] in answer
 
 
-@pytest.mark.parametrize("status,cls,words", [("PASS_WITH_WAIVERS", "warn", "waiver"), ("FAIL", "bad", "no pasan"),
-                                              ("PASS", "ok", "cumplen")])
-def test_the_data_verdict_is_said_in_plain_words(sample, status, cls, words):
+@pytest.mark.parametrize("status,start", [("PASS", "Sí: las 3 tablas"), ("FAIL", "No:")])
+def test_the_data_answer_follows_gate1(sample, status, start):
     data = copy.deepcopy(sample)
     tables = data["gates"]["gate1"]["tables"]
+    tables["churn"].update(status="PASS", failed_rules=[])
     if status == "FAIL":
         tables["scores"].update(status="FAIL", failed_rules=[{"rule": "expect_column_values_to_be_between",
                                 "column": "score", "critical": True, "unexpected_count": 2, "unexpected_pct": 0.1,
                                 "waived_by": None}])
         data["gates"]["gate1"]["status"] = "FAIL"
-    if status == "PASS":
-        tables["churn"].update(status="PASS", failed_rules=[])
-    card = re.search(r'<div class="card" id="data-verdict">(.*?)</div>', _data(data), re.S).group(1)
-    plain = re.search(r'<p class="plain">(.*?)</p>', card, re.S).group(1)
-    assert f'class="status {cls}"' in plain and words in plain
+    assert _data_answer(_data(data)).startswith(start)
+
+
+def _table_cards(view):
+    return dict(re.findall(r'<article class="kpi" data-table="([^"]+)">(.*?)</article>', view, re.S))
+
+
+def test_one_card_per_data_table_with_its_size_and_state(sample, html):
+    cards = _table_cards(_view(html, "datos"))
+    assert list(cards) == list(DATA_TABLES)
+    funnel = sample["quality"]["labeling_funnel"]
+    for table in ("delinquency", "churn"):
+        assert f'{format_count(funnel[table]["steps"][0]["clients"])} clientes' in cards[table]
+    assert f'{format_count(sample["gates"]["gate1"]["tables"]["scores"]["rows"])} filas' in cards["scores"]
+    assert 'class="pill ok"' in cards["delinquency"] and 'class="pill warn"' in cards["churn"]
+    assert "Pasa con una excepción aprobada" in cards["churn"]
 
 
 def test_gate1_lists_the_data_tables_but_not_the_hours_log(sample, html):
     view = _view(html, "datos")
+    detail = view[view.index('id="data-technical"'):]
     for table in DATA_TABLES:
-        assert f'data-gate1-table="{table}"' in view
-    assert 'data-gate1-table="hours_log"' not in view and "hours_log" not in view.split('id="log-status"')[0]
+        assert f'data-gate1-table="{table}"' in detail
+    assert 'data-gate1-table="hours_log"' not in view
     rule = sample["gates"]["gate1"]["tables"]["churn"]["failed_rules"][0]
-    row = re.search(r'<tr data-gate1-table="churn">(.*?)</tr>', view, re.S).group(1)
+    row = re.search(r'<tr data-gate1-table="churn">(.*?)</tr>', detail, re.S).group(1)
     assert rule["column"] in row and rule["waived_by"] in row
 
 
@@ -456,35 +686,66 @@ def test_a_table_level_rule_without_a_share_is_shown(sample):
     assert "expect_table_row_count_to_be_between" in row and "None" not in row
 
 
-def _missing_rows(view):
-    return dict(re.findall(r'<tr data-missing="([^"]+)">(.*?)</tr>', view, re.S))
+def test_one_bar_per_limited_column_with_missing_values_against_its_limit(sample, html):
+    view = _view(html, "datos")
+    missing = sample["quality"]["missing"]
+    expected = {f"{t}.{c}" for t in DATA_TABLES for c, m in missing[t].items()
+                if m["limit_pct"] is not None and m["count"] > 0}
+    svgs = re.findall(r'<svg class="hbar" data-missing="([^"]+)"[^>]*>(.*?)</svg>', view, re.S)
+    assert {key for key, _ in svgs} == expected
+    for key, body in svgs:
+        head = re.search(rf'<svg class="hbar" data-missing="{re.escape(key)}"[^>]*>', view).group(0)
+        x0, w, vmax = (float(_attr(head, n)) for n in ("data-x0", "data-w", "data-max"))
+        table, column = key.split(".")
+        m = missing[table][column]
+        bar = re.search(r'<rect class="value"[^>]*>', body).group(0)
+        limit = re.search(r'<line class="limit"[^>]*>', body).group(0)
+        assert float(_attr(bar, "width")) == pytest.approx(w * m["pct"] / vmax, abs=0.01)
+        assert float(_attr(limit, "x1")) == pytest.approx(x0 + w * m["limit_pct"] / vmax, abs=0.01)
+        assert format_pct(m["pct"] / 100) in body and format_pct(m["limit_pct"] / 100) in body
+    assert "first_delinquency_date" not in _visible(view) and "cancellation_date" not in _visible(view)
 
 
-def test_missing_lists_only_columns_with_a_contract_limit(sample, html):
-    rows = _missing_rows(_view(html, "datos"))
-    expected = {f"{t}.{c}" for t in DATA_TABLES for c, m in sample["quality"]["missing"][t].items()
-                if m["limit_pct"] is not None}
-    assert set(rows) == expected
-    assert "delinquency.first_delinquency_date" not in rows and "churn.cancellation_date" not in rows
-    assert "W-01" in rows["churn.tenure_months"] and 'class="status warn"' in rows["churn.tenure_months"]
-    assert 'class="status ok"' in rows["delinquency.client_id"]
+def test_every_limited_column_stays_in_the_detail(sample, html):
+    view = _view(html, "datos")
+    detail = re.search(r'<details class="technical" id="data-technical">(.*)', view, re.S).group(1)
+    every = dict(re.findall(r'<tr data-missing-all="([^"]+)">(.*?)</tr>', detail, re.S))
+    limited = {f"{t}.{c}" for t in DATA_TABLES for c, m in sample["quality"]["missing"][t].items()
+               if m["limit_pct"] is not None}
+    assert set(every) == limited and 'class="status ok"' in every["delinquency.client_id"]
+    assert "W-01" in every["churn.tenure_months"]
 
 
 def test_a_column_over_its_limit_without_a_waiver_is_red(sample):
     data = copy.deepcopy(sample)
     data["quality"]["missing"]["delinquency"]["tenure_months"].update(count=50, pct=10.0)
-    row = _missing_rows(_data(data))["delinquency.tenure_months"]
-    assert 'class="status bad"' in row
+    assert '<svg class="hbar" data-missing="delinquency.tenure_months" data-state="bad"' in _data(data)
 
 
-def test_the_waiver_is_explained_in_plain_words_with_its_expiry(sample, html):
+def test_without_missing_values_the_view_says_so(sample):
+    data = copy.deepcopy(sample)
+    for columns in data["quality"]["missing"].values():
+        for m in columns.values():
+            m.update(count=0, pct=0.0)
+    view = _data(data)
+    assert '<svg class="hbar"' not in view and 'id="missing-none"' in view
+
+
+def test_the_waiver_card_is_in_spanish_with_a_time_bar(sample, html):
     view = _view(html, "datos")
     waiver = sample["quality"]["waivers"][0]
-    card = re.search(rf'<div class="card" data-waiver="{waiver["id"]}">(.*?)</div>', view, re.S).group(1)
+    card = re.search(rf'<div class="card" data-waiver="{waiver["id"]}">(.*?)<details', view, re.S).group(1)
     pct = sample["quality"]["missing"][waiver["table"]][waiver["column"]]["pct"]
     plain = re.search(r'<p class="plain">(.*?)</p>', card, re.S).group(1)
     assert f"El {format_pct(pct / 100)}" in plain and "antigüedad" in plain and "no se rellena, se evalúa aparte" in plain
     assert waiver["expires"] in card and waiver["approved_by"] in card and waiver["risk"] in card
+    assert waiver["reason"] not in card                                     # English text: in its detail
+    run_day = date.fromisoformat(sample["meta"]["generated_at"][:10])
+    start, end = date.fromisoformat(waiver["date"]), date.fromisoformat(waiver["expires"])
+    elapsed = 100 * min(max((run_day - start).days / (end - start).days, 0), 1)
+    bar = re.search(rf'<div class="timeline" data-waiver-timeline="{waiver["id"]}">.*?style="width: ([\d.]+)%"',
+                    card, re.S)
+    assert bar and float(bar.group(1)) == pytest.approx(elapsed, abs=0.05)
 
 
 @pytest.mark.parametrize("generated_at,soon", [("2026-11-14T08:00:00Z", True), ("2026-09-01T08:00:00Z", False)])
@@ -494,19 +755,17 @@ def test_a_waiver_close_to_expiry_is_flagged(sample, generated_at, soon):
     assert ('data-waiver-expiring="W-01"' in _data(data)) is soon
 
 
-def test_the_funnel_has_every_step_with_proportional_bars(sample, html):
+def test_one_stacked_bar_per_horizon_that_adds_up_to_every_client(sample, html):
     view = _view(html, "datos")
     for target, funnel in sample["quality"]["labeling_funnel"].items():
-        block = re.search(rf'<div class="card" data-funnel="{target}">(.*?)</table>', view, re.S).group(1)
-        assert len(re.findall(r"<tr data-step=", block)) == len(funnel["steps"])
         total = funnel["steps"][0]["clients"]
-        for step in funnel["steps"]:
-            row = re.search(rf'<tr data-step="{step["step"]}">(.*?)</tr>', block, re.S).group(1)
-            if step.get("status") == "not_verifiable":
-                assert step["missing_column"] in row and f"{target}_v2" in row and "No verificable" in row
-            else:
-                width = float(re.search(r'style="width: ([\d.]+)%"', row).group(1))
-                assert width == pytest.approx(100 * step["clients"] / total, abs=0.05)
+        for label, h in funnel["horizons"].items():
+            bar = re.search(rf'<div class="stacked" data-horizon-bar="{label}"[^>]*>(.*?)</div>', view, re.S).group(1)
+            widths = {k: float(v) for k, v in
+                      re.findall(r'data-segment="(\w+)"[^>]*style="width: ([\d.]+)%"', bar)}
+            assert widths["no_event"] == pytest.approx(100 * (h["mature_clients"] - h["positive_clients"]) / total, abs=0.01)
+            assert widths["event"] == pytest.approx(100 * h["positive_clients"] / total, abs=0.01)
+            assert widths["immature"] == pytest.approx(100 * (total - h["mature_clients"]) / total, abs=0.01)
 
 
 def test_each_horizon_is_explained_in_plain_words(sample, html):
@@ -518,6 +777,107 @@ def test_each_horizon_is_explained_in_plain_words(sample, html):
             assert f"De {format_count(total)} clientes, {format_count(h['mature_clients'])}" in plain
             assert format_count(total - h["mature_clients"]) in plain and "aún no se sabe" in plain
             assert format_pct(h["base_rate"]) in plain
+
+
+def test_the_funnel_steps_and_unverifiable_ones_are_in_the_detail(sample, html):
+    view = _view(html, "datos")
+    detail = view[view.index('id="data-technical"'):]
+    for target, funnel in sample["quality"]["labeling_funnel"].items():
+        for step in funnel["steps"]:
+            row = re.search(rf'<tr data-step="{step["step"]}">(.*?)</tr>', detail, re.S).group(1)
+            if step.get("status") == "not_verifiable":
+                assert step["missing_column"] in row and f"{target}_v2" in row and "No verificable" in row
+                assert f'data-not-verifiable="{target}"' in view               # said in the view, detail below
+
+
+def test_every_data_chart_says_how_to_read_it(html):
+    view = _view(html, "datos")
+    charts = len(re.findall(r'<svg class="hbar"', view)) + len(re.findall(r'data-funnel="', view))
+    assert charts and len(re.findall(r'<details class="how"><summary>¿Cómo se lee\?</summary>', view)) >= charts
+
+
+def test_the_data_view_shows_no_technical_ids_outside_its_detail(sample, html):
+    text = _visible(_view(html, "datos"))
+    for token in ("delinquency", "churn_3m", "PASS", "FAIL", "tenure_months", "expect_", "not_verifiable"):
+        assert token not in text, token
+    assert not re.search(r"\b[a-z]+_[a-z0-9_]+\b", text)
+
+
+# --- traceability view (B12e-4): where does every figure come from? ------------------------------
+
+def _trace_view(data):
+    return _view(render(data), "trazabilidad")
+
+
+def test_the_traceability_view_answers_its_question(sample, html):
+    view = _view(html, "trazabilidad")
+    assert "¿De dónde sale cada cifra?" in view
+    manifest = sample["lineage"]["manifest"]
+    answer = re.search(r'<p class="answer" id="trace-answer">(.*?)</p>', view, re.S).group(1)
+    assert f'{format_count(len(sample["lineage"]["figures"]))} cifras' in answer
+    assert f'{format_count(len(manifest["sources"]))} fuentes' in answer
+
+
+def test_the_flow_counts_sources_controls_outputs_and_figures(sample, html):
+    view = _view(html, "trazabilidad")
+    manifest = sample["lineage"]["manifest"]
+    steps = dict(re.findall(r'<li data-flow="(\w+)">.*?<strong>([^<]+)</strong>', view, re.S))
+    assert steps == {"sources": format_count(len(manifest["sources"])), "controls": "3",
+                     "outputs": format_count(len(manifest["outputs"])),
+                     "figures": format_count(len(sample["lineage"]["figures"]))}
+
+
+def _story(view):
+    return dict(re.findall(r'<li data-trace-step="(\w+)">(.*?)</li>', view, re.S))
+
+
+def test_the_delinquency_exposure_is_traced_in_five_steps(sample, html):
+    view = _view(html, "trazabilidad")
+    figure = _registered(sample)["exposure.delinquency.observed_cop_m"]
+    manifest = sample["lineage"]["manifest"]
+    source = next(s for s in manifest["sources"] if s["name"] == "delinquency")
+    output = next(o for o in manifest["outputs"] if o["file"] == figure["file"])
+    story = _story(view)
+    assert list(story) == ["file", "script", "output", "commit", "check"]
+    assert source["file"] in story["file"] and source["sha256"][:8] in story["file"]
+    assert source["sha256"] not in story["file"]                               # 8 characters in the view
+    assert figure["script"] in story["script"]
+    assert figure["file"] in story["output"] and output["sha256"][:8] in story["output"]
+    assert sample["meta"]["commit"][:8] in story["commit"]
+    assert format_cop_m(figure["value"]) in view[view.index('id="trace-story"'):]
+
+
+@pytest.mark.parametrize("status,mismatch,cls", [("PASS", False, "ok"), ("FAIL", True, "bad"), ("NOT_RUN", False, "warn")])
+def test_the_last_step_says_whether_gate3_checked_the_figure(sample, status, mismatch, cls):
+    data = copy.deepcopy(sample)
+    mismatches = [{"figure_id": "exposure.delinquency.observed_cop_m", "source": "output_file", "where": "x",
+                   "expected": 1.0, "found": 2.0, "reason": "value_differs"}] if mismatch else []
+    data["gates"]["gate3"].update(status=status, mismatches=mismatches)
+    assert f'class="pill {cls}"' in _story(_trace_view(data))["check"]
+
+
+def test_the_finder_lists_every_figure_grouped_by_objective(sample, html):
+    view = _view(html, "trazabilidad")
+    finder = re.search(r'<details class="finder" id="figure-finder">(.*?)</details>', view, re.S).group(1)
+    assert "Buscar una cifra" in finder
+    rows = dict(re.findall(r'<tr data-figure-row="([^"]+)">(.*?)</tr>', finder, re.S))
+    assert set(rows) == {f["figure_id"] for f in sample["lineage"]["figures"]}
+    outputs = {o["file"]: o["sha256"] for o in sample["lineage"]["manifest"]["outputs"]}
+    for f in sample["lineage"]["figures"]:
+        row = rows[f["figure_id"]]
+        name = re.search(r'<span class="name">(.*?)</span>\s*<code class="id">(.*?)</code>', row)
+        assert name and name.group(2) == f["figure_id"] and "_" not in name.group(1)   # plain name first
+        assert outputs[f["file"]][:8] in row and outputs[f["file"]] not in row
+        assert 'class="num"' in row
+    captions = re.findall(r"<caption>(.*?)</caption>", finder)
+    assert "Mora temprana" in captions and "Gestión del proyecto" in captions
+
+
+def test_the_traceability_view_shows_no_technical_ids_outside_its_detail(html):
+    view = _view(html, "trazabilidad")
+    text = _visible(re.sub(r'<code[^>]*>.*?</code>', "", view, flags=re.S))   # paths and ids are shown as code
+    for token in ("OK", "TAMPERED", "sha256", "delinquency", "figure_id"):
+        assert not re.search(rf"\b{token}\b", text), token
 
 
 # --- models view (B12c-2): which model ranks best, and is the evidence enough? ----------------
