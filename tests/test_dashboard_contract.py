@@ -295,12 +295,11 @@ def test_the_burndown_starts_at_the_committed_sp_and_ends_at_the_open_ones(sampl
     assert any("burndown" in e for e in _errors(data))
 
 
-@pytest.mark.parametrize("reading", [None, "Texto del equipo."])
-def test_the_team_reading_is_text_or_null(sample, reading):
+def test_the_team_reading_is_not_dashboard_data(sample):
+    # the team's conclusions go in the presentation; the dashboard carries only generated figures
+    assert "team_reading" not in sample["management"]
     data = copy.deepcopy(sample)
-    data["management"]["team_reading"] = reading
-    assert _errors(data) == []
-    data["management"]["team_reading"] = 3
+    data["management"]["team_reading"] = "Texto del equipo."
     assert any(e.startswith("$.management") for e in _errors(data))
 
 
