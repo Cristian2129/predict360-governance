@@ -39,4 +39,26 @@ date,person,sprint,story_id,hours,estimated,note
 2026-11-13,Cristian Vega,3,US-05,3.5,0,session of the three 13:00-16:30; B8b metrics and paired bootstrap PR #35; B10 Gate 3 PR #36; B11a planning
 2026-11-13,Marco Jimenez,3,US-05,3.5,0,session of the three 13:00-16:30; B8b metrics and paired bootstrap PR #35; B10 Gate 3 PR #36; B11a planning
 2026-11-13,Paula Gacha,3,US-05,3.5,0,session of the three 13:00-16:30; B8b metrics and paired bootstrap PR #35; B10 Gate 3 PR #36; B11a planning
-
+2026-11-13,Cristian Vega,3,US-05,1.5,0,session of the three 16:30-21:15; B11a run_pipeline and official run guards PR #37
+2026-11-13,Marco Jimenez,3,US-05,1.5,0,session of the three 16:30-21:15; B11a run_pipeline and official run guards PR #37
+2026-11-13,Paula Gacha,3,US-05,1.5,0,session of the three 16:30-21:15; B11a run_pipeline and official run guards PR #37
+2026-11-13,Cristian Vega,3,MGMT,0.25,0,session of the three 16:30-21:15; hours log PR #38
+2026-11-13,Marco Jimenez,3,MGMT,0.25,0,session of the three 16:30-21:15; hours log PR #38
+2026-11-13,Paula Gacha,3,MGMT,0.25,0,session of the three 16:30-21:15; hours log PR #38
+2026-11-13,Cristian Vega,3,US-10,3.0,0,session of the three 16:30-21:15; B11b export PR #39; B12b-1 trace PR #40; B12b-2 stress simulator PR #41
+2026-11-13,Marco Jimenez,3,US-10,3.0,0,session of the three 16:30-21:15; B11b export PR #39; B12b-1 trace PR #40; B12b-2 stress simulator PR #41
+2026-11-13,Paula Gacha,3,US-10,3.0,0,session of the three 16:30-21:15; B11b export PR #39; B12b-1 trace PR #40; B12b-2 stress simulator PR #41
+2026-11-14,Cristian Vega,3,US-05,0.75,0,session of the three 10:45-22:00 (1 h lunch); demo rejected card model_c PR #42
+2026-11-14,Marco Jimenez,3,US-05,0.75,0,session of the three 10:45-22:00 (1 h lunch); demo rejected card model_c PR #42
+2026-11-14,Paula Gacha,3,US-05,0.75,0,session of the three 10:45-22:00 (1 h lunch); demo rejected card model_c PR #42
+2026-11-14,Cristian Vega,3,MGMT,0.75,0,session of the three 10:45-22:00 (1 h lunch); sprint log Sprint 3 rows PR #43; sprint closure
+2026-11-14,Marco Jimenez,3,MGMT,0.75,0,session of the three 10:45-22:00 (1 h lunch); sprint log Sprint 3 rows PR #43; sprint closure
+2026-11-14,Paula Gacha,3,MGMT,0.75,0,session of the three 10:45-22:00 (1 h lunch); sprint log Sprint 3 rows PR #43; sprint closure
+2026-11-14,Cristian Vega,3,US-10,1.0,0,session of the three 10:45-22:00 (1 h lunch); management view PR #44; models view PR #45
+2026-11-14,Marco Jimenez,3,US-10,1.0,0,session of the three 10:45-22:00 (1 h lunch); management view PR #44; models view PR #45
+2026-11-14,Paula Gacha,3,US-10,1.0,0,session of the three 10:45-22:00 (1 h lunch); management view PR #44; models view PR #45
+2026-11-14,Cristian Vega,3,US-10,5.75,0,session 10:45-22:00 (1 h lunch); Cristian and Paula (Marco absent for this part); data view PR #46
+2026-11-14,Paula Gacha,3,US-10,5.75,0,session 10:45-22:00 (1 h lunch); Cristian and Paula (Marco absent for this part); data view PR #46
+2026-11-14,Cristian Vega,4,US-10,2.0,0,session of the three 10:45-22:00 (1 h lunch); dashboard visual redesign review (prototype); after the Sprint 3 close (decision 14 Nov 13:30: close without the redesign)
+2026-11-14,Marco Jimenez,4,US-10,2.0,0,session of the three 10:45-22:00 (1 h lunch); dashboard visual redesign review (prototype); after the Sprint 3 close (decision 14 Nov 13:30: close without the redesign)
+2026-11-14,Paula Gacha,4,US-10,2.0,0,session of the three 10:45-22:00 (1 h lunch); dashboard visual redesign review (prototype); after the Sprint 3 close (decision 14 Nov 13:30: close without the redesign)
