@@ -167,6 +167,17 @@ def _semantic(data: dict) -> list[str]:
     approved = sum(cr["approved_cop_m"] for cr in base["change_requests"])
     if abs(base["contingency_cop_m"] - approved - base["reserve_remaining_cop_m"]) > _EPS:
         errors.append("management.baseline: reserve_remaining is not contingency minus approved change requests")
+    # velocity, earned value and burndown read the same sprint log: their SP must agree
+    sprints = {s["sprint"]: s for s in data["management"]["sprints"]}
+    for v in data["management"]["velocity"]:
+        s = sprints.get(v["sprint"])
+        if s is None or (v["planned_sp"], v["completed_sp"]) != (s["committed_sp"], s["done_sp"]):
+            errors.append(f"management.velocity: sprint {v['sprint']} does not match the SP of the earned value")
+    for b in data["management"]["burndown"]:
+        s = sprints.get(b["sprint"])
+        if s is None or (b["blocks"][0]["actual_remaining"] != s["committed_sp"]
+                         or b["blocks"][-1]["actual_remaining"] != s["committed_sp"] - s["done_sp"]):
+            errors.append(f"management.burndown: sprint {b['sprint']} does not match the SP of the earned value")
     return errors
 
 
