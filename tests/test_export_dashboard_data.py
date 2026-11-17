@@ -13,8 +13,8 @@ import yaml
 
 from src.predict360.config import CONFIG_DIR, ROOT
 from src.predict360.dashboard_contract import SAMPLE_PATH, validate_dashboard_data
-from src.predict360.export_dashboard_data import (DASHBOARD_OUTPUTS, HANDOVER_PATH, MANAGEMENT_NOTES_PATH,
-                                                  NOT_RUN_HOURS_LOG, _team_reading, write_dashboard_data)
+from src.predict360.export_dashboard_data import (DASHBOARD_OUTPUTS, HANDOVER_PATH, NOT_RUN_HOURS_LOG,
+                                                  write_dashboard_data)
 from src.predict360.run_pipeline import AGGREGATE_OUTPUTS, run_pipeline
 from src.predict360.sprint_metrics import get_burndown_series
 
@@ -126,7 +126,7 @@ def test_the_final_manifest_hashes_the_dashboard_files(ordinary):
 def test_management_inputs_are_hashed_as_sources(ordinary):
     names = {s["name"] for s in _read(ordinary["run_dir"], "manifest.json")["sources"]}
     assert {"hours_log", "sprint_log", "risk_register", "risk_reviews", "handover"} <= names
-    assert ("management_notes" in names) is MANAGEMENT_NOTES_PATH.exists()
+    assert "management_notes" not in names
 
 
 @pytest.mark.parametrize("before,expected", [(None, "NOT_CHECKED"), ("chain", "OK"), ("garbage", "TAMPERED")])
@@ -191,20 +191,9 @@ def test_velocity_and_earned_value_count_the_same_closed_sp(data):
     assert {v["sprint"]: (v["planned_sp"], v["completed_sp"]) for v in data["management"]["velocity"]} == done
 
 
-def test_the_team_reading_comes_from_the_notes_file(data):
-    assert MANAGEMENT_NOTES_PATH == CONFIG_DIR / "management_notes.yaml"
-    assert data["management"]["team_reading"] == _team_reading(MANAGEMENT_NOTES_PATH)
-
-
-def test_the_team_reading_is_kept_as_written(tmp_path):
-    notes = tmp_path / "management_notes.yaml"
-    notes.write_text("team_reading: |\n  Línea uno.\n\n  Línea dos.\n", encoding="utf-8")
-    assert _team_reading(notes) == "Línea uno.\n\nLínea dos."
-    notes.write_text("team_reading: null\n", encoding="utf-8")
-    assert _team_reading(notes) is None
-    notes.write_text("team_reading: '   '\n", encoding="utf-8")
-    assert _team_reading(notes) is None
-    assert _team_reading(tmp_path / "missing.yaml") is None
+def test_management_carries_no_team_reading(data):
+    assert "team_reading" not in data["management"]
+    assert not (CONFIG_DIR / "management_notes.yaml").exists()
 
 
 # --- handover: runbook steps written by people, contract gaps from the funnel ------------------------

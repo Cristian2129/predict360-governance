@@ -1517,6 +1517,7 @@ def test_management_view_is_built(html):
     assert "Vista en construcción" not in view and f'<p class="q">{MANAGEMENT_QUESTION}</p>' in view
     assert 'id="management-cards"' in view
     assert 'id="management-answer"' not in view          # the question is the title; the cards answer it
+    assert 'id="team-reading"' not in view and "Lectura del equipo" not in view   # it goes in the presentation
 
 
 def _card(view, question):
@@ -1596,17 +1597,6 @@ def test_without_an_eac_the_budget_bar_has_no_eac_point(sample):
     data = copy.deepcopy(sample)
     data["management"]["cumulative"].update(eac_cop_m=None, eac_minus_ceiling_cop_m=None, eac_over_ceiling=None)
     assert 'data-mark="eac"' not in _budget(_management(data))
-
-
-def test_the_team_reading_is_shown_as_written_and_escaped(sample):
-    data = copy.deepcopy(sample)
-    data["management"]["team_reading"] = "Primer párrafo <b>sin</b> HTML.\n\nSegundo párrafo."
-    reading = re.search(r'<div class="card" id="team-reading">(.*?)</div>', _management(data), re.S).group(1)
-    assert "<h3>Lectura del equipo</h3>" in reading
-    assert "<p>Primer párrafo &lt;b&gt;sin&lt;/b&gt; HTML.</p><p>Segundo párrafo.</p>" in reading
-    data["management"]["team_reading"] = None
-    reading = re.search(r'<div class="card" id="team-reading">(.*?)</div>', _management(data), re.S).group(1)
-    assert "config/management_notes.yaml" in reading and "pending" in reading
 
 
 def test_charts_come_in_order_cumulative_velocity_burndown(html):
