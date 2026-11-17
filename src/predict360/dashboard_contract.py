@@ -11,6 +11,7 @@ express are checked here:
 - each published curve starts at K = 0, grows, and its points are at least
   ``MIN_PUBLISHED_CLIENTS`` apart; ``k_star`` is one of its points; k_applied <= k_requested;
   ``at_k`` is the published point at ``k_applied`` (the K rule shared with the simulator);
+  ``breakeven_effectiveness`` is the cost of ``k_applied`` over the exposure found there;
 - gate 2 counts match the decisions of the cards;
 - budget lines add up: PV per sprint sums to the BAC, and the reserve is the contingency
   minus the approved change requests;
@@ -96,6 +97,14 @@ def _check(value, spec: dict, path: str, defs: dict, errors: list[str]) -> None:
                 _check(item, spec["items"], f"{path}[{i}]", defs, errors)
 
 
+def _breakeven(evaluation: dict, values: dict):
+    """Same formula as evaluator.breakeven_effectiveness, rebuilt from at_k and the acta."""
+    gain = values.get("value.loss_given_event", 0) * evaluation["at_k"]["captured_cop_m"]
+    if gain <= 0:
+        return None
+    return evaluation["k_applied"] * values.get("value.cost_per_contact_cop", 0) / 1e6 / gain
+
+
 def _semantic(data: dict) -> list[str]:
     errors = []
     outputs = {o["file"] for o in data["lineage"]["manifest"]["outputs"]}
@@ -108,10 +117,16 @@ def _semantic(data: dict) -> list[str]:
             errors.append(f"{where}: duplicate figure_id {figure['figure_id']}")
         seen.add(figure["figure_id"])
 
+    values = {k: v for item in data["assumptions"] for k, v in item["value"].items()}
     for i, evaluation in enumerate(data["models"]["evaluations"]):
         if evaluation["status"] != "evaluated":
             continue
         where = f"models.evaluations[{i}]"
+        expected = _breakeven(evaluation, values)
+        found = evaluation["breakeven_effectiveness"]
+        if (expected is None) != (found is None) or (expected is not None and abs(found - expected) > _EPS):
+            errors.append(f"{where}.breakeven_effectiveness: must be the cost of K applied over the "
+                          "exposure found at K (net value zero)")
         ks = [p["k"] for p in evaluation["curve"]]
         if ks[0] != 0:
             errors.append(f"{where}.curve: must start at K = 0")

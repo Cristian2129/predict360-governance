@@ -70,6 +70,16 @@ def _gain_cop_m(captured_cop_m: float, values: dict) -> float:
     return values["value"]["action_effectiveness"] * values["value"]["loss_given_event"] * captured_cop_m
 
 
+def breakeven_effectiveness(captured_cop_m: float, k_applied: float, values: dict):
+    """The action effectiveness at which the net value at k_applied is exactly zero: above
+    it the calls pay for themselves («compensa mientras se recuperen al menos X de cada 100»).
+    None when nothing at risk is found, because then no effectiveness pays the calls."""
+    gain_per_unit = values["value"]["loss_given_event"] * captured_cop_m
+    if gain_per_unit <= 0:
+        return None
+    return _contact_cost_cop_m(k_applied, values) / gain_per_unit
+
+
 def _ratio(part: float, total: float):
     return part / total if total else None
 
@@ -427,16 +437,18 @@ def evaluate_models(labeled: dict, scores: pd.DataFrame, gate2_report: dict, val
             curve = capture_curve(df, values)
             k_requested = share * entry["n_clients"]
             at_k = evaluate_at_k(df, k_requested, values)
+            k_applied = at_k.pop("k_applied")
             entry.update(
                 status="evaluated",
                 event_clients=float(df.loc[df["y"] == 1, "weight"].sum()),
                 event_exposure_cop_m=float((df["exposure_cop_m"] * df["y"]).sum()),
                 k_requested=k_requested,
-                k_applied=at_k.pop("k_applied"),
+                k_applied=k_applied,
                 at_k={k: v for k, v in at_k.items() if k != "k_requested"},
                 random_at_k={k: v for k, v in random_baseline(df, k_requested, values).items()
                              if k not in ("k_requested", "k_applied")},
                 **_published(curve),
+                breakeven_effectiveness=breakeven_effectiveness(at_k["captured_cop_m"], k_applied, values),
                 metrics={"pr_auc": pr_auc(df), "brier": brier_score(df),
                          "calibration": calibration_table(df, values)},
             )

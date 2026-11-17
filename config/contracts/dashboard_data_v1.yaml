@@ -315,6 +315,8 @@ fields:
                 random_at_k: {ref: result_at_k}
                 k_star: {ref: curve_point}            # a point of the published curve
                 curve: {type: array, min_items: 2, items: {ref: curve_point}}   # published grid only
+                # effectiveness at which the net value at k_applied is zero; null if nothing is found (semantic rule)
+                breakeven_effectiveness: {type: [number, "null"], min: 0}
                 metrics:
                   type: object
                   fields:
