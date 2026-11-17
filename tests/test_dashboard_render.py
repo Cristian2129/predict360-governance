@@ -19,7 +19,6 @@ from src.predict360.config import ROOT
 from src.predict360.dashboard_contract import SAMPLE_PATH
 from src.predict360.formatting import format_ratio
 from src.predict360.dashboard_render import (
-    GUIDED_STEPS,
     TABS,
     format_cop_m,
     format_count,
@@ -286,21 +285,19 @@ def test_simulator_data_and_script_are_inline(html, sample):
 
 
 def test_the_views_of_the_spec_exist(html):
-    assert [tab_id for tab_id, _ in TABS] == ["resumen", "datos", "trazabilidad", "modelos", "estres", "gestion",
-                                              "entrega"]
+    assert [tab_id for tab_id, _ in TABS] == ["resumen", "datos", "trazabilidad", "modelos", "estres", "gestion"]
     ids = _ids(html)
     for tab_id, _ in TABS:
         assert tab_id in ids and f'href="#{tab_id}"' in html
 
 
-def test_guided_mode_has_six_steps_linked_to_existing_views(html):
-    assert len(GUIDED_STEPS) == 6
-    ids, tabs = _ids(html), {tab_id for tab_id, _ in TABS}
-    for number, step in enumerate(GUIDED_STEPS, start=1):
-        assert f"guia-{number}" in ids
-        assert step["tab"] in tabs
-        assert f'href="#{step["tab"]}"' in html
-    assert 'href="#guia-2"' in html   # next-step links
+def test_there_is_no_guided_mode_nor_handover_tab(html):
+    # the story is told in the presentation; the dashboard only answers questions
+    assert "guia-" not in html and "Presentar" not in html and "modo guiado" not in html.lower()
+    assert 'id="entrega"' not in html and 'href="#entrega"' not in html
+    assert "Vista en construcción" not in html
+    from src.predict360 import dashboard_render
+    assert not hasattr(dashboard_render, "GUIDED_STEPS")
 
 
 # --- summary: every figure comes from the JSON ----------------------------------------
@@ -433,7 +430,7 @@ def test_the_sidebar_links_every_view_with_an_inline_icon(html):
         link = re.search(rf'<a class="nav" href="#{tab_id}">(.*?)</a>', side, re.S)
         assert link, tab_id
         assert '<svg class="ico"' in link.group(1) and label in link.group(1)
-    assert re.search(r'<a class="present" href="#guia-1">', side)          # «Presentar» (B12e-6 makes it slides)
+    assert 'class="present"' not in side
 
 
 def test_the_active_view_is_highlighted_without_javascript(html):
@@ -880,7 +877,10 @@ def test_the_traceability_view_shows_no_technical_ids_outside_its_detail(html):
         assert not re.search(rf"\b{token}\b", text), token
 
 
-# --- models view (B12c-2): which model ranks best, and is the evidence enough? ----------------
+# --- models view (B12e-5): which model ranks best, and is the evidence enough? ----------------
+
+MODELS_QUESTION = "¿Qué modelo ordena mejor y alcanza la evidencia?"
+
 
 def _models(data):
     return _view(render(data), "modelos")
@@ -890,57 +890,142 @@ def _attr(tag, name):
     return re.search(rf'\b{name}="([^"]*)"', tag).group(1)
 
 
-def test_models_view_is_built_and_never_says_production(html):
-    view = _view(html, "modelos")
-    assert "Vista en construcción" not in view and "producción" not in view.lower()
+def _compared(data):
+    return [e for e in data["models"]["evaluations"] if e["status"] == "evaluated" and e["vs_baseline"]]
 
 
-def test_the_global_verdict_comes_first(sample, html):
+def _models_answer(view):
+    return re.search(r'<p class="answer" id="models-answer">(.*?)</p>', view, re.S).group(1)
+
+
+def _authorized_delinquency(sample):
+    data = copy.deepcopy(sample)
+    decision = next(d for d in data["models"]["decisions"] if d["target"] == "delinquency")
+    decision.update(verdict="authorized_for_shadow_deployment", reason_code="authorized", model_id="model_b")
+    return data
+
+
+def test_the_models_view_answers_its_question(sample, html):
     view = _view(html, "modelos")
-    verdict = re.search(r'<div class="card" id="models-verdict">(.*?)</div>', view, re.S)
-    assert verdict and view.index('id="models-verdict"') < view.index("data-decision-card=")
-    assert "No autorizado" in verdict.group(1)            # the fixture authorizes nothing
+    assert f'<p class="q">{MODELS_QUESTION}</p>' in view
+    answer = _models_answer(view)
+    assert answer.startswith("Ningún modelo")                       # the fixture authorizes nothing
+    assert "Modelo B" in answer and "Mora a 60 días" in answer      # it beats the rule only at 60 days
+    assert "producción" not in view.lower()
+
+
+def test_an_authorized_model_is_named_in_the_answer(sample):
+    answer = _models_answer(_models(_authorized_delinquency(sample)))
+    assert "Modelo B" in answer and "despliegue en sombra" in answer
+    assert "producción" not in answer.lower()
 
 
 @pytest.mark.parametrize("code,tag", [("insufficient_evidence", "Evidencia insuficiente"),
                                       ("authorized", "Supera la regla"),
                                       ("does_not_beat_baseline", "No supera la regla")])
-def test_the_target_tag_comes_from_the_reason_of_the_decision(sample, code, tag):
+def test_one_verdict_card_per_target_tagged_by_the_reason_of_its_decision(sample, code, tag):
     data = copy.deepcopy(sample)
     decision = next(d for d in data["models"]["decisions"] if d["target"] == "delinquency")
     decision["reason_code"] = code
     if code == "authorized":
         decision.update(verdict="authorized_for_shadow_deployment", model_id="model_a")
-    card = re.search(r'<div class="card" data-decision-card="delinquency">(.*?)</svg>', _models(data), re.S).group(1)
-    assert re.search(rf'<span class="status \w+" data-decision-tag="delinquency">{tag}</span>', card)
+    view = _models(data)
+    verdict = view[view.index('id="models-verdict"'):view.index('id="models-intervals"')]
+    for d in data["models"]["decisions"]:
+        assert f'data-verdict="{d["target"]}"' in verdict
+    assert re.search(rf'<span class="pill \w+" data-decision-tag="delinquency">.*?<span>{tag}</span>', verdict, re.S)
 
 
-def _ci_rows(view):
-    return re.findall(r'<g data-ci="([^"]+)"[^>]*>(.*?)</g>', view, re.S)
+# intervals: one panel per target, its own scale, round ticks, both sides labelled
+
+def _ci_svgs(view):
+    return re.findall(r'(<svg class="ci"[^>]*>)(.*?)</svg>', view, re.S)
+
+
+def test_one_interval_panel_per_compared_target_with_its_own_scale(sample, html):
+    svgs = _ci_svgs(_view(html, "modelos"))
+    assert sorted(_attr(head, "data-ci-target") for head, _ in svgs) == sorted({e["target"] for e in _compared(sample)})
+    for head, _ in svgs:
+        for name in ("data-vmin", "data-vmax", "data-x0", "data-xscale"):
+            assert name in head
 
 
 def test_the_drawn_interval_matches_the_evaluation(sample, html):
-    view = _view(html, "modelos")
-    expected = {f'{e["label"]}.{e["model_id"]}': e["vs_baseline"] for e in sample["models"]["evaluations"]
-                if e["status"] == "evaluated" and e["vs_baseline"]}
-    rows = dict(_ci_rows(view))
-    assert set(rows) == set(expected)
-    for svg in re.findall(r'<svg class="ci"[^>]*>.*?</svg>', view, re.S):
-        head = svg[:svg.index(">")]
+    expected = {f'{e["label"]}.{e["model_id"]}': e["vs_baseline"] for e in _compared(sample)}
+    drawn = set()
+    for head, body in _ci_svgs(_view(html, "modelos")):
         vmin, x0, scale = (float(_attr(head, n)) for n in ("data-vmin", "data-x0", "data-xscale"))
         px = lambda v: x0 + (v - vmin) * scale
-        for key, body in re.findall(r'<g data-ci="([^"]+)"[^>]*>(.*?)</g>', svg, re.S):
+        for key, body_row in re.findall(r'<g data-ci="([^"]+)"[^>]*>(.*?)</g>', body, re.S):
+            drawn.add(key)
             vs = expected[key]
-            line = re.search(r"<line class=\"ci-range\"[^>]*>", body).group(0)
-            dot = re.search(r"<circle class=\"ci-point\"[^>]*>", body).group(0)
+            line = re.search(r'<line class="ci-range"[^>]*>', body_row).group(0)
+            dot = re.search(r'<circle class="ci-point"[^>]*>', body_row).group(0)
             assert float(_attr(line, "x1")) == pytest.approx(px(vs["ci_low_cop_m"]), abs=0.01)
             assert float(_attr(line, "x2")) == pytest.approx(px(vs["ci_high_cop_m"]), abs=0.01)
             assert float(_attr(dot, "cx")) == pytest.approx(px(vs["difference_cop_m"]), abs=0.01)
-        zero = re.search(r'<line class="zero"[^>]*>', svg).group(0)
+        zero = re.search(r'<line class="zero"[^>]*>', body).group(0)
         assert float(_attr(zero, "x1")) == pytest.approx(px(0.0), abs=0.01)
-        shade = re.search(r'<rect class="rule-better"[^>]*>', svg).group(0)
-        assert float(_attr(shade, "x")) + float(_attr(shade, "width")) == pytest.approx(px(0.0), abs=0.01)
-        assert "la regla es mejor" in svg
+    assert drawn == set(expected)
+
+
+def test_the_interval_axis_has_round_ticks_and_a_soft_grid(sample, html):
+    for head, body in _ci_svgs(_view(html, "modelos")):
+        target = _attr(head, "data-ci-target")
+        rows = [e["vs_baseline"] for e in _compared(sample) if e["target"] == target]
+        ticks = [float(v) for v in re.findall(r'<line class="grid" data-value="([^"]+)"', body)]
+        assert 0.0 in ticks and len(ticks) >= 3
+        step = ticks[1] - ticks[0]
+        assert step in (10, 50, 100, 500, 1000, 5000)
+        assert all(b - a == step for a, b in zip(ticks, ticks[1:])) and all(t % step == 0 for t in ticks)
+        assert ticks[0] <= min(vs["ci_low_cop_m"] for vs in rows) and ticks[-1] >= max(vs["ci_high_cop_m"] for vs in rows)
+        assert float(_attr(head, "data-vmin")) == ticks[0] and float(_attr(head, "data-vmax")) == ticks[-1]
+        for t in ticks:                                                    # every gridline carries its label
+            assert f'<text class="tick" data-tick-value="{t:g}"' in body
+
+
+def test_both_sides_are_labelled_and_the_rule_side_is_shaded(html):
+    for head, body in _ci_svgs(_view(html, "modelos")):
+        vmin, x0, scale = (float(_attr(head, n)) for n in ("data-vmin", "data-x0", "data-xscale"))
+        assert "← la regla actual es mejor" in body and "el modelo es mejor →" in body
+        shade = re.search(r'<rect class="rule-better"[^>]*>', body).group(0)
+        assert float(_attr(shade, "x")) == pytest.approx(x0, abs=0.01)
+        assert float(_attr(shade, "x")) + float(_attr(shade, "width")) == pytest.approx(x0 - vmin * scale, abs=0.01)
+
+
+def test_the_interval_is_green_only_when_it_clears_zero(sample, html):
+    outcome_class = {"beats": "ok", "insufficient_evidence": "warn", "does_not_beat_baseline": "bad"}
+    view = _view(html, "modelos")
+    for e in _compared(sample):
+        vs = e["vs_baseline"]
+        key = f'{e["label"]}.{e["model_id"]}'
+        cls = re.search(rf'<g data-ci="{re.escape(key)}" class="(\w+)"', view).group(1)
+        assert cls == outcome_class[vs["outcome"]]
+        assert (cls == "ok") == (vs["ci_low_cop_m"] > vs["margin_cop_m"])
+
+
+def test_the_point_figure_is_written_over_each_point(sample, html):
+    view = _view(html, "modelos")
+    for e in _compared(sample):
+        key = f'{e["label"]}.{e["model_id"]}'
+        row = re.search(rf'<g data-ci="{re.escape(key)}"[^>]*>(.*?)</g>', view, re.S).group(1)
+        value = re.search(r'<text class="ci-value"[^>]*>([^<]*)</text>', row).group(1)
+        assert value == format_cop_m(e["vs_baseline"]["difference_cop_m"])
+        assert f'{_plain_name(e["model_id"])} · {_plain_name(e["label"])}' in row
+
+
+def _plain_name(key):
+    from src.predict360.dashboard_render import PLAIN_NAMES
+    return PLAIN_NAMES[key]
+
+
+@pytest.mark.parametrize("level,words", [(0.9, "90 %"), (0.95, "95 %")])
+def test_the_axis_title_takes_the_confidence_level_from_the_json(sample, level, words):
+    data = copy.deepcopy(sample)
+    for e in _compared(data):
+        e["vs_baseline"]["confidence_level"] = level
+    view = _models(data)
+    assert f"Ventaja sobre la regla actual (COP millones), intervalo de confianza al {words}" in view
 
 
 def test_delinquency_must_win_at_30_and_60_days(html):
@@ -951,10 +1036,17 @@ def test_delinquency_must_win_at_30_and_60_days(html):
 def test_a_target_without_a_comparison_says_so(sample, html):
     card = re.search(r'data-decision-card="churn">(.*?)</div>', _view(html, "modelos"), re.S).group(1)
     assert 'id="ci-none-churn"' in card                     # fixture: churn baseline not evaluated
+    assert "Regla actual" in card
 
+
+# capture curve: quarter axes, a conclusion as title, series named on the chart, today marked
 
 def _capture_svgs(view):
     return re.findall(r'(<svg class="capture"[^>]*>)(.*?)</svg>', view, re.S)
+
+
+def _capture_figure(view, label):
+    return re.search(rf'<figure data-capture-for="{label}">(.*?)</figure>', view, re.S).group(1)
 
 
 def test_one_capture_curve_per_label_behind_a_selector(sample, html):
@@ -973,12 +1065,57 @@ def test_the_capture_curve_ends_at_100_and_the_diagonal_is_exact(sample, html):
         assert [float(_attr(diagonal, n)) for n in ("x1", "y1", "x2", "y2")] == [x0, y0, x0 + w, y0 - h]
         label = _attr(head, "data-capture-curve")
         for e in (e for e in evaluations if e["label"] == label):
-            line = re.search(rf'<polyline class="series s\d" data-capture="{e["model_id"]}" points="([^"]+)"', body)
+            line = re.search(rf'<polyline class="series m-{e["model_id"]}" data-capture="{e["model_id"]}" '
+                             r'points="([^"]+)"', body)
             first, *_, last = [tuple(map(float, p.split(","))) for p in line.group(1).split()]
             assert first == (x0, y0) and last == pytest.approx((x0 + w, y0 - h), abs=0.01)
             capacity = re.search(r'<line class="capacity"[^>]*>', body).group(0)
             assert float(_attr(capacity, "x1")) == pytest.approx(x0 + w * e["k_applied"] / e["n_clients"], abs=0.01)
 
+
+def test_the_capture_axes_have_quarter_ticks_and_a_grid(html):
+    for _, body in _capture_svgs(_view(html, "modelos")):
+        for axis in ("x", "y"):
+            values = re.findall(rf'<line class="grid" data-axis="{axis}" data-value="(\d+)"', body)
+            assert values == ["0", "25", "50", "75", "100"], axis
+        for value in (0, 25, 50, 75, 100):
+            assert f">{value} %</text>" in body
+
+
+def test_the_capture_title_is_a_conclusion_from_the_json(sample, html):
+    view = _view(html, "modelos")
+    for label, evaluations in _evaluated_by_label(sample).items():
+        title = re.search(r'<h4 data-capture-title="[^"]+">(.*?)</h4>', _capture_figure(view, label), re.S).group(1)
+        best = max(evaluations, key=lambda e: e["at_k"]["capture"])
+        assert _plain_name(best["model_id"]) in title and format_pct(best["at_k"]["capture"]) in title
+        assert f'llamando a {format_count(best["k_applied"])} clientes (capacidad de hoy)' in title
+
+
+def test_each_series_is_named_on_the_chart_and_today_is_marked(sample, html):
+    view = _view(html, "modelos")
+    for label, evaluations in _evaluated_by_label(sample).items():
+        figure = _capture_figure(view, label)
+        for e in evaluations:
+            name = re.search(rf'<text class="series-label m-{e["model_id"]}" data-series-label="{e["model_id"]}"'
+                             r'[^>]*>([^<]*)</text>', figure)
+            assert name and name.group(1) == _plain_name(e["model_id"])
+        today = re.search(r'<text class="today"[^>]*>([^<]*)</text>', figure).group(1)
+        assert today == f'Capacidad de hoy: {format_count(evaluations[0]["k_applied"])} clientes'
+        assert ">Al azar</text>" in figure
+
+
+def test_every_model_keeps_its_colour_in_every_chart(sample, html):
+    for view_id, attribute in (("modelos", "data-capture"), ("estres", "data-series")):
+        view = _view(html, view_id)
+        for e in (e for e in sample["models"]["evaluations"] if e["status"] == "evaluated"):
+            assert re.search(rf'class="series m-{e["model_id"]}" {attribute}="{e["model_id"]}"', view), (view_id, e["model_id"])
+        assert not re.search(r'class="(series|kstar|swatch) s\d', view)              # never by position
+    css = (ROOT / "src" / "predict360" / "dashboard_assets" / "styles.css").read_text(encoding="utf-8")
+    for model_id in ("baseline_rule", "model_a", "model_b"):
+        assert f".m-{model_id}" in css
+
+
+# Gate 2 cards and the technical detail
 
 def test_every_card_has_a_row_with_its_reason_in_spanish(sample, html):
     view = _view(html, "modelos")
@@ -986,30 +1123,178 @@ def test_every_card_has_a_row_with_its_reason_in_spanish(sample, html):
         row = re.search(rf'<tr data-card-row="{re.escape(card["file"])}">(.*?)</tr>', view, re.S).group(1)
         for reason in card["reasons"]:
             assert reason["message"] in row                  # original message, in the detail
-        assert ("Ficha de demostración" in row) is card["demo"]
+        assert ("(demostración)" in row) is card["demo"]
     demo = re.search(r'<tr data-card-row="delinquency_model_c.json">(.*?)</tr>', view, re.S).group(1)
-    assert "partición no temporal" in demo and "<details" in demo
+    assert "Modelo C (demostración)" in _visible(demo) and "partición no temporal" in demo and "<details" in demo
+
+
+def _technical(view):
+    start = view.index('<details class="technical" id="models-technical">')
+    return view[start:]
+
+
+def test_the_technical_detail_has_a_target_selector_and_four_questions(sample, html):
+    detail = _technical(_view(html, "modelos"))
+    labels = sorted({e["label"] for e in sample["models"]["evaluations"]})
+    assert sorted(re.findall(r'<input type="radio" name="metrics-label" id="metrics-([^"]+)"', detail)) == labels
+    for question in ("¿Encuentra la plata?", "¿Acierta?", "¿Son confiables sus probabilidades?", "¿Cuánto vale?"):
+        assert re.search(rf'<th colspan="\d+" class="group">{re.escape(question)}</th>', detail), question
 
 
 def test_the_technical_detail_has_every_metric_and_the_calibration(sample, html):
-    view = _view(html, "modelos")
-    detail = re.search(r'<details class="technical" id="models-technical">(.*?)</details>', view, re.S).group(1)
+    detail = _technical(_view(html, "modelos"))
     for e in sample["models"]["evaluations"]:
         key = f'{e["label"]}.{e["model_id"]}'
-        assert f'data-metrics="{key}"' in detail
+        row = re.search(rf'<tr data-metrics="{re.escape(key)}">(.*?)</tr>', detail, re.S)
+        assert row, key
         if e["status"] == "evaluated":
-            assert format_ratio(e["metrics"]["brier"]) in detail
+            assert format_ratio(e["metrics"]["brier"]) in row.group(1)
+            assert format_pct(e["breakeven_effectiveness"]) in row.group(1)       # «¿Cuánto vale?»
             assert len(re.findall(rf'data-calibration="{re.escape(key)}"', detail)) == len(e["metrics"]["calibration"])
         else:
-            assert "scores incompletos" in detail
+            assert "scores incompletos" in row.group(1)
     for label in {e["label"] for e in sample["models"]["evaluations"] if e["status"] == "evaluated"}:
         assert f'data-metrics="{label}.random"' in detail
 
 
+def test_calibration_is_a_small_chart_per_model_with_the_deciles_folded(sample, html):
+    detail = _technical(_view(html, "modelos"))
+    for e in (e for e in sample["models"]["evaluations"] if e["status"] == "evaluated"):
+        key = f'{e["label"]}.{e["model_id"]}'
+        svg = re.search(rf'<svg class="calib" data-calibration-chart="{re.escape(key)}"[^>]*>(.*?)</svg>', detail, re.S)
+        assert svg, key
+        assert len(re.findall(r'<circle class="calib-point', svg.group(1))) == len(e["metrics"]["calibration"])
+        assert '<line class="diagonal"' in svg.group(1)
+    for table in re.findall(r'<table class="data"><caption>Calibración por decil[^<]*</caption>', detail):
+        before = detail[:detail.index(table)]
+        assert before.rfind("<details") > before.rfind("</details>")          # inside a fold of its own
+
+
 def test_slices_are_pending_and_scores_are_declared_simulated(html):
     view = _view(html, "modelos")
-    assert 'id="slices-pending"' in view and "tenure_months" in view
+    slices = re.search(r'<p class="pending" id="slices-pending">(.*?)</p>', view, re.S).group(1)
+    assert "B8c" not in slices and "antigüedad" in slices
     assert 'id="models-simulated"' in view
+
+
+def test_the_models_view_shows_no_technical_ids_outside_its_detail(sample, html):
+    text = _visible(_view(html, "modelos"))
+    models = sample["models"]
+    tokens = ({e["model_id"] for e in models["evaluations"]} | {e["label"] for e in models["evaluations"]}
+              | {c["model_id"] for c in models["cards"]} | {"delinquency", "churn", "temporal_split", "tenure_months"})
+    for token in tokens:
+        assert not re.search(rf"\b{token}\b", text), token
+    assert not re.search(r"\b[a-z]+_[a-z0-9_]+\b", text)
+
+
+def test_the_models_charts_use_the_full_width():
+    css = (ROOT / "src" / "predict360" / "dashboard_assets" / "styles.css").read_text(encoding="utf-8")
+    assert not re.search(r"svg\.(ci|capture)\s*\{[^}]*max-width", css)
+
+
+# What K means: defined once per target (Models) and per label (Stress), from k_applied
+
+def _k_by_label(data):
+    return {label: rows[0]["k_applied"] for label, rows in _evaluated_by_label(data).items()}
+
+
+def _k_definitions(view):
+    return re.findall(r'<p class="k-def" data-k-definition="([^"]+)">(.*?)</p>', view, re.S)
+
+
+def test_every_target_defines_k_with_the_k_of_each_of_its_labels(sample, html):
+    view = _view(html, "modelos")
+    ks = _k_by_label(sample)
+    targets = {}
+    for e in sample["models"]["evaluations"]:
+        if e["status"] == "evaluated":
+            targets.setdefault(e["target"], set()).add(e["label"])
+    definitions = dict(_k_definitions(view))
+    assert set(definitions) == set(targets)
+    values = {k: v for item in sample["assumptions"] for k, v in item["value"].items()}
+    for target, labels in targets.items():
+        text = definitions[target]
+        assert "¿Qué es K?" in text and "K*" in text and "mejor número de contactos" in text
+        share = values["value.default_capacity_share"]
+        assert f'el {format_pct(share, decimals=0)} de los clientes evaluados (supuesto de diseño)' in text
+        assert format_pct(share) not in text                       # «10 %», not «10,0 %»
+        drawn = dict(re.findall(r'<span data-k="([^"]+)">([^<]+)</span>', text))
+        assert drawn == {label: format_count(ks[label]) for label in labels}
+        for label in labels:
+            assert _plain_name(label) in text
+
+
+def test_every_stress_card_defines_k_with_its_own_k(sample, html):
+    view = _view(html, "estres")
+    ks = _k_by_label(sample)
+    definitions = dict(_k_definitions(view))
+    assert set(definitions) == set(ks)
+    for label, text in definitions.items():
+        assert "¿Qué es K?" in text and "mejor número de contactos" in text
+        assert dict(re.findall(r'<span data-k="([^"]+)">([^<]+)</span>', text)) == {label: format_count(ks[label])}
+
+
+def _main_text(view):
+    """What a reader sees outside the K definitions and the technical detail."""
+    view = re.sub(r"<script.*?</script>", "", view, flags=re.S)
+    return _visible(re.sub(r'<p class="k-def".*?</p>', "", view, flags=re.S))
+
+
+@pytest.mark.parametrize("view_id", ["modelos", "estres"])
+def test_the_letter_k_appears_only_in_its_definition_and_the_technical_detail(html, view_id):
+    view = _view(html, view_id)
+    assert not re.search(r"\bK\b|K\*", _main_text(view)), view_id
+    for legend in re.findall(r'<ul class="legend">(.*?)</ul>', view, re.S):
+        assert not re.search(r"\bK\b|K\*", legend)
+    if view_id == "estres":
+        assert "Mejor número de contactos" in view
+
+
+@pytest.mark.parametrize("view_id", ["modelos", "estres"])
+def test_no_main_header_uses_k_without_its_number_of_clients(html, view_id):
+    view = _view(html, view_id)
+    if view_id == "modelos":
+        view = view[:view.index('<details class="technical" id="models-technical">')]
+    for header in re.findall(r"<th[^>]*>(.*?)</th>", view, re.S):
+        assert not re.search(r"\bK\b|K\*", header), header
+
+
+def test_every_k_figure_shown_is_a_k_applied_of_the_json(sample, html):
+    allowed = {format_count(k) for k in _k_by_label(sample).values()}
+    shown = []
+    for view_id in ("modelos", "estres"):
+        view = _view(html, view_id)
+        shown += re.findall(r"llamando a ([\d.]+) clientes", view)
+        shown += re.findall(r"Capacidad de hoy: ([\d.]+) clientes", view)
+        shown += re.findall(r'<span data-k="[^"]+">([^<]+)</span>', view)
+        shown += re.findall(r'data-k-applied="[^"]+">([^<]+)<', view)
+    assert shown and set(shown) <= allowed
+
+
+def test_the_comparisons_say_how_many_clients_were_called(sample, html):
+    view = _view(html, "modelos")
+    for e in _compared(sample):
+        row = re.search(rf'<tr data-comparison="{e["target"]}.{e["label"]}.{e["model_id"]}">(.*?)</tr>', view, re.S)
+        cell = re.search(r'data-k-applied="[^"]+">([^<]+)<', row.group(1)).group(1)
+        assert cell == format_count(e["k_applied"])
+    assert "Clientes llamados (capacidad de hoy)" in view
+
+
+def test_stress_warnings_use_plain_names_and_no_k(sample, html):
+    view = _view(html, "estres")
+    for label, evaluations in _evaluated_by_label(sample).items():
+        for e in evaluations:
+            warning = re.search(rf'data-sim-warning="{label}.{e["model_id"]}">([^<]*)<', view)
+            if warning:
+                assert warning.group(1).startswith(_plain_name(e["model_id"]) + ":")
+                assert "mejor número de contactos" in warning.group(1) and "K*" not in warning.group(1)
+    assert "<td>Al azar</td>" in view
+    script = (ROOT / "src" / "predict360" / "dashboard_assets" / "simulator.js").read_text(encoding="utf-8")
+    assert "row.model_id + \": la capacidad" not in script and "K* (" not in script
+    raw = re.search(r'<script type="application/json" id="sim-data">(.*?)</script>', view, re.S).group(1)
+    for label, entry in json.loads(raw)["labels"].items():
+        for m in entry["models"]:
+            assert m["name"] == _plain_name(m["model_id"])
 
 
 # --- management view (B12c) ------------------------------------------------------------------
@@ -1109,6 +1394,41 @@ def test_every_risk_is_listed_with_the_review_count(sample, count, words):
     for r in data["management"]["risks"]:
         assert f'data-risk="{r["risk_id"]}"' in view
     assert words in re.search(r'<p[^>]*id="risk-reviews">(.*?)</p>', view, re.S).group(1)
+
+
+def _risk_row(view, risk_id):
+    return re.search(rf'<tr data-risk="{risk_id}">(.*?)</tr>', view, re.S).group(1)
+
+
+def test_risks_are_shown_in_spanish_with_the_original_in_the_detail(sample, html):
+    view = _view(html, "gestion")
+    original = next(r for r in sample["management"]["risks"] if r["risk_id"] == "R-01")
+    row = _risk_row(view, "R-01")
+    visible = _visible(row)
+    for words in ("Calidad de datos", "Los registros pueden estar incompletos o fragmentados", "Alta", "Alto",
+                  "En mitigación"):
+        assert words in visible, words
+    assert original["description"] not in visible and original["category"] not in visible
+    assert original["description"] in row                                     # kept, folded
+    detail = view[view.index('id="risks-technical"'):]
+    for r in sample["management"]["risks"]:
+        assert escape(r["description"]) in detail and r["category"] in detail
+
+
+def test_a_risk_whose_text_changed_shows_the_original(sample):
+    # a stale translation must never pass for the register's text
+    data = copy.deepcopy(sample)
+    risk = next(r for r in data["management"]["risks"] if r["risk_id"] == "R-01")
+    risk["description"] = "Records arrive late from the core banking system"
+    assert "Records arrive late from the core banking system" in _visible(_risk_row(_management(data), "R-01"))
+
+
+def test_a_risk_translation_takes_its_numbers_from_the_original(sample):
+    data = copy.deepcopy(sample)
+    risk = next(r for r in data["management"]["risks"] if r["risk_id"] == "R-04")
+    risk["description"] = risk["description"].replace("125000", "99000")
+    visible = _visible(_risk_row(_management(data), "R-04"))
+    assert "99.000 clientes" in visible and "Ley 1581" in visible
 
 
 def test_management_that_did_not_run_shows_only_its_reason(sample):
