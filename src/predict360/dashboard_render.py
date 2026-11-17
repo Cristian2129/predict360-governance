@@ -4,8 +4,8 @@ The page is built in Python from ``dashboard_data.json`` (contract ``dashboard_d
 so it opens with a double click without network, from GitHub Pages, and inside FinBank:
 
 - CSS is inlined from ``dashboard_assets/styles.css``; no external resources.
-- Views and the 6-step guided mode are anchors (``#resumen``, ``#guia-1``) shown with
-  CSS ``:target``; no JavaScript is needed to navigate.
+- Views are anchors (``#resumen``, ``#modelos``) shown with CSS ``:target``; no JavaScript is
+  needed to navigate. There is no guided mode: the story is told in the presentation.
 - Every figure comes from the JSON and is only formatted, in Spanish, by ``formatting.py``
   (the same formatter Gate 3 uses); the source has no hand-written figures. Text from the JSON is HTML-escaped.
 - ``write(..., publish=True)`` refuses non-synthetic data: only the synthetic demo run is
@@ -17,8 +17,8 @@ so it opens with a double click without network, from GitHub Pages, and inside F
 - The Data and lineage view lists the registered figures, sources and outputs, explains the
   log status and says that its manifest is a snapshot taken at export.
 
-Charts and the stress simulator arrive in B12b-2; the data quality part of the Data view and
-the Models, Management and Handover views in B12c.
+Every chart colours a model by its id, never by its position: Regla actual grey, Modelo A
+orange, Modelo B blue, azar dotted grey; green and amber are kept for results.
 
 Usage:
     python -m src.predict360.dashboard_render --data runs/<run_id>/dashboard_data.json \\
@@ -28,6 +28,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
+import re
 import sys
 from datetime import date
 from html import escape
@@ -45,33 +47,15 @@ TABS = [
     ("modelos", "Modelos"),
     ("estres", "Decisión en COP"),
     ("gestion", "Gestión"),
-    ("entrega", "Entrega"),
 ]
-TAB_ICONS = {"resumen": "home", "datos": "db", "trazabilidad": "route", "modelos": "model", "estres": "coin", "gestion": "calendar",
-             "entrega": "box"}
+TAB_ICONS = {"resumen": "home", "datos": "db", "trazabilidad": "route", "modelos": "model", "estres": "coin", "gestion": "calendar"}
 # The ONE place where technical ids get their name for a reader; ids stay in «Detalle técnico» only
 PLAIN_NAMES = {
     "delinquency": "Mora temprana", "churn": "Fuga de clientes preferenciales",
     "delinquency_30": "Mora a 30 días", "delinquency_60": "Mora a 60 días", "churn_3m": "Fuga a 3 meses",
     "baseline_rule": "Regla actual", "model_a": "Modelo A", "model_b": "Modelo B", "model_c": "Modelo C",
-    "random": "Azar", "tenure_months": "antigüedad",
+    "random": "Al azar", "tenure_months": "antigüedad",
 }
-GUIDED_STEPS = [
-    {"tab": "resumen", "title": "Correr el pipeline y refrescar el tablero",
-     "text": "Un solo comando (run_pipeline.py --config config/synthetic.yaml) corre las doce "
-             "estaciones y escribe este tablero. Revise la exposición, la conciliación y los tres gates."},
-    {"tab": "datos", "title": "Romper los datos",
-     "text": "Con un archivo defectuoso, el Gate 1 se pone en rojo y dice qué regla falló."},
-    {"tab": "trazabilidad", "title": "Rastrear una cifra hasta su origen",
-     "text": "Abra el rastreo de la exposición de mora: archivo de origen, script, commit y hash."},
-    {"tab": "modelos", "title": "Comparar modelos",
-     "text": "Compare los modelos contra la regla base y el azar, revise las rebanadas y vea una "
-             "ficha rechazada con su motivo."},
-    {"tab": "estres", "title": "Mover el simulador",
-     "text": "Cambie capacidad, efectividad y costo por contacto; observe el valor neto en COP y K*."},
-    {"tab": "gestion", "title": "Gestión, evidencia y consistencia",
-     "text": "Valor ganado, SPI, CPI y EAC contra el techo del presupuesto; registro de evidencia y Gate 3."},
-]
 GATE_NAMES = {"gate1": "Gate 1 · Datos", "gate2": "Gate 2 · Fichas de modelo", "gate3": "Gate 3 · Consistencia"}
 CONTROL_NAMES = {"gate1": ("db", "Datos"), "gate2": ("file", "Fichas de modelo"),
                  "gate3": ("check", "Consistencia de cifras")}
@@ -87,8 +71,6 @@ ICONS = {   # 24x24 strokes, drawn inline: no icon font, no network
     "coin": '<circle cx="12" cy="12" r="9"/><path d="M15 9.5c-.5-1-1.6-1.5-3-1.5-1.9 0-3 .9-3 2s1 1.7 3 2 3 .9 3 '
             '2-1.1 2-3 2c-1.4 0-2.5-.5-3-1.5M12 6v2M12 16v2"/>',
     "calendar": '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
-    "box": '<path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/>',
-    "play": '<circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5z"/>',
     "check": '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
     "route": '<circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H15a3.5 3.5 0 0 0 0-7H9a3.5 3.5 0 0 1 0-7h6.5"/>',
     "alert": '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/>',
@@ -106,7 +88,7 @@ VERDICTS = {"authorized_for_shadow_deployment": ("Autorizado a despliegue en som
 OUTCOMES = {"beats": ("Supera la regla", "ok"), "insufficient_evidence": ("Evidencia insuficiente", "warn"),
             "does_not_beat_baseline": ("No supera la regla", "bad")}
 SNAPSHOT_NOTE = ("Foto del manifiesto al exportar; el manifiesto final registra también este archivo y el tablero.")
-__all__ =["GUIDED_STEPS", "TABS", "format_cop_m", "format_pct", "render", "write"]   # formatters re-exported
+__all__ = ["TABS", "format_cop_m", "format_pct", "render", "write"]   # formatters re-exported
 
 
 def _e(value) -> str:
@@ -127,9 +109,9 @@ def _icon(name: str, size: int = 20) -> str:
             f'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{ICONS[name]}</svg>')
 
 
-def _pill(cls: str, text: str, pill_id: str = "") -> str:
+def _pill(cls: str, text: str, pill_id: str = "", attrs: str = "") -> str:
     """Soft status pill: colour, icon AND words, never colour alone. ``text`` is already HTML."""
-    attribute = f' id="{pill_id}" role="status"' if pill_id else ""
+    attribute = (f' id="{pill_id}" role="status"' if pill_id else "") + attrs
     return f'<span class="pill {cls}"{attribute}>{_icon(PILL_ICONS[cls], 14)}<span>{text}</span></span>'
 
 
@@ -179,8 +161,7 @@ def _sidebar() -> str:
     links = "".join(f'<a class="nav" href="#{tab_id}">{_icon(TAB_ICONS[tab_id])}<span>{label}</span></a>'
                     for tab_id, label in TABS)
     return (f'<aside class="side"><div class="brand"><span class="mark">{_icon("check", 18)}</span>Predict360</div>'
-            f'<nav aria-label="Vistas">{links}</nav>'
-            f'<a class="present" href="#guia-1">{_icon("play")}<span>Presentar</span></a></aside>')
+            f'<nav aria-label="Vistas">{links}</nav></aside>')
 
 
 def _active_nav_style() -> str:
@@ -253,14 +234,16 @@ def _comparisons(target: str, data: dict) -> str:
         text, cls = OUTCOMES[vs["outcome"]]
         attribute, trace = _traced(f"models.{e['label']}.{e['model_id']}.difference_vs_baseline_cop_m", data)
         rows += (f'<tr data-comparison="{_e(target)}.{_e(e["label"])}.{_e(e["model_id"])}">'
-                 f'<td>{_e(e["model_id"])}</td><td>{_e(e["label"])}</td>'
+                 f'<td>{_plain(e["model_id"])}</td><td>{_plain(e["label"])}</td>'
+                 f'<td class="num" data-k-applied="{_e(e["label"])}">{format_count(e["k_applied"])}</td>'
                  f'<td{attribute}>{format_cop_m(vs["difference_cop_m"])}{trace}</td>'
                  f'<td>{format_cop_m(vs["ci_low_cop_m"])} a {format_cop_m(vs["ci_high_cop_m"])}</td>'
                  f'<td><span class="status {cls}">{text}</span></td></tr>')
     if not rows:
         return ""
-    return ('<table class="compare"><thead><tr><th>Modelo</th><th>Etiqueta</th>'
-            '<th>Diferencia en K</th><th>IC pareado</th><th>Resultado</th></tr></thead>'
+    return ('<table class="compare"><thead><tr><th>Modelo</th><th>Horizonte</th>'
+            '<th>Clientes llamados (capacidad de hoy)</th><th>Ventaja</th><th>Intervalo</th>'
+            '<th>Resultado</th></tr></thead>'
             f'<tbody>{rows}</tbody></table>')
 
 
@@ -873,6 +856,21 @@ def _rule(data: dict) -> str:
                  if e["status"] == "evaluated" and e.get("vs_baseline")), "baseline_rule")
 
 
+def _capacity_share(data: dict) -> float:
+    values = {k: v for item in data["assumptions"] for k, v in item["value"].items()}
+    return values["value.default_capacity_share"]
+
+
+def _k_definition(key: str, label_ks: list, data: dict) -> str:
+    """«¿Qué es K?» with the k_applied of each label: the share is applied per label and snapped to the curve."""
+    counts = _and([f'<span data-k="{_e(label)}">{format_count(k)}</span> en {_plain(label)}' for label, k in label_ks])
+    return (f'<p class="k-def" data-k-definition="{_e(key)}"><strong>¿Qué es K?</strong> K es la capacidad de hoy: '
+            f'los clientes que el equipo de FinBank alcanza a contactar, el {format_pct(_capacity_share(data), decimals=0)} de '
+            f'los clientes evaluados (supuesto de diseño), ajustado a los puntos de la curva: {counts}. Todos los '
+            'modelos se comparan contactando esa misma cantidad. K* es el mejor número de contactos: el que daría '
+            'más valor neto si no hubiera límite de capacidad.</p>')
+
+
 def simulator_data(data: dict) -> dict:
     """What simulator.js needs: the acta's assumptions and, per label and model, the published
     curve plus the evaluator's own numbers for the browser self-check."""
@@ -884,7 +882,8 @@ def simulator_data(data: dict) -> dict:
                      "cost_per_contact_cop": values["value.cost_per_contact_cop"]},
         "rule": _rule(data),
         "labels": {label: {"target": rows[0]["target"], "models": [{
-            "model_id": e["model_id"], "n_clients": e["n_clients"],
+            "model_id": e["model_id"], "name": PLAIN_NAMES.get(e["model_id"], e["model_id"]),
+            "n_clients": e["n_clients"],
             "event_exposure_cop_m": e["event_exposure_cop_m"], "k_applied": e["k_applied"],
             "k_star_k": e["k_star"]["k"], "at_k_net_value_cop_m": e["at_k"]["net_value_cop_m"],
             "random_net_value_cop_m": e["random_at_k"]["net_value_cop_m"],
@@ -895,7 +894,7 @@ def simulator_data(data: dict) -> dict:
 
 
 def curve_svg(label: str, evaluations: list, capacity_k: float | None = None) -> str:
-    """Net value against K for each model, the random line and K*; reusable by the Models view.
+    """Net value against the clients contacted for each model, the random line and the best number of contacts.
     Drawn with the assumptions of the acta (the values the evaluator published)."""
     width, height, left, right, top, bottom = 640, 300, 100, 16, 16, 40   # left fits "COP -1.358 M"
     n = max(e["n_clients"] for e in evaluations)
@@ -908,12 +907,12 @@ def curve_svg(label: str, evaluations: list, capacity_k: float | None = None) ->
     y = lambda v: top + (high - v) / span * (height - top - bottom)
     parts = [f'<line class="axis" data-zero="{_e(label)}" x1="{left}" y1="{y(0):.1f}" x2="{width - right}" '
              f'y2="{y(0):.1f}"/>']
-    for i, e in enumerate(evaluations):
+    for e in evaluations:
         points = " ".join(f"{x(p['k']):.1f},{y(p['net_value_cop_m']):.1f}" for p in e["curve"])
-        parts.append(f'<polyline class="series s{i}" data-series="{_e(e["model_id"])}" points="{points}"/>')
+        parts.append(f'<polyline class="series m-{_e(e["model_id"])}" data-series="{_e(e["model_id"])}" points="{points}"/>')
         star = e["k_star"]
-        parts.append(f'<circle class="kstar s{i}" data-kstar="{_e(e["model_id"])}" cx="{x(star["k"]):.1f}" '
-                     f'cy="{y(star["net_value_cop_m"]):.1f}" r="4"><title>K* {_e(e["model_id"])}: '
+        parts.append(f'<circle class="kstar m-{_e(e["model_id"])}" data-kstar="{_e(e["model_id"])}" cx="{x(star["k"]):.1f}" '
+                     f'cy="{y(star["net_value_cop_m"]):.1f}" r="4"><title>Mejor número de contactos, {_plain(e["model_id"])}: '
                      f'{format_count(star["k"])} clientes, {format_cop_m(star["net_value_cop_m"])}</title></circle>')
     parts.append(f'<polyline class="series random" data-series="random" '
                  f'points="{x(0):.1f},{y(0):.1f} {x(last["k"]):.1f},{y(last["net_value_cop_m"]):.1f}"/>')
@@ -929,8 +928,8 @@ def curve_svg(label: str, evaluations: list, capacity_k: float | None = None) ->
               f'<text class="tick" x="{width - right}" y="{height - bottom + 16}" text-anchor="end">'
               f'{format_count(n)} clientes</text>',
               f'<text class="tick" x="{(left + width - right) / 2:.0f}" y="{height - 6}" text-anchor="middle">'
-              'Clientes contactados (K)</text>']
-    title = f"Valor neto en COP según K · {PLAIN_NAMES.get(label, label)}"
+              'Clientes contactados</text>']
+    title = f"Valor neto en COP según clientes contactados · {PLAIN_NAMES.get(label, label)}"
     plot_h = height - top - bottom
     return (f'<svg class="curve" data-curve="{_e(label)}" data-x0="{left}" data-xscale="{xscale!r}" '
             f'data-top="{top}" data-plot-h="{plot_h}" viewBox="0 0 {width} {height}" role="img" '
@@ -938,10 +937,9 @@ def curve_svg(label: str, evaluations: list, capacity_k: float | None = None) ->
 
 
 def _legend(evaluations: list) -> str:
-    items = "".join(f'<li><span class="swatch s{i}"></span>{_e(e["model_id"])}</li>' for i, e in enumerate(evaluations))
-    return (f'<ul class="legend">{items}<li><span class="swatch random"></span>azar</li>'
-            '<li><span class="swatch capacity"></span>K aplicado por capacidad</li>'
-            '<li><span class="dot"></span>K* (óptimo sin restricción)</li></ul>')
+    return _model_legend(evaluations, '<li><span class="swatch random"></span>Al azar</li>',
+                         '<li><span class="swatch capacity"></span>Capacidad de hoy</li>',
+                         '<li><span class="dot"></span>Mejor número de contactos</li>')
 
 
 def _stress_table(label: str, evaluations: list, rule: str) -> str:
@@ -951,23 +949,25 @@ def _stress_table(label: str, evaluations: list, rule: str) -> str:
         key = f'{label}.{e["model_id"]}'
         net = e["at_k"]["net_value_cop_m"]
         diff = DASH if e["model_id"] == rule or rule_net is None else format_cop_m(net - rule_net)
-        rows += (f'<tr><td>{_e(e["model_id"])}</td>'
+        rows += (f'<tr><td>{_plain(e["model_id"])}</td>'
                  f'<td data-sim-kstar="{_e(key)}">{format_count(e["k_star"]["k"])}</td>'
                  f'<td data-sim-kapplied="{_e(key)}">{format_count(e["k_applied"])}</td>'
                  f'<td data-sim-net="{_e(key)}">{format_cop_m(net)}</td>'
                  f'<td data-sim-diff="{_e(key)}">{diff}</td></tr>')
         if e["k_star"]["k"] > e["k_applied"]:
             warnings += (f'<p class="sim-warning" data-sim-slot="{_e(key)}" data-sim-warning="{_e(key)}">'
-                         f'{_e(e["model_id"])}: la capacidad ({format_count(e["k_applied"])} clientes) queda por '
-                         f'debajo de K* ({format_count(e["k_star"]["k"])}): más capacidad de gestión aumentaría '
+                         f'{_plain(e["model_id"])}: la capacidad de hoy ({format_count(e["k_applied"])} clientes) '
+                         f'queda por debajo del mejor número de contactos ({format_count(e["k_star"]["k"])}): más '
+                         'capacidad de gestión aumentaría '
                          'el valor neto.</p>')
         else:
             warnings += f'<p class="sim-warning" data-sim-slot="{_e(key)}" hidden></p>'
     random_net = evaluations[0]["random_at_k"]["net_value_cop_m"]
-    rows += (f'<tr class="random"><td>azar</td><td>{DASH}</td><td>{DASH}</td>'
+    rows += (f'<tr class="random"><td>{_plain("random")}</td><td>{DASH}</td><td>{DASH}</td>'
              f'<td data-sim-net="{_e(label)}.random">{format_cop_m(random_net)}</td><td>{DASH}</td></tr>')
-    return ('<table class="compare"><thead><tr><th>Modelo</th><th>K* de la curva</th><th>K aplicado</th>'
-            f'<th>Valor neto en K aplicado</th><th>Diferencia vs {_e(rule)}<br><span class="label-sm">'
+    return ('<table class="compare"><thead><tr><th>Modelo</th><th>Mejor número de contactos</th>'
+            '<th>Capacidad de hoy (clientes)</th>'
+            f'<th>Valor neto con la capacidad de hoy</th><th>Diferencia vs {_plain(rule)}<br><span class="label-sm">'
             'estimación puntual, sin intervalo</span></th></tr></thead>'
             f'<tbody>{rows}</tbody></table>{warnings}')
 
@@ -980,6 +980,7 @@ def _stress_view(data: dict) -> str:
     cards = ""
     for label, evaluations in _by_label(data).items():
         cards += (f'<div class="card" data-sim-label="{_e(label)}"><h3>{_plain(label)}</h3>'
+                  f'{_k_definition(label, [(label, evaluations[0]["k_applied"])], data)}'
                   f'{curve_svg(label, evaluations, evaluations[0]["k_applied"])}{_legend(evaluations)}'
                   f'{_stress_table(label, evaluations, sim["rule"])}</div>')
     if not cards:
@@ -999,7 +1000,7 @@ def _stress_view(data: dict) -> str:
         f'<input type="range" id="sim-cost" min="0" max="200000" step="1000" value="{d["cost_per_contact_cop"]}"></label>'
         '<button type="button" id="sim-reset">Restablecer supuestos</button>'
         f'<p class="note">Pérdida por evento fija en {format_pct(d["loss_given_event"])} de la exposición. '
-        'Las curvas, K*, la línea de capacidad y la tabla se recalculan con los controles. '
+        'Las curvas, el mejor número de contactos, la línea de capacidad y la tabla se recalculan con los controles. '
         'Sin JavaScript se muestran los valores del acta.</p></form>'
         '<p class="note" id="sim-status" role="status" hidden></p>'
         f'{cards}'
@@ -1010,6 +1011,7 @@ def _stress_view(data: dict) -> str:
 
 # --- models view: which model ranks best, and is the evidence enough? ---------------------------
 
+MODELS_QUESTION = "¿Qué modelo ordena mejor y alcanza la evidencia?"
 DECISION_TAGS = {"authorized": ("Supera la regla", "ok"), "insufficient_evidence": ("Evidencia insuficiente", "warn"),
                  "does_not_beat_baseline": ("No supera la regla", "bad"),
                  "no_baseline": ("Sin regla base comparable", "warn"), "no_candidate": ("Sin modelo candidato", "warn")}
@@ -1017,103 +1019,231 @@ CARD_DECISIONS = {"ADMITTED": ("Admitida", "ok"), "REJECTED": ("Rechazada", "bad
 NOT_EVALUATED = {"incomplete_scores": "scores incompletos"}
 DELINQUENCY_RULE = ("Mora exige ganar a 30 y a 60 días: se autoriza solo si todo el intervalo supera el margen "
                     "en ambos horizontes.")
-SLICES_PENDING = ("Rebanadas: pendiente (B8c). La primera será la de clientes con tenure_months faltante "
-                  "(riesgo R-01, waiver W-01), evaluada aparte y sin imputar.")
+SLICES_PENDING = ("Rebanadas: pendiente. La primera será la de clientes sin antigüedad registrada "
+                  "(riesgo R-01, excepción W-01), evaluada aparte y sin imputar.")
 SIMULATED_NOTE = ("Scores simulados: no son modelos entrenados. El sistema evalúa en COP cualquier modelo que "
                   "FinBank entrene; estos sirven para mostrar cómo.")
+TICK_STEPS = (10, 50, 100, 500, 1000, 5000)       # round steps of the interval axis, in COP millions
+MAX_TICKS = 8
+QUARTERS = (0, 25, 50, 75, 100)
+METRIC_GROUPS = (("¿Encuentra la plata?", ("Captura", "Capturado", "Lift")),
+                 ("¿Acierta?", ("Precisión", "Recall", "PR-AUC")),
+                 ("¿Son confiables sus probabilidades?", ("Brier",)),
+                 ("¿Cuánto vale?", ("Valor neto en K", "K*", "Valor neto en K*", "Efectividad mínima")))
 
 
 def _f(value: float) -> str:
     return f"{value:.3f}"
 
 
-def _verdict_card(data: dict) -> str:
-    items = ""
+def _compared(target: str, data: dict) -> list:
+    return sorted((e for e in data["models"]["evaluations"] if e["target"] == target and e["status"] == "evaluated"
+                   and e["vs_baseline"]), key=lambda e: (e["model_id"], e["label"]))
+
+
+def _and(items: list) -> str:
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " y " + items[-1]
+
+
+def _target_finding(decision: dict, data: dict) -> str:
+    """What the comparisons of one target say, in a clause; generated from the JSON."""
+    target = _plain(decision["target"])
+    rows = _compared(decision["target"], data)
+    if not rows:
+        return f"en {target} no hay comparación contra la Regla actual"
+    beats = {}
+    for e in rows:
+        beats.setdefault(e["model_id"], {"yes": [], "no": []})["yes" if e["vs_baseline"]["outcome"] == "beats"
+                                                              else "no"].append(_plain(e["label"]))
+    winners = [(m, r) for m, r in beats.items() if r["yes"]]
+    if winners:
+        clauses = []
+        for model_id, r in winners:
+            clause = f"{_plain(model_id)} la supera en {_and(r['yes'])}"
+            if r["no"]:
+                clause += f", pero no en {_and(r['no'])}"
+            clauses.append(clause)
+        return f"en {target}, " + "; ".join(clauses)
+    if all(e["vs_baseline"]["outcome"] == "insufficient_evidence" for e in rows):
+        return f"en {target}, todos los intervalos cruzan el cero"
+    return f"en {target}, ningún modelo supera la Regla actual"
+
+
+def _models_answer(data: dict) -> str:
+    decisions = data["models"]["decisions"]
+    if not decisions:
+        return "Todavía no hay dictamen sobre los modelos."
+    authorized = _authorized_decisions(data)
+    rest = [d for d in decisions if d not in authorized]
+    findings = [_target_finding(d, data) for d in rest]
+    if authorized:
+        lead = "; ".join(f"en {_plain(d['target'])}, {_plain(d['model_id'])} está autorizado a despliegue en sombra"
+                         for d in authorized)
+        lead = lead[0].upper() + lead[1:]
+        return lead + (f"; {'; '.join(findings)}." if findings else ".")
+    return ("Ningún modelo tiene todavía evidencia suficiente para reemplazar la Regla actual: "
+            + "; ".join(findings) + ".")
+
+
+def _verdict_cards(data: dict) -> str:
+    cards = ""
     for d in data["models"]["decisions"]:
-        text, cls = VERDICTS[d["verdict"]]
-        model = f' · {_e(d["model_id"])}' if d["model_id"] else ""
-        items += f'<li>{_plain(d["target"])}: <span class="status {cls}">{text}</span>{model}</li>'
-    authorized = [d for d in data["models"]["decisions"] if d["verdict"] == "authorized_for_shadow_deployment"]
-    lead = ("Hay modelos autorizados a despliegue en sombra." if authorized
-            else "Ningún objetivo tiene un modelo autorizado: la evidencia no alcanza para reemplazar la regla.")
-    return (f'<div class="card" id="models-verdict"><h3>Dictamen</h3><p>{lead}</p><ul class="plain">{items}</ul>'
-            '<p class="note">El dictamen más alto posible es «autorizado a despliegue en sombra».</p></div>')
+        text, tone = VERDICTS[d["verdict"]]
+        tag, cls = DECISION_TAGS[d["reason_code"]]
+        model = (f'<p class="kpi-sub">{_plain(d["model_id"])}, en sombra</p>'
+                 if d["verdict"] == "authorized_for_shadow_deployment" and d["model_id"] else "")
+        bubble = "green" if tone == "ok" else "amber"
+        tag_attr = f' data-decision-tag="{_e(d["target"])}"'
+        cards += (f'<article class="kpi" data-verdict="{_e(d["target"])}"><div class="kpi-top"><span class="bubble '
+                  f'{bubble}">{_icon("scale")}</span><span class="kpi-label">{_plain(d["target"])}</span></div>'
+                  f'<div class="kpi-value">{text}</div>{model}{_pill(cls, tag, attrs=tag_attr)}</article>')
+    return f'<div class="kpis two" id="models-verdict">{cards}</div>'
+
+
+def _nice_ticks(low: float, high: float) -> list[float]:
+    """Round ticks (every 10, 50, 100, 500, ...) that cover [low, high] and zero, at most MAX_TICKS + 1."""
+    low, high = min(low, 0.0), max(high, 0.0)
+    for step in TICK_STEPS:
+        first, last = math.floor(low / step) * step, math.ceil(high / step) * step
+        if (last - first) / step <= MAX_TICKS:
+            break
+    if last == first:
+        last = first + step
+    return [float(first + i * step) for i in range(int(round((last - first) / step)) + 1)]
 
 
 def ci_svg(target: str, rows: list) -> str:
-    """Point advantage over the rule and its paired interval, against zero (and the margin)."""
-    width, left, right, top, row_h, bottom = 640, 150, 16, 26, 28, 26
+    """Advantage over the rule with its paired interval, one panel per target with its own round scale."""
+    width, left, right, top, row_h, bottom = 960, 230, 28, 48, 50, 64
     height = top + row_h * len(rows) + bottom
-    margin = rows[0]["vs_baseline"]["margin_cop_m"]
-    values = [0.0, margin] + [v for e in rows for v in (e["vs_baseline"]["ci_low_cop_m"], e["vs_baseline"]["ci_high_cop_m"])]
-    low, high = min(values), max(values)
-    pad = (high - low) * 0.05 or 1.0
-    vmin, vmax = low - pad, high + pad
+    vs0 = rows[0]["vs_baseline"]
+    margin, level = vs0["margin_cop_m"], vs0["confidence_level"]
+    ticks = _nice_ticks(min([margin] + [e["vs_baseline"]["ci_low_cop_m"] for e in rows]),
+                        max([margin] + [e["vs_baseline"]["ci_high_cop_m"] for e in rows]))
+    vmin, vmax = ticks[0], ticks[-1]
     scale = (width - left - right) / (vmax - vmin)
     x = lambda v: left + (v - vmin) * scale
-    bottom_y = height - bottom
-    parts = [f'<rect class="rule-better" x="{left}" y="{top}" width="{_f(x(0.0) - left)}" height="{bottom_y - top}"/>',
-             f'<text class="tick" x="{left + 4}" y="{top - 8}">la regla es mejor</text>',
-             f'<line class="zero" x1="{_f(x(0.0))}" y1="{top}" x2="{_f(x(0.0))}" y2="{bottom_y}"/>']
+    plot_top, plot_bottom = top - 10, height - bottom
+    zero = x(0.0)
+    parts = [f'<rect class="rule-better" x="{_f(x(vmin))}" y="{plot_top}" width="{_f(zero - x(vmin))}" '
+             f'height="{plot_bottom - plot_top}"/>']
+    for t in ticks:
+        parts.append(f'<line class="grid" data-value="{t:g}" x1="{_f(x(t))}" y1="{plot_top}" x2="{_f(x(t))}" '
+                     f'y2="{plot_bottom}"/><text class="tick" data-tick-value="{t:g}" x="{_f(x(t))}" '
+                     f'y="{plot_bottom + 18}" text-anchor="middle">{format_count(t)}</text>')
+    parts += [f'<line class="zero" x1="{_f(zero)}" y1="{plot_top}" x2="{_f(zero)}" y2="{plot_bottom}"/>',
+              f'<text class="side" x="{_f(zero - 8)}" y="{top - 20}" text-anchor="end">← la regla actual es mejor</text>',
+              f'<text class="side" x="{_f(zero + 8)}" y="{top - 20}">el modelo es mejor →</text>']
     if margin:
-        parts.append(f'<line class="margin" x1="{_f(x(margin))}" y1="{top}" x2="{_f(x(margin))}" y2="{bottom_y}"/>')
+        parts.append(f'<line class="margin" x1="{_f(x(margin))}" y1="{plot_top}" x2="{_f(x(margin))}" y2="{plot_bottom}"/>')
     for i, e in enumerate(rows):
         vs = e["vs_baseline"]
-        cy = top + row_h * i + row_h / 2
+        cy = top + row_h * i + row_h / 2 + 6
         _, cls = OUTCOMES[vs["outcome"]]
+        name = f'{_plain(e["model_id"])} · {_plain(e["label"])}'
+        point = x(vs["difference_cop_m"])
         parts.append(
             f'<g data-ci="{_e(e["label"])}.{_e(e["model_id"])}" class="{cls}">'
-            f'<text class="tick" x="{left - 8}" y="{cy + 4:.1f}" text-anchor="end">{_e(e["model_id"])} · '
-            f'{_plain(e["label"])}</text>'
+            f'<text class="row-label" x="{left - 14}" y="{cy + 4:.1f}" text-anchor="end">{name}</text>'
             f'<line class="ci-range" x1="{_f(x(vs["ci_low_cop_m"]))}" y1="{cy:.1f}" x2="{_f(x(vs["ci_high_cop_m"]))}" '
-            f'y2="{cy:.1f}"/><circle class="ci-point" cx="{_f(x(vs["difference_cop_m"]))}" cy="{cy:.1f}" r="4">'
-            f'<title>{format_cop_m(vs["difference_cop_m"])} · IC {format_cop_m(vs["ci_low_cop_m"])} a '
-            f'{format_cop_m(vs["ci_high_cop_m"])}</title></circle></g>')
-    for v, anchor in ((vmin, "start"), (0.0, "middle"), (vmax, "end")):
-        if v != 0.0 and abs(x(v) - x(0.0)) < 80:          # keep the zero label readable
-            continue
-        parts.append(f'<text class="tick" x="{_f(x(v))}" y="{height - 8}" text-anchor="{anchor}">{format_cop_m(v)}</text>')
-    title = f"Ventaja sobre la regla con su intervalo pareado · {PLAIN_NAMES.get(target, target)}"
-    return (f'<svg class="ci" data-ci-target="{_e(target)}" data-vmin="{vmin!r}" data-x0="{left}" '
-            f'data-xscale="{scale!r}" viewBox="0 0 {width} {height}" role="img" aria-label="{_e(title)}">'
-            f'<title>{_e(title)}</title>{"".join(parts)}</svg>')
+            f'y2="{cy:.1f}"/><circle class="ci-point" cx="{_f(point)}" cy="{cy:.1f}" r="6">'
+            f'<title>{name}: {format_cop_m(vs["difference_cop_m"])}, entre {format_cop_m(vs["ci_low_cop_m"])} y '
+            f'{format_cop_m(vs["ci_high_cop_m"])}</title></circle>'
+            f'<text class="ci-value" x="{_f(point)}" y="{cy - 12:.1f}" text-anchor="middle">'
+            f'{format_cop_m(vs["difference_cop_m"])}</text></g>')
+    axis = (f"Ventaja sobre la regla actual (COP millones), intervalo de confianza al "
+            f"{format_count(level * 100)} %")
+    parts.append(f'<text class="axis-title" x="{(left + width - right) / 2:.0f}" y="{height - 10}" '
+                 f'text-anchor="middle">{axis}</text>')
+    title = f"{axis} · {PLAIN_NAMES.get(target, target)}"
+    return (f'<svg class="ci" data-ci-target="{_e(target)}" data-vmin="{vmin!r}" data-vmax="{vmax!r}" '
+            f'data-x0="{left}" data-xscale="{scale!r}" viewBox="0 0 {width} {height}" role="img" '
+            f'aria-label="{_e(title)}"><title>{_e(title)}</title>{"".join(parts)}</svg>')
 
 
 def _decision_card(decision: dict, data: dict) -> str:
     target = decision["target"]
-    tag, cls = DECISION_TAGS[decision["reason_code"]]
-    rule = f" {DELINQUENCY_RULE}" if target == "delinquency" else ""
-    rows = sorted((e for e in data["models"]["evaluations"] if e["target"] == target and e["status"] == "evaluated"
-                   and e["vs_baseline"]), key=lambda e: (e["model_id"], e["label"]))
-    body = (ci_svg(target, rows) + _comparisons(target, data) if rows
-            else f'<p class="label-sm" id="ci-none-{_e(target)}">Sin comparación contra la regla: {_e(decision["reason"])}</p>')
-    return (f'<div class="card" data-decision-card="{_e(target)}"><h3>{_plain(target)}</h3>'
-            f'<p><span class="status {cls}" data-decision-tag="{_e(target)}">{tag}</span>{rule}</p>{body}</div>')
+    rows = _compared(target, data)
+    rule = f'<p class="plain">{DELINQUENCY_RULE}</p>' if target == "delinquency" else ""
+    label_ks = [(label, evaluations[0]["k_applied"]) for label, evaluations in _by_label(data).items()
+                if evaluations[0]["target"] == target]
+    k_def = _k_definition(target, label_ks, data) if label_ks else ""
+    if rows:
+        body = (ci_svg(target, rows)
+                + _how("Cada línea es el rango de la ventaja del modelo sobre la Regla actual; el punto es la "
+                       "estimación y la cifra encima, su valor, contactando la capacidad de hoy de cada horizonte.",
+                       "Verde: todo el rango queda a la derecha del cero, el modelo supera a la regla. "
+                       "Ámbar: el rango cruza el cero, la evidencia no alcanza.",
+                       "Cada objetivo tiene su propia escala.")
+                + f'<details class="figures"><summary>Ver las cifras</summary>{_comparisons(target, data)}</details>')
+    else:
+        body = (f'<p class="label-sm" id="ci-none-{_e(target)}">Sin comparación contra la Regla actual: '
+                'no hay intervalo que dibujar.</p>'
+                f'<details class="technical"><summary>Detalle técnico</summary><p>{_e(decision["reason"])}</p></details>')
+    return (f'<div class="card" data-decision-card="{_e(target)}"><h3>{_plain(target)}</h3>{rule}{k_def}{body}</div>')
+
+
+def _capture_title(label: str, evaluations: list) -> str:
+    best = max(evaluations, key=lambda e: e["at_k"]["capture"])
+    title = (f'{_plain(label)}: llamando a {format_count(best["k_applied"])} clientes (capacidad de hoy), '
+             f'{_plain(best["model_id"])} encuentra el '
+             f'{format_pct(best["at_k"]["capture"])} de la exposición en riesgo')
+    rule = next((e for e in evaluations if e["model_id"] == "baseline_rule"), None)
+    if rule and rule is not best:
+        title += f'; la {_plain("baseline_rule")}, el {format_pct(rule["at_k"]["capture"])}'
+    return title + "."
 
 
 def capture_svg(label: str, evaluations: list) -> str:
     """Share of the at-risk exposure found against the share of clients contacted; needs no assumption."""
-    width, height, left, right, top, bottom = 640, 300, 56, 16, 16, 40
+    width, height, left, right, top, bottom = 960, 400, 64, 24, 30, 58
     w, h = width - left - right, height - top - bottom
     x0, y0 = left, top + h
     n = evaluations[0]["n_clients"]
     px = lambda k: x0 + w * k / n
     py = lambda capture: y0 - h * capture
-    parts = [f'<line class="diagonal" data-diagonal="{_e(label)}" x1="{x0}" y1="{y0}" x2="{x0 + w}" y2="{y0 - h}"/>']
-    for i, e in enumerate(evaluations):
+    parts = []
+    for q in QUARTERS:
+        parts += [f'<line class="grid" data-axis="x" data-value="{q}" x1="{_f(x0 + w * q / 100)}" y1="{top}" '
+                  f'x2="{_f(x0 + w * q / 100)}" y2="{y0}"/>',
+                  f'<text class="tick" x="{_f(x0 + w * q / 100)}" y="{y0 + 18}" text-anchor="middle">{q} %</text>']
+    for q in QUARTERS:
+        parts += [f'<line class="grid" data-axis="y" data-value="{q}" x1="{x0}" y1="{_f(y0 - h * q / 100)}" '
+                  f'x2="{x0 + w}" y2="{_f(y0 - h * q / 100)}"/>',
+                  f'<text class="tick" x="{left - 8}" y="{_f(y0 - h * q / 100 + 4)}" text-anchor="end">{q} %</text>']
+    parts.append(f'<line class="diagonal" data-diagonal="{_e(label)}" x1="{x0}" y1="{y0}" x2="{x0 + w}" y2="{y0 - h}"/>'
+                 f'<text class="series-label random" x="{_f(px(n * 0.78) + 10)}" y="{_f(py(0.78) + 18)}">Al azar</text>')
+    for e in evaluations:
         points = " ".join(f"{_f(px(p['k']))},{_f(py(p['capture']))}" for p in e["curve"])
-        parts.append(f'<polyline class="series s{i}" data-capture="{_e(e["model_id"])}" points="{points}"/>')
+        parts.append(f'<polyline class="series m-{_e(e["model_id"])}" data-capture="{_e(e["model_id"])}" points="{points}"/>')
     k = evaluations[0]["k_applied"]
     parts += [f'<line class="capacity" x1="{_f(px(k))}" y1="{top}" x2="{_f(px(k))}" y2="{y0}"/>',
-              f'<text class="tick" x="{left - 6}" y="{y0 - h + 4}" text-anchor="end">100 %</text>',
-              f'<text class="tick" x="{left - 6}" y="{y0 + 4}" text-anchor="end">0 %</text>',
-              f'<text class="tick" x="{x0 + w}" y="{y0 + 16}" text-anchor="end">100 %</text>',
-              f'<text class="tick" x="{(left + width - right) / 2:.0f}" y="{height - 6}" text-anchor="middle">'
-              '% de clientes contactados</text>']
+              f'<text class="today" x="{_f(px(k) + 6)}" y="{top + 14}">Capacidad de hoy: {format_count(k)} clientes</text>']
+    # series names next to where the lines cross «Hoy», pushed apart so they never overlap
+    placed, min_gap = [], 21.0
+    for e in sorted(evaluations, key=lambda e: -e["at_k"]["capture"]):
+        y = py(e["at_k"]["capture"]) + 4
+        if placed and y - placed[-1][1] < min_gap:
+            y = placed[-1][1] + min_gap
+        placed.append((e, y))
+    for e, y in placed:
+        parts.append(f'<circle class="at-k m-{_e(e["model_id"])}" cx="{_f(px(k))}" cy="{_f(py(e["at_k"]["capture"]))}" r="4"/>'
+                     f'<text class="series-label m-{_e(e["model_id"])}" data-series-label="{_e(e["model_id"])}" '
+                     f'x="{_f(px(k) + 12)}" y="{_f(y)}">{_plain(e["model_id"])}</text>')
+    parts += [f'<text class="axis-title" x="{x0 + w / 2:.0f}" y="{height - 12}" text-anchor="middle">'
+              'Clientes contactados, del más al menos riesgoso según cada modelo</text>',
+              f'<text class="axis-title" x="14" y="{top + h / 2:.0f}" text-anchor="middle" '
+              f'transform="rotate(-90 14 {top + h / 2:.0f})">Exposición en riesgo encontrada</text>']
     title = f"Exposición en riesgo encontrada según clientes contactados · {PLAIN_NAMES.get(label, label)}"
     return (f'<svg class="capture" data-capture-curve="{_e(label)}" data-x0="{x0}" data-y0="{y0}" '
             f'data-w="{w}" data-h="{h}" viewBox="0 0 {width} {height}" role="img" aria-label="{_e(title)}">'
             f'<title>{_e(title)}</title>{"".join(parts)}</svg>')
+
+
+def _model_legend(evaluations: list, *extra: str) -> str:
+    items = "".join(f'<li><span class="swatch m-{_e(e["model_id"])}"></span>{_plain(e["model_id"])}</li>'
+                    for e in evaluations)
+    return f'<ul class="legend">{items}{"".join(extra)}</ul>'
 
 
 def _capture_card(data: dict) -> str:
@@ -1122,20 +1252,27 @@ def _capture_card(data: dict) -> str:
         return ""
     inputs, figures, rules = "", "", ""
     for n, (label, evaluations) in enumerate(labels.items()):
-        name = _plain(label)
         checked = " checked" if n == 0 else ""
         inputs += (f'<input type="radio" name="capture-label" id="capture-{_e(label)}"{checked}>'
-                   f'<label for="capture-{_e(label)}">{name}</label>')
-        items = "".join(f'<li><span class="swatch s{i}"></span>{_e(e["model_id"])}</li>' for i, e in enumerate(evaluations))
-        figures += (f'<figure data-capture-for="{_e(label)}">{capture_svg(label, evaluations)}<ul class="legend">{items}'
-                    '<li><span class="swatch random"></span>azar (diagonal)</li>'
-                    '<li><span class="swatch capacity"></span>capacidad actual</li></ul></figure>')
+                   f'<label for="capture-{_e(label)}">{_plain(label)}</label>')
+        figures += (f'<figure data-capture-for="{_e(label)}"><h4 data-capture-title="{_e(label)}">'
+                    f'{_capture_title(label, evaluations)}</h4>{capture_svg(label, evaluations)}'
+                    + _model_legend(evaluations, '<li><span class="swatch random"></span>Al azar</li>',
+                                    '<li><span class="swatch capacity"></span>Capacidad de hoy</li>')
+                    + '</figure>')
         rules += f'#capture-{label}:checked ~ figure[data-capture-for="{label}"] {{ display: block; }}'
     return (f'<div class="card" id="models-capture"><h3>¿Qué modelo encuentra más exposición en riesgo?</h3>'
             f'<style>.capture-switch figure {{ display: none; }} {rules}</style>'
             f'<div class="capture-switch">{inputs}{figures}</div>'
-            '<p class="note">Curva de captura: no depende de supuestos de valor. Cuanto más arriba de la diagonal, '
-            'mejor ordena el modelo.</p></div>')
+            + _how("Cada línea ordena a los clientes del más al menos riesgoso según el modelo y acumula la "
+                   "exposición en riesgo que va encontrando.",
+                   "Cuanto más arriba de la diagonal gris (azar), mejor ordena el modelo.",
+                   "La línea punteada vertical es la capacidad de hoy: los clientes que el banco alcanza a llamar.")
+            + '<p class="note">La curva de captura no depende de los supuestos de valor.</p></div>')
+
+
+def _card_name(card: dict) -> str:
+    return _plain(card["model_id"]) + (" (demostración)" if card["demo"] else "")
 
 
 def _cards_table(cards: list) -> str:
@@ -1143,70 +1280,120 @@ def _cards_table(cards: list) -> str:
     for card in cards:
         text, cls = CARD_DECISIONS[card["decision"]]
         reasons = "; ".join(CARD_RULES.get(r["rule"], r["rule"]) for r in card["reasons"]) or DASH
-        demo = ' <span class="status warn">Ficha de demostración</span>' if card["demo"] else ""
         messages = "".join(f'<li><code>{_e(r["rule"])}</code> ({_e(r["severity"])}): {_e(r["message"])}</li>'
                            for r in card["reasons"])
-        rows += (f'<tr data-card-row="{_e(card["file"])}"><td>{_e(card["model_id"])}{demo}</td>'
+        rows += (f'<tr data-card-row="{_e(card["file"])}"><td>{_e(_card_name(card))}</td>'
                  f'<td>{_plain(card["target"])}</td>'
                  f'<td><span class="status {cls}">{text}</span></td><td>{_e(reasons)}</td>'
                  f'<td><details><summary>Detalle</summary><code>{_e(card["file"])}</code> · estado '
                  f'{_e(card["status"])}<ul class="plain">{messages}</ul></details></td></tr>')
-    return ('<div class="card" id="models-cards"><table class="data"><caption>Fichas de modelo (Gate 2)</caption>'
+    return ('<div class="card" id="models-cards"><table class="data"><caption>Fichas de modelo</caption>'
             '<thead><tr><th>Modelo</th><th>Objetivo</th><th>Decisión</th><th>Motivo</th><th></th></tr></thead>'
-            f'<tbody>{rows}</tbody></table><p class="note">Gate 2 revisa lo que declara la ficha (fechas, hash, '
-            'preprocesamiento); no puede probar por sí solo cómo se entrenó un modelo externo.</p></div>')
+            f'<tbody>{rows}</tbody></table><p class="note">El control de fichas revisa lo que declara cada ficha '
+            '(fechas, huella del archivo, preprocesamiento); no puede probar por sí solo cómo se entrenó un modelo '
+            'externo.</p></div>')
 
 
-def _metrics_row(key: str, name: str, point: dict, metrics: dict | None, k_star: dict | None) -> str:
+def _metrics_row(key: str, name: str, point: dict, metrics: dict | None, k_star: dict | None,
+                 breakeven=None) -> str:
     m = metrics or {}
-    cells = [format_pct(point["capture"]), format_cop_m(point["captured_cop_m"]), format_cop_m(point["net_value_cop_m"]),
-             format_pct(point["precision"]), format_pct(point["recall"]), format_ratio(point["lift"]),
-             format_ratio(m.get("pr_auc")), format_ratio(m.get("brier")),
-             format_count(k_star["k"]) if k_star else DASH, format_cop_m(k_star["net_value_cop_m"]) if k_star else DASH]
-    return f'<tr data-metrics="{_e(key)}"><td>{_e(name)}</td>' + "".join(f"<td>{c}</td>" for c in cells) + "</tr>"
+    cells = [format_pct(point["capture"]), format_cop_m(point["captured_cop_m"]), format_ratio(point["lift"]),
+             format_pct(point["precision"]), format_pct(point["recall"]), format_ratio(m.get("pr_auc")),
+             format_ratio(m.get("brier")),
+             format_cop_m(point["net_value_cop_m"]), format_count(k_star["k"]) if k_star else DASH,
+             format_cop_m(k_star["net_value_cop_m"]) if k_star else DASH, format_pct(breakeven)]
+    return f'<tr data-metrics="{_e(key)}"><td>{name}</td>' + "".join(f'<td class="num">{c}</td>' for c in cells) + "</tr>"
+
+
+def calibration_svg(key: str, model_id: str, calibration: list) -> str:
+    """Mean score against the observed rate per decile: on the diagonal, the probabilities can be trusted."""
+    size, pad = 220, 34
+    inner = size - 2 * pad + 10
+    x = lambda v: pad + inner * v
+    y = lambda v: pad - 10 + inner * (1 - v)
+    parts = [f'<rect class="frame" x="{pad}" y="{pad - 10}" width="{inner}" height="{inner}"/>',
+             f'<line class="diagonal" x1="{_f(x(0))}" y1="{_f(y(0))}" x2="{_f(x(1))}" y2="{_f(y(1))}"/>']
+    for b in calibration:
+        parts.append(f'<circle class="calib-point m-{_e(model_id)}" cx="{_f(x(b["mean_score"]))}" '
+                     f'cy="{_f(y(b["observed_rate"]))}" r="4"><title>Decil {_e(b["bin"])}: score medio '
+                     f'{format_pct(b["mean_score"])}, tasa observada {format_pct(b["observed_rate"])}</title></circle>')
+    parts += [f'<text class="tick" x="{pad}" y="{size - 6}">0 %</text>',
+              f'<text class="tick" x="{_f(x(1))}" y="{size - 6}" text-anchor="end">100 %</text>',
+              f'<text class="tick" x="{pad - 4}" y="{_f(y(1) + 4)}" text-anchor="end">100 %</text>']
+    title = f"Calibración · {PLAIN_NAMES.get(model_id, model_id)}"
+    return (f'<svg class="calib" data-calibration-chart="{_e(key)}" viewBox="0 0 {size} {size}" role="img" '
+            f'aria-label="{_e(title)}"><title>{_e(title)}</title>{"".join(parts)}</svg>')
+
+
+def _metrics_table(label: str, entries: list) -> str:
+    groups = "".join(f'<th colspan="{len(cols)}" class="group">{q}</th>' for q, cols in METRIC_GROUPS)
+    columns = "".join(f'<th class="num">{c}</th>' for _, cols in METRIC_GROUPS for c in cols)
+    width = sum(len(cols) for _, cols in METRIC_GROUPS)
+    rows, evaluated = "", None
+    for e in entries:
+        key = f'{label}.{e["model_id"]}'
+        name = _named(_plain(e["model_id"]), e["model_id"])
+        if e["status"] != "evaluated":
+            missing = e.get("missing_score_rows")
+            detail = f" ({format_count(missing)} filas sin score)" if missing else ""
+            rows += (f'<tr data-metrics="{_e(key)}"><td>{name}</td><td colspan="{width}">No evaluado: '
+                     f'{_e(NOT_EVALUATED.get(e["reason"], e["reason"]))}{detail}</td></tr>')
+            continue
+        evaluated = e
+        rows += _metrics_row(key, name, e["at_k"], e["metrics"], e["k_star"], e["breakeven_effectiveness"])
+    if evaluated:
+        rows += _metrics_row(f"{label}.random", _plain("random"), evaluated["random_at_k"], None, None)
+    k = f"llamando a {format_count(evaluated['k_applied'])} clientes (K, capacidad de hoy)" if evaluated else "con la capacidad de hoy"
+    return (f'<table class="data metrics"><caption>Métricas {k} · {_plain(label)}</caption><thead>'
+            f'<tr><th rowspan="2">Modelo</th>{groups}</tr><tr>{columns}</tr></thead><tbody>{rows}</tbody></table>')
+
+
+def _calibration_block(label: str, entries: list) -> str:
+    evaluated = [e for e in entries if e["status"] == "evaluated"]
+    if not evaluated:
+        return ""
+    charts = "".join(f'<figure>{calibration_svg(f"{label}.{e["model_id"]}", e["model_id"], e["metrics"]["calibration"])}'
+                     f'<figcaption>{_plain(e["model_id"])}</figcaption></figure>' for e in evaluated)
+    rows = "".join(
+        f'<tr data-calibration="{_e(label)}.{_e(e["model_id"])}"><td>{_plain(e["model_id"])}</td><td>{_e(b["bin"])}</td>'
+        f'<td class="num">{format_count(b["n_clients"])}</td><td class="num">{format_pct(b["mean_score"])}</td>'
+        f'<td class="num">{format_pct(b["observed_rate"])}</td></tr>' for e in evaluated for b in e["metrics"]["calibration"])
+    return (f'<h4>¿Son confiables sus probabilidades? · {_plain(label)}</h4><div class="calib-grid">{charts}</div>'
+            + _how("Cada punto es un decil de clientes: el score medio que dio el modelo contra la tasa que se observó.",
+                   "Sobre la diagonal, las probabilidades se pueden leer como tales; por encima, el modelo se queda corto.")
+            + f'<details class="deciles"><summary>Tabla por decil</summary><table class="data"><caption>Calibración por '
+            f'decil · {_plain(label)}</caption><thead><tr><th>Modelo</th><th>Decil</th><th class="num">Clientes</th>'
+            f'<th class="num">Score medio</th><th class="num">Tasa observada</th></tr></thead><tbody>{rows}</tbody>'
+            '</table></details>')
 
 
 def _technical_detail(data: dict) -> str:
     labels: dict = {}
     for e in data["models"]["evaluations"]:
         labels.setdefault(e["label"], []).append(e)
-    tables = ""
-    for label, entries in labels.items():
-        rows, calibration, evaluated = "", "", None
-        for e in sorted(entries, key=lambda e: e["model_id"]):
-            key = f'{label}.{e["model_id"]}'
-            if e["status"] != "evaluated":
-                reason = NOT_EVALUATED.get(e["reason"], e["reason"])
-                missing = e.get("missing_score_rows")
-                detail = f" ({format_count(missing)} filas sin score)" if missing else ""
-                rows += (f'<tr data-metrics="{_e(key)}"><td>{_e(e["model_id"])}</td>'
-                         f'<td colspan="10">No evaluado: {_e(reason)}{detail}</td></tr>')
-                continue
-            evaluated = e
-            rows += _metrics_row(key, e["model_id"], e["at_k"], e["metrics"], e["k_star"])
-            calibration += "".join(
-                f'<tr data-calibration="{_e(key)}"><td>{_e(e["model_id"])}</td><td>{_e(b["bin"])}</td>'
-                f'<td>{format_count(b["n_clients"])}</td><td>{format_pct(b["mean_score"])}</td>'
-                f'<td>{format_pct(b["observed_rate"])}</td></tr>' for b in e["metrics"]["calibration"])
-        if evaluated:
-            rows += _metrics_row(f"{label}.random", "azar", evaluated["random_at_k"], None, None)
-        name = _plain(label)
-        tables += ('<table class="data"><caption>Métricas en la K aplicada · ' + name + '</caption><thead><tr>'
-                   '<th>Modelo</th><th>Captura</th><th>Capturado</th><th>Valor neto</th><th>Precisión</th>'
-                   '<th>Recall</th><th>Lift</th><th>PR-AUC</th><th>Brier</th><th>K*</th><th>Valor neto en K*</th>'
-                   f'</tr></thead><tbody>{rows}</tbody></table>')
-        if calibration:
-            tables += ('<table class="data"><caption>Calibración por decil · ' + name + '</caption><thead><tr>'
-                       '<th>Modelo</th><th>Decil</th><th>Clientes</th><th>Score medio</th><th>Tasa observada</th>'
-                       f'</tr></thead><tbody>{calibration}</tbody></table>')
-    return (f'<details class="technical" id="models-technical"><summary>Detalle técnico</summary>{tables}</details>')
+    inputs, panels, rules = "", "", ""
+    for n, (label, entries) in enumerate(labels.items()):
+        entries = sorted(entries, key=lambda e: e["model_id"])
+        checked = " checked" if n == 0 else ""
+        inputs += (f'<input type="radio" name="metrics-label" id="metrics-{_e(label)}"{checked}>'
+                   f'<label for="metrics-{_e(label)}">{_plain(label)}</label>')
+        panels += (f'<div class="metrics-panel" data-metrics-for="{_e(label)}">{_metrics_table(label, entries)}'
+                   f'{_calibration_block(label, entries)}</div>')
+        rules += f'#metrics-{label}:checked ~ .metrics-panel[data-metrics-for="{label}"] {{ display: block; }}'
+    return (f'<details class="technical" id="models-technical"><summary>Detalle técnico</summary>'
+            f'<style>.metrics-switch .metrics-panel {{ display: none; }} {rules}</style>'
+            f'<div class="metrics-switch">{inputs}{panels}</div>'
+            '<p class="note">K es la capacidad de hoy; K*, el mejor número de contactos: el que maximiza el valor neto. '
+            'Efectividad mínima: la efectividad de la acción con la que las llamadas apenas se pagan.</p></details>')
 
 
 def _models_view(data: dict) -> str:
     cards = "".join(_decision_card(d, data) for d in data["models"]["decisions"])
-    return (f'<section class="view" id="modelos"><h2>{dict(TABS)["modelos"]}</h2>'
-            f'{_verdict_card(data)}<div class="stack">{cards}</div>{_capture_card(data)}'
-            f'{_cards_table(data["models"]["cards"])}<div class="card">{_technical_detail(data)}</div>'
+    return (f'<section class="view" id="modelos"><h2 class="view-title">{dict(TABS)["modelos"]}</h2>'
+            f'<p class="q">{MODELS_QUESTION}</p><p class="answer" id="models-answer">{_models_answer(data)}</p>'
+            f'{_verdict_cards(data)}<div class="stack" id="models-intervals">{cards}</div>'
+            f'<div class="stack">{_capture_card(data)}{_cards_table(data["models"]["cards"])}</div>'
+            f'{_technical_detail(data)}'
             f'<p class="pending" id="slices-pending">{SLICES_PENDING}</p>'
             f'<p class="note" id="models-simulated">{SIMULATED_NOTE}</p></section>')
 
@@ -1291,17 +1478,61 @@ def _velocity_table(management: dict) -> str:
             f'<tbody>{rows}</tbody></table></div>')
 
 
+RISK_CATEGORIES = {"Data quality": "Calidad de datos", "Schedule": "Cronograma", "Scope": "Alcance",
+                   "Compliance": "Cumplimiento normativo", "Business adoption": "Adopción del negocio",
+                   "Budget": "Presupuesto", "Technology": "Tecnología"}
+RISK_PROBABILITY = {"High": "Alta", "Medium": "Media", "Low": "Baja"}
+RISK_IMPACT = {"High": "Alto", "Medium": "Medio", "Low": "Bajo"}
+RISK_STATUS = {"Open": "Abierto", "Mitigating": "En mitigación", "Closed": "Cerrado", "Monitoring": "En seguimiento"}
+# Translation of the register's text, by risk id: (the English text it translates, the Spanish text).
+# Numbers are taken from the original; if the original changes, the original is shown, never a stale translation.
+RISK_TEXT_ES = {
+    "R-01": (r"Records may be incomplete or fragmented for forecasting use",
+             "Los registros pueden estar incompletos o fragmentados para usarlos en pronósticos"),
+    "R-02": (r"Analytical and validation work may extend beyond planned effort",
+             "El trabajo de análisis y validación puede superar el esfuerzo planeado"),
+    "R-03": (r"Requests for model development or system integration",
+             "Solicitudes de desarrollo de modelos o de integración de sistemas (fuera del alcance)"),
+    "R-04": (r"Data of (\d+) clients falls under Ley 1581 de 2012 \(Habeas Data\)",
+             "Los datos de {0} clientes están sujetos a la Ley 1581 de 2012 (habeas data)"),
+    "R-05": (r"Low uptake by the Risk and Analytics function",
+             "Baja adopción por parte del área de Riesgo y Analítica"),
+    "I-01": (r"Sponsor sign-off delayed stories at closure in the Cut 1 simulation",
+             "La aprobación del patrocinador retrasó el cierre de historias en la simulación del Corte 1"),
+}
+
+
+def _risk_text(risk: dict) -> str:
+    """Spanish description of a risk, escaped; the original when there is no matching translation."""
+    pattern, spanish = RISK_TEXT_ES.get(risk["risk_id"], (None, None))
+    match = re.fullmatch(pattern, risk["description"]) if pattern else None
+    if match is None:
+        return _e(risk["description"])
+    return _e(spanish.format(*(format_count(int(g)) for g in match.groups())))
+
+
 def _risks_table(management: dict) -> str:
-    rows = "".join(f'<tr data-risk="{_e(r["risk_id"])}"><td>{_e(r["risk_id"])}</td><td>{_e(r["category"])}</td>'
-                   f'<td>{_e(r["description"])}</td><td>{_e(r["probability"])}</td><td>{_e(r["impact"])}</td>'
-                   f'<td>{_e(r["owner"])}</td><td>{_e(r["status"])}</td></tr>' for r in management["risks"])
+    rows, originals = "", ""
+    for r in management["risks"]:
+        rows += (f'<tr data-risk="{_e(r["risk_id"])}"><td>{_e(r["risk_id"])}</td>'
+                 f'<td>{_e(RISK_CATEGORIES.get(r["category"], r["category"]))}</td><td>{_risk_text(r)}'
+                 f'<details class="original"><summary>Original</summary>{_e(r["description"])}</details></td>'
+                 f'<td>{_e(RISK_PROBABILITY.get(r["probability"], r["probability"]))}</td>'
+                 f'<td>{_e(RISK_IMPACT.get(r["impact"], r["impact"]))}</td><td>{_e(r["owner"])}</td>'
+                 f'<td>{_e(RISK_STATUS.get(r["status"], r["status"]))}</td></tr>')
+        originals += (f'<tr><td>{_e(r["risk_id"])}</td><td>{_e(r["category"])}</td><td>{_e(r["description"])}</td>'
+                      f'<td>{_e(r["probability"])}</td><td>{_e(r["impact"])}</td><td>{_e(r["status"])}</td></tr>')
     count = management["risk_reviews_count"]
     reviews = ("Sin revisiones registradas." if count == 0
                else f'{format_count(count)} revisiones registradas.')
     return ('<div class="card"><table class="data"><caption>Registro de riesgos</caption><thead><tr><th>Id</th>'
             '<th>Categoría</th><th>Descripción</th><th>Probabilidad</th><th>Impacto</th><th>Responsable</th>'
             f'<th>Estado</th></tr></thead><tbody>{rows}</tbody></table>'
-            f'<p class="note" id="risk-reviews">{reviews}</p></div>')
+            f'<p class="note" id="risk-reviews">{reviews}</p>'
+            '<details class="technical" id="risks-technical"><summary>Detalle técnico: registro original</summary>'
+            '<table class="data"><caption>data/risk_register.csv, tal como está</caption><thead><tr><th>Id</th>'
+            '<th>Category</th><th>Description</th><th>Probability</th><th>Impact</th><th>Status</th></tr></thead>'
+            f'<tbody>{originals}</tbody></table></details></div>')
 
 
 def _management_view(data: dict) -> str:
@@ -1325,28 +1556,6 @@ def _management_view(data: dict) -> str:
             f'{_risks_table(management)}{hours_gate}</section>')
 
 
-def _pending(tab_id: str, label: str) -> str:
-    return (f'<section class="view" id="{tab_id}"><h2>{label}</h2>'
-            '<div class="pending">Vista en construcción.</div></section>')
-
-
-def _guided() -> str:
-    labels = dict(TABS)
-    total = len(GUIDED_STEPS)
-    out = []
-    for n, step in enumerate(GUIDED_STEPS, start=1):
-        actions = [f'<a href="#{step["tab"]}">Ir a {labels[step["tab"]]}</a>']
-        if n > 1:
-            actions.append(f'<a href="#guia-{n - 1}">Anterior</a>')
-        if n < total:
-            actions.append(f'<a href="#guia-{n + 1}">Siguiente</a>')
-        actions.append('<a href="#resumen">Salir del modo guiado</a>')
-        out.append(
-            f'<section class="view" id="guia-{n}"><div class="step"><h2>Paso {n} de {total} · {_e(step["title"])}</h2>'
-            f'<p>{_e(step["text"])}</p><div class="actions">{"".join(actions)}</div></div></section>')
-    return "".join(out)
-
-
 def render(data: dict) -> str:
     """The complete page. Raises ValueError if the data does not meet dashboard_data_v1."""
     errors = validate_dashboard_data(data)
@@ -1354,7 +1563,7 @@ def render(data: dict) -> str:
         raise ValueError("dashboard_data_v1: " + "; ".join(errors[:5]))
     css = (ASSETS_DIR / "styles.css").read_text(encoding="utf-8")
     views = (_summary(data) + _data_view(data) + _trace_view(data) + _models_view(data) + _stress_view(data)
-             + _management_view(data) + _pending("entrega", dict(TABS)["entrega"]) + _guided())
+             + _management_view(data))
     return (
         '<!doctype html>\n<html lang="es"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'

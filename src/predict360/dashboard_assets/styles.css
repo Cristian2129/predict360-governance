@@ -49,11 +49,6 @@ a.nav {
   color: var(--muted); text-decoration: none; font-weight: 500;
 }
 a.nav:hover, a.nav:focus-visible { background: var(--bg); color: var(--text); outline: none; }
-a.present {
-  margin-top: auto; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px;
-  border-radius: 10px; background: var(--accent); color: #fff; font-weight: 600; text-decoration: none;
-}
-a.present:hover, a.present:focus-visible { filter: brightness(1.08); outline: none; }
 .main { min-width: 0; display: flex; flex-direction: column; }
 
 .banners { position: sticky; top: 0; z-index: 10; }
@@ -171,10 +166,6 @@ section.view > .card + .card { margin-top: var(--gap); }
 .pending { padding: 24px; border: 1px dashed var(--border); border-radius: var(--radius); color: var(--muted);
   background: var(--surface); }
 
-.step { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 22px; }
-.step .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.step .actions a { padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; text-decoration: none; }
-
 footer { color: var(--muted); font-size: 12px; padding: 0 32px 24px; }
 
 /* Phone: the sidebar becomes a sticky bar that scrolls sideways */
@@ -185,7 +176,6 @@ footer { color: var(--muted); font-size: 12px; padding: 0 32px 24px; }
   .brand { display: none; }
   .side nav { flex-direction: row; overflow-x: auto; min-width: 0; flex: 1; }
   a.nav { padding: 8px 10px; white-space: nowrap; }
-  a.present { margin: 0; padding: 9px 12px; flex: none; }
   .banners { position: static; }
   header.top, main, .banner, footer { padding-left: 16px; padding-right: 16px; }
   main { padding-top: 20px; }
@@ -195,26 +185,32 @@ footer { color: var(--muted); font-size: 12px; padding: 0 32px 24px; }
   .kpi-value { font-size: 28px; }
 }
 
+/* --- Model colours: fixed by model id in every chart, never by position ---------------------- */
+:root { --c-rule: #667085; --c-model-a: #e8710a; --c-model-b: #2563eb; --c-other: #7a4fb5; --c-random: #98a2b3;
+  --res-ok: #079455; --res-warn: #dc8a04; --res-bad: #d92d20; --grid: #eef0f4; }
+.m-baseline_rule { --c: var(--c-rule); }
+.m-model_a { --c: var(--c-model-a); }
+.m-model_b { --c: var(--c-model-b); }
+svg .series { fill: none; stroke: var(--c, var(--c-other)); stroke-width: 2.5; stroke-linejoin: round; }
+svg .kstar { fill: var(--surface); stroke: var(--c, var(--c-other)); stroke-width: 2.5; }
+svg .at-k, svg .calib-point { fill: var(--c, var(--c-other)); stroke: var(--surface); stroke-width: 2; }
+svg .grid { stroke: var(--grid); stroke-width: 1; }
+svg .tick { fill: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+svg .axis-title { fill: var(--muted); font-size: 13px; }
+svg .series-label, svg .today { fill: var(--text); font-size: 14px; font-weight: 600;
+  paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+svg .series-label.random { fill: var(--muted); font-weight: 500; }
+
 /* --- Stress view (B12b-2): curve and simulator ------------------------------------------ */
-:root { --s0: #3a57e8; --s1: #c2571a; --s2: #2e8b57; --s3: #7a4fb5; --random: #8a94a3; }
 svg.curve { width: 100%; height: auto; display: block; margin: 8px 0 4px; }
 svg.curve .axis { stroke: var(--border); stroke-width: 1; }
-svg.curve .series { fill: none; stroke-width: 2.25; stroke-linejoin: round; }
-svg.curve .series.s0, svg.curve .kstar.s0 { stroke: var(--s0); }
-svg.curve .series.s1, svg.curve .kstar.s1 { stroke: var(--s1); }
-svg.curve .series.s2, svg.curve .kstar.s2 { stroke: var(--s2); }
-svg.curve .series.s3, svg.curve .kstar.s3 { stroke: var(--s3); }
-svg.curve .series.random { stroke: var(--random); stroke-dasharray: 6 5; stroke-width: 1.75; }
-svg.curve .kstar { fill: var(--surface); stroke-width: 2.5; }
+svg.curve .series.random { stroke: var(--c-random); stroke-dasharray: 6 5; stroke-width: 1.75; }
 svg.curve .capacity { stroke: var(--text); stroke-width: 1.25; stroke-dasharray: 2 4; }
-svg.curve .tick { fill: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-ul.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; list-style: none; padding: 0; margin: 0 0 8px;
+ul.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; list-style: none; padding: 0; margin: 8px 0;
   font-size: 0.85rem; color: var(--muted); }
 ul.legend li { display: flex; align-items: center; gap: 6px; }
-.swatch { display: inline-block; width: 18px; height: 0; border-top: 3px solid var(--random); }
-.swatch.s0 { border-color: var(--s0); } .swatch.s1 { border-color: var(--s1); }
-.swatch.s2 { border-color: var(--s2); } .swatch.s3 { border-color: var(--s3); }
-.swatch.random { border-top-style: dashed; }
+.swatch { display: inline-block; width: 18px; height: 0; border-top: 3px solid var(--c, var(--c-other)); }
+.swatch.random { border-top: 2px dashed var(--c-random); }
 .swatch.capacity { border-top: 2px dotted var(--text); }
 ul.legend .dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--muted); }
 form.sim-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 24px;
@@ -230,27 +226,59 @@ p.sim-warning { margin: 6px 0 0; padding: 6px 10px; border-left: 3px solid var(-
   color: var(--warn); font-size: 0.9rem; }
 section.view > .card[data-sim-label] + .card[data-sim-label] { margin-top: 16px; }
 
-/* --- Models view (B12c-2): paired interval and capture curve ----------------------------- */
+/* --- Models view (B12e-5): intervals, capture curve, calibration ------------------------- */
 svg.ci, svg.capture { width: 100%; height: auto; display: block; margin: 8px 0 4px; }
-svg.ci { max-width: 820px; } svg.capture { max-width: 760px; }
-.stack > .card[data-decision-card] + .card[data-decision-card] { margin-top: 16px; }
-svg.ci .rule-better { fill: var(--bad-bg, rgba(190, 40, 40, 0.08)); }
-svg.ci .zero { stroke: var(--text); stroke-width: 1.25; }
+.kpis.two { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.kpi[data-verdict] .kpi-value { font-size: 24px; }
+#models-intervals { margin-top: 0; }
+#models-intervals > .card + .card { margin-top: var(--gap); }
+svg.ci .rule-better { fill: #f9fafb; }
+svg.ci .zero { stroke: var(--text); stroke-width: 1.5; }
 svg.ci .margin { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
-svg.ci .ci-range { stroke: var(--s0); stroke-width: 3; stroke-linecap: round; }
-svg.ci .ci-point { fill: var(--surface); stroke: var(--s0); stroke-width: 2.5; }
-svg.ci .tick, svg.capture .tick { fill: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-svg.capture .diagonal { stroke: var(--random); stroke-width: 1.75; stroke-dasharray: 6 5; }
-svg.capture .series { fill: none; stroke-width: 2.25; stroke-linejoin: round; }
-svg.capture .series.s0 { stroke: var(--s0); } svg.capture .series.s1 { stroke: var(--s1); }
-svg.capture .series.s2 { stroke: var(--s2); } svg.capture .series.s3 { stroke: var(--s3); }
+svg.ci .side { fill: var(--muted); font-size: 13px; font-weight: 600; }
+svg.ci .row-label { fill: var(--text); font-size: 14px; }
+svg.ci .ci-range { stroke-width: 6; stroke-linecap: round; }
+svg.ci .ci-point { stroke: var(--surface); stroke-width: 2.5; }
+svg.ci .ci-value { fill: var(--text); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums;
+  paint-order: stroke; stroke: var(--surface); stroke-width: 4px; }
+svg.ci g.ok .ci-range, svg.ci g.ok .ci-point { stroke: var(--res-ok); } svg.ci g.ok .ci-point { fill: var(--res-ok); }
+svg.ci g.warn .ci-range { stroke: var(--res-warn); } svg.ci g.warn .ci-point { fill: var(--res-warn); }
+svg.ci g.bad .ci-range { stroke: var(--res-bad); } svg.ci g.bad .ci-point { fill: var(--res-bad); }
+svg.ci g .ci-point { stroke: var(--surface); }
+svg.capture .diagonal { stroke: var(--c-random); stroke-width: 1.75; stroke-dasharray: 6 5; }
 svg.capture .capacity { stroke: var(--text); stroke-width: 1.25; stroke-dasharray: 2 4; }
+figure[data-capture-for] h4 { font-size: 15px; font-weight: 600; line-height: 1.45; margin: 14px 0 4px; max-width: 80ch; }
 .capture-switch figure { margin: 0; }
-.capture-switch > label { display: inline-block; margin: 0 16px 4px 4px; cursor: pointer; }
+.capture-switch > label, .metrics-switch > label { display: inline-block; margin: 0 6px 6px 0; padding: 6px 14px;
+  border: 1px solid var(--border); border-radius: 999px; cursor: pointer; font-size: 14px; }
+.capture-switch > input, .metrics-switch > input { position: absolute; opacity: 0; pointer-events: none; }
+.capture-switch > input:checked + label, .metrics-switch > input:checked + label {
+  background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.capture-switch > input:focus-visible + label, .metrics-switch > input:focus-visible + label {
+  outline: 2px solid var(--accent); outline-offset: 2px; }
+details.figures { margin-top: 8px; font-size: 14px; }
+details.figures > summary, details.deciles > summary, details.original > summary {
+  cursor: pointer; color: var(--accent); font-weight: 600; width: max-content; }
+details.original { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.metrics-switch { margin-top: 12px; }
+table.data.metrics th.group { text-align: center; color: var(--text); border-bottom: 2px solid var(--border);
+  white-space: normal; padding-left: 8px; padding-right: 8px; }
+table.data.metrics td.num { white-space: nowrap; }
+table.data.metrics td:first-child, tr[data-risk] td:first-child { white-space: nowrap; }
+table.data.metrics td:first-child code.id { overflow-wrap: normal; }
+.calib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 220px)); gap: 12px; }
+.calib-grid figure { margin: 0; }
+.calib-grid figcaption { text-align: center; }
+svg.calib { width: 100%; height: auto; display: block; }
+svg.calib .frame { fill: none; stroke: var(--border); }
+svg.calib .diagonal { stroke: var(--c-random); stroke-dasharray: 4 4; }
+svg.calib .tick { font-size: 11px; }
 ul.plain { list-style: none; padding: 0; margin: 4px 0; }
 /* --- Data and traceability views (B12e-4) -------------------------------------------------- */
 :root { --seg-event: #3a57e8; --seg-no-event: #b4c3fb; --seg-immature: #d0d5dd; }
 p.plain { font-size: 1rem; line-height: 1.5; margin: 4px 0 10px; }
+p.k-def { font-size: 14px; line-height: 1.5; color: var(--text); background: var(--grid); border-radius: 8px;
+  padding: 8px 12px; margin: 4px 0 12px; }
 .kpi-sub { color: var(--muted); font-size: 13px; margin: -6px 0 10px; }
 .grid.two { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); margin-bottom: var(--gap); }
 .grid.two > .card { margin: 0; }
