@@ -1,14 +1,209 @@
 # Figures quoted in the report and the presentation, checked by Gate 3 (consistency.py).
 # Written by people; every figure_id must exist in the manifest of the official run.
-# text: exactly as it appears in the document; locale: es (presentation) or en (report).
+# text: exactly as it appears in the document; locale: es or en (the Corte 3 report and the
+# presentation are in Spanish: es).
 #   es: COP 58.800 M · 27,9 % · 0,76      en: COP 58,800 M · 27.9% · 0.76
 # Empty list: Gate 3 passes with a warning while we work. The official demo run uses
 # --require-citations and fails until this list is filled.
-#
-# Example:
-#   - figure_id: exposure.delinquency.observed_cop_m
-#     text: COP 58.800 M
-#     locale: es
-#     where: presentation, slide 2
 version: v1
-citations: []
+citations:
+  # --- Resumen ejecutivo
+  - figure_id: exposure.delinquency.observed_cop_m
+    text: "COP 58.800 M"
+    locale: es
+    where: "informe, Resumen ejecutivo"
+  - figure_id: exposure.churn.observed_cop_m
+    text: "COP 18.200 M"
+    locale: es
+    where: "informe, Resumen ejecutivo"
+  - figure_id: management.sprint_3.committed_sp
+    text: "16"
+    locale: es
+    where: "informe, Resumen ejecutivo"
+  - figure_id: management.sprint_3.done_sp
+    text: "16"
+    locale: es
+    where: "informe, Resumen ejecutivo"
+  - figure_id: management.cumulative.spi
+    text: "1,00"
+    locale: es
+    where: "informe, Resumen ejecutivo"
+  - figure_id: management.cumulative.cpi
+    text: "0,94"
+    locale: es
+    where: "informe, Resumen ejecutivo"
+  - figure_id: management.cumulative.eac_cop_m
+    text: "COP 178,3 M"
+    locale: es
+    where: "informe, Resumen ejecutivo"
+  - figure_id: management.baseline.ceiling_cop_m
+    text: "COP 180,0 M"
+    locale: es
+    where: "informe, Resumen ejecutivo"
+  # --- 1 Contexto y enfoque
+  - figure_id: exposure.delinquency.observed_cop_m
+    text: "COP 58.800 M"
+    locale: es
+    where: "informe, 1 Contexto y enfoque"
+  - figure_id: exposure.churn.observed_cop_m
+    text: "COP 18.200 M"
+    locale: es
+    where: "informe, 1 Contexto y enfoque"
+  # --- 2.1 Objetivo y composición
+  - figure_id: management.sprint_3.committed_sp
+    text: "16"
+    locale: es
+    where: "informe, 2.1 Objetivo y composición"
+  - figure_id: management.baseline.cr_01.approved_cop_m
+    text: "COP 8,3 M"
+    locale: es
+    where: "informe, 2.1 Objetivo y composición"
+  # --- 2.2 Comprometido frente a completado
+  - figure_id: management.sprint_3.committed_sp
+    text: "16"
+    locale: es
+    where: "informe, 2.2 Comprometido frente a completado"
+  - figure_id: management.sprint_3.done_sp
+    text: "16"
+    locale: es
+    where: "informe, 2.2 Comprometido frente a completado"
+  # --- 3.1 Velocidad
+  - figure_id: management.sprint_1.committed_sp
+    text: "15"
+    locale: es
+    where: "informe, 3.1 Velocidad"
+  - figure_id: management.sprint_1.done_sp
+    text: "15"
+    locale: es
+    where: "informe, 3.1 Velocidad"
+  - figure_id: management.sprint_2.committed_sp
+    text: "13"
+    locale: es
+    where: "informe, 3.1 Velocidad"
+  - figure_id: management.sprint_2.done_sp
+    text: "13"
+    locale: es
+    where: "informe, 3.1 Velocidad"
+  - figure_id: management.sprint_3.committed_sp
+    text: "16"
+    locale: es
+    where: "informe, 3.1 Velocidad"
+  - figure_id: management.sprint_3.done_sp
+    text: "16"
+    locale: es
+    where: "informe, 3.1 Velocidad"
+  # --- 4.1 Línea base del Charter
+  - figure_id: management.baseline.ceiling_cop_m
+    text: "COP 180,0 M"
+    locale: es
+    where: "informe, 4.1 Línea base del Charter"
+  - figure_id: management.baseline.contingency_cop_m
+    text: "COP 20,0 M"
+    locale: es
+    where: "informe, 4.1 Línea base del Charter"
+  - figure_id: management.baseline.bac_cop_m
+    text: "COP 168,3 M"
+    locale: es
+    where: "informe, 4.1 Línea base del Charter"
+  # --- 4.3 Presupuesto
+  - figure_id: management.sprint_1.pv_cop_m
+    text: "COP 26,7 M"
+    locale: es
+    where: "informe, 4.3 Presupuesto"
+  - figure_id: management.sprint_1.ev_cop_m
+    text: "COP 26,7 M"
+    locale: es
+    where: "informe, 4.3 Presupuesto"
+  - figure_id: management.sprint_1.ac_cop_m
+    text: "COP 19,6 M"
+    locale: es
+    where: "informe, 4.3 Presupuesto"
+  - figure_id: management.sprint_1.spi
+    text: "1,00"
+    locale: es
+    where: "informe, 4.3 Presupuesto"
+  - figure_id: management.sprint_1.cpi
+    text: "1,36"
+    locale: es
+    where: "informe, 4.3 Presupuesto"
+  - figure_id: management.sprint_2.pv_cop_m
+    text: "COP 26,7 M"
+    locale: es
+    where: "informe, 4.3 Presupuesto"
+  - figure_id: management.sprint_2.ev_cop_m
+    text: "COP 26,7 M"
+    locale: es
+    where: "informe, 4.3 Presupuesto"
+  - figure_id: management.sprint_2.ac_cop_m
+    text: "COP 9,0 M"
+    locale: es
+    where: "informe, 4.3 Presupuesto"
+  - figure_id: management.sprint_2.spi
+    text: "1,00"
+    locale: es
+    where: "informe, 4.3 Presupuesto"
+  - figure_id: management.sprint_2.cpi
+    text: "2,98"
+    locale: es
+    where: "informe, 4.3 Presupuesto"
+  - figure_id: management.sprint_3.pv_cop_m
+    text: "COP 35,0 M"
+    locale: es
+    where: "informe, 4.3 Presupuesto"
+  - figure_id: management.sprint_3.ev_cop_m
+    text: "COP 35,0 M"
+    locale: es
+    where: "informe, 4.3 Presupuesto"
+  - figure_id: management.sprint_3.ac_cop_m
+    text: "COP 65,0 M"
+    locale: es
+    where: "informe, 4.3 Presupuesto"
+  - figure_id: management.sprint_3.spi
+    text: "1,00"
+    locale: es
+    where: "informe, 4.3 Presupuesto"
+  - figure_id: management.sprint_3.cpi
+    text: "0,54"
+    locale: es
+    where: "informe, 4.3 Presupuesto"
+  - figure_id: management.cumulative.pv_cop_m
+    text: "COP 88,3 M"
+    locale: es
+    where: "informe, 4.3 Presupuesto"
+  - figure_id: management.cumulative.ev_cop_m
+    text: "COP 88,3 M"
+    locale: es
+    where: "informe, 4.3 Presupuesto"
+  - figure_id: management.cumulative.ac_cop_m
+    text: "COP 93,5 M"
+    locale: es
+    where: "informe, 4.3 Presupuesto"
+  - figure_id: management.cumulative.spi
+    text: "1,00"
+    locale: es
+    where: "informe, 4.3 Presupuesto"
+  - figure_id: management.cumulative.cpi
+    text: "0,94"
+    locale: es
+    where: "informe, 4.3 Presupuesto"
+  - figure_id: management.cumulative.eac_cop_m
+    text: "COP 178,3 M"
+    locale: es
+    where: "informe, 4.3 Presupuesto"
+  - figure_id: management.baseline.ceiling_cop_m
+    text: "COP 180,0 M"
+    locale: es
+    where: "informe, 4.3 Presupuesto"
+  # --- 4.4 Control de cambios
+  - figure_id: management.baseline.cr_01.approved_cop_m
+    text: "COP 8,3 M"
+    locale: es
+    where: "informe, 4.4 Control de cambios"
+  - figure_id: management.baseline.bac_cop_m
+    text: "COP 168,3 M"
+    locale: es
+    where: "informe, 4.4 Control de cambios"
+  - figure_id: management.baseline.reserve_remaining_cop_m
+    text: "COP 11,7 M"
+    locale: es
+    where: "informe, 4.4 Control de cambios"
