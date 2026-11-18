@@ -61,6 +61,9 @@ STRONGEST_VERDICT = ("authorized_for_shadow_deployment: shadow, pilot and approv
                      "for FinBank, decided and signed by its committee")
 MANAGEMENT_FIGURES = (("pv_cop_m", "COP_m"), ("ev_cop_m", "COP_m"), ("ac_cop_m", "COP_m"), ("spi", "ratio"),
                       ("cpi", "ratio"), ("eac_cop_m", "COP_m"))
+BASELINE_FIGURES = ("ceiling_cop_m", "contingency_cop_m", "bac_cop_m", "reserve_remaining_cop_m")
+SPRINT_FIGURES = (("committed_sp", "count"), ("done_sp", "count"), ("pv_cop_m", "COP_m"), ("ev_cop_m", "COP_m"),
+                  ("ac_cop_m", "COP_m"), ("spi", "ratio"), ("cpi", "ratio"))
 
 
 class OfficialRunRefused(Exception):
@@ -95,11 +98,28 @@ def _register_figures(manifest: dict, reconciliation: dict, evaluation: dict, ma
                 register_figure(manifest, f"{base}.{name}", value, unit, "evaluation.json",
                                 "src/predict360/evaluator.py", f"{select}.{path}")
     if management:
-        for key, unit in MANAGEMENT_FIGURES:
-            value = management["cumulative"].get(key)
-            if value is not None:
-                register_figure(manifest, f"management.cumulative.{key}", value, unit, "management.json",
-                                "src/predict360/budget_schedule.py", f"cumulative.{key}")
+        _register_management_figures(manifest, management)
+
+
+def _register_management_figures(manifest: dict, management: dict) -> None:
+    """Cumulative EVM, the budget baseline and every sprint: the report's budget chapter quotes them."""
+    def register(figure_id, value, unit, path):
+        if value is not None:
+            register_figure(manifest, figure_id, value, unit, "management.json",
+                            "src/predict360/budget_schedule.py", path)
+
+    for key, unit in MANAGEMENT_FIGURES:
+        register(f"management.cumulative.{key}", management["cumulative"].get(key), unit, f"cumulative.{key}")
+    baseline = management["baseline"]
+    for key in BASELINE_FIGURES:
+        register(f"management.baseline.{key}", baseline.get(key), "COP_m", f"baseline.{key}")
+    for cr in baseline["change_requests"]:
+        register(f"management.baseline.{cr['id'].lower().replace('-', '_')}.approved_cop_m", cr["approved_cop_m"],
+                 "COP_m", f"baseline.change_requests[id={cr['id']}].approved_cop_m")
+    for sprint in management["sprints"]:
+        n = sprint["sprint"]
+        for key, unit in SPRINT_FIGURES:
+            register(f"management.sprint_{n}.{key}", sprint.get(key), unit, f"sprints[sprint={n}].{key}")
 
 
 def _evidence_record(manifest: dict, cfg: dict, values: dict, gates: dict, evaluation: dict, official: bool) -> dict:
