@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "tables": {
+    "delinquency": {
+      "expected_cop_m": 58800.0,
+      "actual_cop_m": 58800.0,
+      "difference_cop_m": 0.0,
+      "tolerance_cop_m": 0.01,
+      "status": "PASS"
+    },
+    "churn": {
+      "expected_cop_m": 18200.0,
+      "actual_cop_m": 18200.0,
+      "difference_cop_m": 0.0,
+      "tolerance_cop_m": 0.01,
+      "status": "PASS"
+    }
+  }
+}

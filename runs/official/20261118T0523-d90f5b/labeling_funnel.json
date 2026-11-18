@@ -1,0 +1,85 @@
+{
+  "delinquency": {
+    "table": "delinquency",
+    "snapshot_date": "2026-03-31",
+    "steps": [
+      {
+        "step": "input",
+        "rows": 500,
+        "clients": 125000.0
+      },
+      {
+        "step": "cohort_not_in_arrears_at_T",
+        "missing_column": "current_dpd",
+        "status": "not_verifiable"
+      },
+      {
+        "step": "excluded_immature_all_horizons",
+        "rows": 13,
+        "clients": 3250.0
+      },
+      {
+        "step": "labeled",
+        "rows": 487,
+        "clients": 121750.0
+      }
+    ],
+    "horizons": {
+      "delinquency_30": {
+        "horizon_days": 30,
+        "mature_rows": 487,
+        "mature_clients": 121750.0,
+        "immature_rows": 13,
+        "positive_rows": 24,
+        "positive_clients": 6000.0,
+        "base_rate": 0.049281
+      },
+      "delinquency_60": {
+        "horizon_days": 60,
+        "mature_rows": 475,
+        "mature_clients": 118750.0,
+        "immature_rows": 25,
+        "positive_rows": 47,
+        "positive_clients": 11750.0,
+        "base_rate": 0.098947
+      }
+    }
+  },
+  "churn": {
+    "table": "churn",
+    "snapshot_date": "2026-03-31",
+    "steps": [
+      {
+        "step": "input",
+        "rows": 200,
+        "clients": 12500.0
+      },
+      {
+        "step": "cohort_not_maturing_within_horizon",
+        "missing_column": "maturity_date",
+        "status": "not_verifiable"
+      },
+      {
+        "step": "excluded_immature_all_horizons",
+        "rows": 10,
+        "clients": 625.0
+      },
+      {
+        "step": "labeled",
+        "rows": 190,
+        "clients": 11875.0
+      }
+    ],
+    "horizons": {
+      "churn_3m": {
+        "horizon_days": 90,
+        "mature_rows": 190,
+        "mature_clients": 11875.0,
+        "immature_rows": 10,
+        "positive_rows": 16,
+        "positive_clients": 1000.0,
+        "base_rate": 0.084211
+      }
+    }
+  }
+}

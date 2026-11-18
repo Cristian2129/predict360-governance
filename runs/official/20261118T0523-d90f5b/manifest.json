@@ -1,0 +1,840 @@
+{
+  "run_id": "20261118T0523-d90f5b",
+  "config": "synthetic.yaml",
+  "synthetic": true,
+  "commit": "c9d60545ea7aa6490c95f07d250cb24b4cfbddec",
+  "code_version": "0.3.0",
+  "created_at": "2026-11-18T05:23:28Z",
+  "snapshot_date": "2026-03-31",
+  "sources": [
+    {
+      "name": "delinquency",
+      "file": "data/synthetic/delinquency_sample.csv",
+      "sha256": "be602922fa28db78542df41e089ee56dfeef8e466871628862c764c00b1acc42",
+      "rows": 500,
+      "bytes": 64538
+    },
+    {
+      "name": "churn",
+      "file": "data/synthetic/churn_sample.csv",
+      "sha256": "8c870db2d8dfe97c0be83e9682ccece6c16ba0c76b53fe9485dad1fc872d112e",
+      "rows": 200,
+      "bytes": 21526
+    },
+    {
+      "name": "scores",
+      "file": "data/synthetic/scores_sample.csv",
+      "sha256": "ef94feb14fa244085beb136483937120f66f5910d9a347771158066ab693154a",
+      "rows": 3600,
+      "bytes": 359637
+    },
+    {
+      "name": "config",
+      "file": "config/synthetic.yaml",
+      "sha256": "19e140064d5f055263265de51dd990e80297e90f83781daaac39a1fb583a14d5",
+      "rows": null,
+      "bytes": 4825
+    },
+    {
+      "name": "assumptions",
+      "file": "config/assumptions.yaml",
+      "sha256": "4724cc701e26c02e8909c1ca8130dc73f8392b985e4e22c77d0d7530ec2fccac",
+      "rows": null,
+      "bytes": 5324
+    },
+    {
+      "name": "citations",
+      "file": "docs/cited_figures.yaml",
+      "sha256": "d916a1b41a487d876ab556d31053e24af7e71188d998c5617db673d82fcf03ff",
+      "rows": null,
+      "bytes": 6836
+    },
+    {
+      "name": "hours_log",
+      "file": "docs/hours_log.csv",
+      "sha256": "83eddffa48545405993f9765e5c8772212762b628ac6a765fd76bdf36629bee0",
+      "rows": 63,
+      "bytes": 7208
+    },
+    {
+      "name": "sprint_log",
+      "file": "docs/sprint_log.csv",
+      "sha256": "bbee5ec592b4167cecd3df022522a1fc95bdae3020ca0f03bfea1b02320b931c",
+      "rows": 9,
+      "bytes": 240
+    },
+    {
+      "name": "risk_register",
+      "file": "data/risk_register.csv",
+      "sha256": "43235a5059ceaca46190b60492a5e83f7cb7b1d3e0d2cee177a39c7d7383fc6b",
+      "rows": 6,
+      "bytes": 1126
+    },
+    {
+      "name": "risk_reviews",
+      "file": "data/risk_reviews.csv",
+      "sha256": "bad5e76161572a20b4f2e0f6cf3e8e8b69608f74551d83adb8292443692d5d3e",
+      "rows": 0,
+      "bytes": 42
+    },
+    {
+      "name": "handover",
+      "file": "config/handover.yaml",
+      "sha256": "485cc5f2a519ebe52f85405481f80f751fa1679562e10877ea857a8caf75af76",
+      "rows": null,
+      "bytes": 854
+    }
+  ],
+  "contract_versions": {
+    "delinquency": "v1",
+    "churn": "v1",
+    "scores": "v1",
+    "hours_log": "v1"
+  },
+  "gates": {
+    "gate1": {
+      "status": "PASS_WITH_WAIVERS",
+      "tables": {
+        "delinquency": "PASS",
+        "churn": "PASS_WITH_WAIVERS",
+        "scores": "PASS",
+        "hours_log": "PASS"
+      }
+    },
+    "gate2": {
+      "status": "PASS",
+      "counts": {
+        "ADMITTED": 6,
+        "REJECTED": 1,
+        "SKIPPED": 0
+      }
+    },
+    "gate3": {
+      "status": "PASS"
+    }
+  },
+  "waivers": [
+    {
+      "id": "W-01",
+      "table": "churn",
+      "column": "tenure_months",
+      "rule": "expect_column_values_to_not_be_null",
+      "risk": "R-01",
+      "reason": "12% of tenure_months is missing on purpose against a 5% threshold. It is not imputed: it is flagged and evaluated as its own slice.",
+      "approved_by": "Cristian Vega (Project Leader)",
+      "date": "2026-11-11",
+      "expires": "2026-12-31"
+    }
+  ],
+  "scores_sha256": "ef94feb14fa244085beb136483937120f66f5910d9a347771158066ab693154a",
+  "parameters": {
+    "horizons": [
+      30,
+      60,
+      90
+    ],
+    "seed": 42
+  },
+  "outputs": [
+    {
+      "file": "gate1.json",
+      "sha256": "f557c16d3079cb889ce56757954f4c8d8e7761cf2d8968df51c3dfa954332591",
+      "rows": null,
+      "bytes": 32227
+    },
+    {
+      "file": "reconciliation.json",
+      "sha256": "3f99cb417970e013b24fe3c0661d1b092c63e645e53afdac747cb8969e725eda",
+      "rows": null,
+      "bytes": 389
+    },
+    {
+      "file": "labeling_funnel.json",
+      "sha256": "c293759854e5f4182c0d5e1c3a756f9918dd0af4322c2572712af56162f8011f",
+      "rows": null,
+      "bytes": 1879
+    },
+    {
+      "file": "gate2.json",
+      "sha256": "65e4aa75d6fc28e168ed355d26678e4dd5aa8417c999334a12de92558f66335c",
+      "rows": null,
+      "bytes": 1913
+    },
+    {
+      "file": "evaluation.json",
+      "sha256": "02a9d14dd1943a00918642523ea283f7dcdac50b30351a00c9fbb504fff1e1df",
+      "rows": null,
+      "bytes": 84172
+    },
+    {
+      "file": "management.json",
+      "sha256": "a00921dd54e5fc47dfb89dc83579080102ef8f332e95670260f67606d96df61f",
+      "rows": null,
+      "bytes": 2406
+    },
+    {
+      "file": "consistency.json",
+      "sha256": "047c52e15ad09198cab4ed8b2514a96e52de2df36685770b2b1da44320d84a0e",
+      "rows": null,
+      "bytes": 179
+    },
+    {
+      "file": "evidence_record.json",
+      "sha256": "762c408eb68f6fef6404922825003fc1b27ec3275624f96b53b15915fea7cf72",
+      "rows": null,
+      "bytes": 3968
+    },
+    {
+      "file": "dashboard_data.json",
+      "sha256": "d5903c5c84bcd0c572063c8d1f654679dd3d79fd6d0408cb3b33e58fc05d9f50",
+      "rows": null,
+      "bytes": 141572
+    },
+    {
+      "file": "index.html",
+      "sha256": "ed4cd1373c243cdd1257b565a0294aaafcb177fd639a6dc912f5d7b953b95ab4",
+      "rows": null,
+      "bytes": 276996
+    }
+  ],
+  "figures": [
+    {
+      "figure_id": "exposure.delinquency.observed_cop_m",
+      "value": 58800.0,
+      "unit": "COP_m",
+      "file": "reconciliation.json",
+      "script": "src/predict360/reconcile.py",
+      "path": "tables.delinquency.actual_cop_m"
+    },
+    {
+      "figure_id": "exposure.churn.observed_cop_m",
+      "value": 18200.0,
+      "unit": "COP_m",
+      "file": "reconciliation.json",
+      "script": "src/predict360/reconcile.py",
+      "path": "tables.churn.actual_cop_m"
+    },
+    {
+      "figure_id": "models.churn_3m.baseline_rule.net_value_at_k_cop_m",
+      "value": 133.91380000000004,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=baseline_rule,label=churn_3m].at_k.net_value_cop_m"
+    },
+    {
+      "figure_id": "models.churn_3m.baseline_rule.capture_at_k",
+      "value": 0.25625060217277595,
+      "unit": "share",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=baseline_rule,label=churn_3m].at_k.capture"
+    },
+    {
+      "figure_id": "models.churn_3m.baseline_rule.breakeven_effectiveness",
+      "value": 0.06025479533031678,
+      "unit": "share",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=baseline_rule,label=churn_3m].breakeven_effectiveness"
+    },
+    {
+      "figure_id": "models.churn_3m.model_a.net_value_at_k_cop_m",
+      "value": 185.11568000000003,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_a,label=churn_3m].at_k.net_value_cop_m"
+    },
+    {
+      "figure_id": "models.churn_3m.model_a.capture_at_k",
+      "value": 0.3394688969390965,
+      "unit": "share",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_a,label=churn_3m].at_k.capture"
+    },
+    {
+      "figure_id": "models.churn_3m.model_a.breakeven_effectiveness",
+      "value": 0.045483776942195575,
+      "unit": "share",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_a,label=churn_3m].breakeven_effectiveness"
+    },
+    {
+      "figure_id": "models.churn_3m.model_a.difference_vs_baseline_cop_m",
+      "value": 51.20187999999999,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_a,label=churn_3m].vs_baseline.difference_cop_m"
+    },
+    {
+      "figure_id": "models.churn_3m.model_a.ci_low_vs_baseline_cop_m",
+      "value": -207.28604699999985,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_a,label=churn_3m].vs_baseline.ci_low_cop_m"
+    },
+    {
+      "figure_id": "models.churn_3m.model_a.ci_high_vs_baseline_cop_m",
+      "value": 260.6507609999998,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_a,label=churn_3m].vs_baseline.ci_high_cop_m"
+    },
+    {
+      "figure_id": "models.churn_3m.model_b.net_value_at_k_cop_m",
+      "value": 168.31948000000003,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_b,label=churn_3m].at_k.net_value_cop_m"
+    },
+    {
+      "figure_id": "models.churn_3m.model_b.capture_at_k",
+      "value": 0.3121700727054145,
+      "unit": "share",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_b,label=churn_3m].at_k.capture"
+    },
+    {
+      "figure_id": "models.churn_3m.model_b.breakeven_effectiveness",
+      "value": 0.049461267870356075,
+      "unit": "share",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_b,label=churn_3m].breakeven_effectiveness"
+    },
+    {
+      "figure_id": "models.churn_3m.model_b.difference_vs_baseline_cop_m",
+      "value": 34.40567999999999,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_b,label=churn_3m].vs_baseline.difference_cop_m"
+    },
+    {
+      "figure_id": "models.churn_3m.model_b.ci_low_vs_baseline_cop_m",
+      "value": -75.66216000000001,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_b,label=churn_3m].vs_baseline.ci_low_cop_m"
+    },
+    {
+      "figure_id": "models.churn_3m.model_b.ci_high_vs_baseline_cop_m",
+      "value": 397.32924,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_b,label=churn_3m].vs_baseline.ci_high_cop_m"
+    },
+    {
+      "figure_id": "models.delinquency_30.baseline_rule.net_value_at_k_cop_m",
+      "value": -92.17756,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=baseline_rule,label=delinquency_30].at_k.net_value_cop_m"
+    },
+    {
+      "figure_id": "models.delinquency_30.baseline_rule.capture_at_k",
+      "value": 0.13721834362314683,
+      "unit": "share",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=baseline_rule,label=delinquency_30].at_k.capture"
+    },
+    {
+      "figure_id": "models.delinquency_30.baseline_rule.breakeven_effectiveness",
+      "value": 0.6494277864713909,
+      "unit": "share",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=baseline_rule,label=delinquency_30].breakeven_effectiveness"
+    },
+    {
+      "figure_id": "models.delinquency_60.baseline_rule.net_value_at_k_cop_m",
+      "value": 35.48284000000001,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=baseline_rule,label=delinquency_60].at_k.net_value_cop_m"
+    },
+    {
+      "figure_id": "models.delinquency_60.baseline_rule.capture_at_k",
+      "value": 0.11652708808464442,
+      "unit": "share",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=baseline_rule,label=delinquency_60].at_k.capture"
+    },
+    {
+      "figure_id": "models.delinquency_60.baseline_rule.breakeven_effectiveness",
+      "value": 0.34752666749580124,
+      "unit": "share",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=baseline_rule,label=delinquency_60].breakeven_effectiveness"
+    },
+    {
+      "figure_id": "models.delinquency_30.model_a.net_value_at_k_cop_m",
+      "value": 60.397560000000055,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_a,label=delinquency_30].at_k.net_value_cop_m"
+    },
+    {
+      "figure_id": "models.delinquency_30.model_a.capture_at_k",
+      "value": 0.2788484320217882,
+      "unit": "share",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_a,label=delinquency_30].at_k.capture"
+    },
+    {
+      "figure_id": "models.delinquency_30.model_a.breakeven_effectiveness",
+      "value": 0.3195764972258762,
+      "unit": "share",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_a,label=delinquency_30].breakeven_effectiveness"
+    },
+    {
+      "figure_id": "models.delinquency_30.model_a.difference_vs_baseline_cop_m",
+      "value": 152.57512000000006,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_a,label=delinquency_30].vs_baseline.difference_cop_m"
+    },
+    {
+      "figure_id": "models.delinquency_30.model_a.ci_low_vs_baseline_cop_m",
+      "value": -29.163400999999965,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_a,label=delinquency_30].vs_baseline.ci_low_cop_m"
+    },
+    {
+      "figure_id": "models.delinquency_30.model_a.ci_high_vs_baseline_cop_m",
+      "value": 329.482498,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_a,label=delinquency_30].vs_baseline.ci_high_cop_m"
+    },
+    {
+      "figure_id": "models.delinquency_60.model_a.net_value_at_k_cop_m",
+      "value": 177.09116000000006,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_a,label=delinquency_60].at_k.net_value_cop_m"
+    },
+    {
+      "figure_id": "models.delinquency_60.model_a.capture_at_k",
+      "value": 0.1775335651615582,
+      "unit": "share",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_a,label=delinquency_60].at_k.capture"
+    },
+    {
+      "figure_id": "models.delinquency_60.model_a.breakeven_effectiveness",
+      "value": 0.22810486883533243,
+      "unit": "share",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_a,label=delinquency_60].breakeven_effectiveness"
+    },
+    {
+      "figure_id": "models.delinquency_60.model_a.difference_vs_baseline_cop_m",
+      "value": 141.60832000000005,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_a,label=delinquency_60].vs_baseline.difference_cop_m"
+    },
+    {
+      "figure_id": "models.delinquency_60.model_a.ci_low_vs_baseline_cop_m",
+      "value": -99.46128599999989,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_a,label=delinquency_60].vs_baseline.ci_low_cop_m"
+    },
+    {
+      "figure_id": "models.delinquency_60.model_a.ci_high_vs_baseline_cop_m",
+      "value": 425.3395839999999,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_a,label=delinquency_60].vs_baseline.ci_high_cop_m"
+    },
+    {
+      "figure_id": "models.delinquency_30.model_b.net_value_at_k_cop_m",
+      "value": 271.86032,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_b,label=delinquency_30].at_k.net_value_cop_m"
+    },
+    {
+      "figure_id": "models.delinquency_30.model_b.capture_at_k",
+      "value": 0.475141834195227,
+      "unit": "share",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_b,label=delinquency_30].at_k.capture"
+    },
+    {
+      "figure_id": "models.delinquency_30.model_b.breakeven_effectiveness",
+      "value": 0.18755116630255694,
+      "unit": "share",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_b,label=delinquency_30].breakeven_effectiveness"
+    },
+    {
+      "figure_id": "models.delinquency_30.model_b.difference_vs_baseline_cop_m",
+      "value": 364.03788,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_b,label=delinquency_30].vs_baseline.difference_cop_m"
+    },
+    {
+      "figure_id": "models.delinquency_30.model_b.ci_low_vs_baseline_cop_m",
+      "value": -125.90162299999999,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_b,label=delinquency_30].vs_baseline.ci_low_cop_m"
+    },
+    {
+      "figure_id": "models.delinquency_30.model_b.ci_high_vs_baseline_cop_m",
+      "value": 1258.379397999998,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_b,label=delinquency_30].vs_baseline.ci_high_cop_m"
+    },
+    {
+      "figure_id": "models.delinquency_60.model_b.net_value_at_k_cop_m",
+      "value": 852.58384,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_b,label=delinquency_60].at_k.net_value_cop_m"
+    },
+    {
+      "figure_id": "models.delinquency_60.model_b.capture_at_k",
+      "value": 0.4685435051004193,
+      "unit": "share",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_b,label=delinquency_60].at_k.capture"
+    },
+    {
+      "figure_id": "models.delinquency_60.model_b.breakeven_effectiveness",
+      "value": 0.08643011834379591,
+      "unit": "share",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_b,label=delinquency_60].breakeven_effectiveness"
+    },
+    {
+      "figure_id": "models.delinquency_60.model_b.difference_vs_baseline_cop_m",
+      "value": 817.101,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_b,label=delinquency_60].vs_baseline.difference_cop_m"
+    },
+    {
+      "figure_id": "models.delinquency_60.model_b.ci_low_vs_baseline_cop_m",
+      "value": 19.594947000000076,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_b,label=delinquency_60].vs_baseline.ci_low_cop_m"
+    },
+    {
+      "figure_id": "models.delinquency_60.model_b.ci_high_vs_baseline_cop_m",
+      "value": 1748.290431999999,
+      "unit": "COP_m",
+      "file": "evaluation.json",
+      "script": "src/predict360/evaluator.py",
+      "path": "evaluations[model_id=model_b,label=delinquency_60].vs_baseline.ci_high_cop_m"
+    },
+    {
+      "figure_id": "management.cumulative.pv_cop_m",
+      "value": 88.33333300000001,
+      "unit": "COP_m",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "cumulative.pv_cop_m"
+    },
+    {
+      "figure_id": "management.cumulative.ev_cop_m",
+      "value": 88.33333300000001,
+      "unit": "COP_m",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "cumulative.ev_cop_m"
+    },
+    {
+      "figure_id": "management.cumulative.ac_cop_m",
+      "value": 93.54166666666667,
+      "unit": "COP_m",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "cumulative.ac_cop_m"
+    },
+    {
+      "figure_id": "management.cumulative.spi",
+      "value": 1.0,
+      "unit": "ratio",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "cumulative.spi"
+    },
+    {
+      "figure_id": "management.cumulative.cpi",
+      "value": 0.9443207091314032,
+      "unit": "ratio",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "cumulative.cpi"
+    },
+    {
+      "figure_id": "management.cumulative.eac_cop_m",
+      "value": 178.25864811842885,
+      "unit": "COP_m",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "cumulative.eac_cop_m"
+    },
+    {
+      "figure_id": "management.baseline.ceiling_cop_m",
+      "value": 180,
+      "unit": "COP_m",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "baseline.ceiling_cop_m"
+    },
+    {
+      "figure_id": "management.baseline.contingency_cop_m",
+      "value": 20,
+      "unit": "COP_m",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "baseline.contingency_cop_m"
+    },
+    {
+      "figure_id": "management.baseline.bac_cop_m",
+      "value": 168.333333,
+      "unit": "COP_m",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "baseline.bac_cop_m"
+    },
+    {
+      "figure_id": "management.baseline.reserve_remaining_cop_m",
+      "value": 11.666667,
+      "unit": "COP_m",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "baseline.reserve_remaining_cop_m"
+    },
+    {
+      "figure_id": "management.baseline.cr_01.approved_cop_m",
+      "value": 8.333333,
+      "unit": "COP_m",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "baseline.change_requests[id=CR-01].approved_cop_m"
+    },
+    {
+      "figure_id": "management.sprint_1.committed_sp",
+      "value": 15,
+      "unit": "count",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "sprints[sprint=1].committed_sp"
+    },
+    {
+      "figure_id": "management.sprint_1.done_sp",
+      "value": 15,
+      "unit": "count",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "sprints[sprint=1].done_sp"
+    },
+    {
+      "figure_id": "management.sprint_1.pv_cop_m",
+      "value": 26.666666666666668,
+      "unit": "COP_m",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "sprints[sprint=1].pv_cop_m"
+    },
+    {
+      "figure_id": "management.sprint_1.ev_cop_m",
+      "value": 26.666666666666668,
+      "unit": "COP_m",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "sprints[sprint=1].ev_cop_m"
+    },
+    {
+      "figure_id": "management.sprint_1.ac_cop_m",
+      "value": 19.583333333333336,
+      "unit": "COP_m",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "sprints[sprint=1].ac_cop_m"
+    },
+    {
+      "figure_id": "management.sprint_1.spi",
+      "value": 1.0,
+      "unit": "ratio",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "sprints[sprint=1].spi"
+    },
+    {
+      "figure_id": "management.sprint_1.cpi",
+      "value": 1.3617021276595744,
+      "unit": "ratio",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "sprints[sprint=1].cpi"
+    },
+    {
+      "figure_id": "management.sprint_2.committed_sp",
+      "value": 13,
+      "unit": "count",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "sprints[sprint=2].committed_sp"
+    },
+    {
+      "figure_id": "management.sprint_2.done_sp",
+      "value": 13,
+      "unit": "count",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "sprints[sprint=2].done_sp"
+    },
+    {
+      "figure_id": "management.sprint_2.pv_cop_m",
+      "value": 26.666666666666668,
+      "unit": "COP_m",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "sprints[sprint=2].pv_cop_m"
+    },
+    {
+      "figure_id": "management.sprint_2.ev_cop_m",
+      "value": 26.666666666666668,
+      "unit": "COP_m",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "sprints[sprint=2].ev_cop_m"
+    },
+    {
+      "figure_id": "management.sprint_2.ac_cop_m",
+      "value": 8.958333333333334,
+      "unit": "COP_m",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "sprints[sprint=2].ac_cop_m"
+    },
+    {
+      "figure_id": "management.sprint_2.spi",
+      "value": 1.0,
+      "unit": "ratio",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "sprints[sprint=2].spi"
+    },
+    {
+      "figure_id": "management.sprint_2.cpi",
+      "value": 2.9767441860465116,
+      "unit": "ratio",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "sprints[sprint=2].cpi"
+    },
+    {
+      "figure_id": "management.sprint_3.committed_sp",
+      "value": 16,
+      "unit": "count",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "sprints[sprint=3].committed_sp"
+    },
+    {
+      "figure_id": "management.sprint_3.done_sp",
+      "value": 16,
+      "unit": "count",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "sprints[sprint=3].done_sp"
+    },
+    {
+      "figure_id": "management.sprint_3.pv_cop_m",
+      "value": 34.99999966666667,
+      "unit": "COP_m",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "sprints[sprint=3].pv_cop_m"
+    },
+    {
+      "figure_id": "management.sprint_3.ev_cop_m",
+      "value": 34.99999966666667,
+      "unit": "COP_m",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "sprints[sprint=3].ev_cop_m"
+    },
+    {
+      "figure_id": "management.sprint_3.ac_cop_m",
+      "value": 65.0,
+      "unit": "COP_m",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "sprints[sprint=3].ac_cop_m"
+    },
+    {
+      "figure_id": "management.sprint_3.spi",
+      "value": 1.0,
+      "unit": "ratio",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "sprints[sprint=3].spi"
+    },
+    {
+      "figure_id": "management.sprint_3.cpi",
+      "value": 0.5384615333333334,
+      "unit": "ratio",
+      "file": "management.json",
+      "script": "src/predict360/budget_schedule.py",
+      "path": "sprints[sprint=3].cpi"
+    }
+  ],
+  "official": true,
+  "stations": {
+    "management": "RUN"
+  },
+  "lineage_head_sha256": null,
+  "closed_at": "2026-11-18T05:23:31Z"
+}
