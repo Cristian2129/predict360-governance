@@ -106,6 +106,40 @@ def test_manifest_is_closed_with_outputs_figures_and_gate_detail(ordinary):
     assert manifest["stations"]["management"] == "RUN"
 
 
+def test_the_budget_baseline_and_every_sprint_are_registered_figures(ordinary):
+    # the report's budget chapter quotes them, so Gate 3 must be able to check them
+    run_dir = ordinary["run_dir"]
+    management = json.loads((run_dir / "management.json").read_text(encoding="utf-8"))
+    figures = {f["figure_id"]: f for f in
+               json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))["figures"]}
+    baseline = management["baseline"]
+    for key in ("ceiling_cop_m", "contingency_cop_m", "bac_cop_m", "reserve_remaining_cop_m"):
+        figure = figures[f"management.baseline.{key}"]
+        assert figure["value"] == pytest.approx(baseline[key]) and figure["unit"] == "COP_m"
+        assert figure["file"] == "management.json" and figure["path"] == f"baseline.{key}"
+    for cr in baseline["change_requests"]:
+        figure = figures[f"management.baseline.{cr['id'].lower().replace('-', '_')}.approved_cop_m"]
+        assert figure["value"] == pytest.approx(cr["approved_cop_m"]) and figure["unit"] == "COP_m"
+        assert figure["path"] == f"baseline.change_requests[id={cr['id']}].approved_cop_m"
+    units = {"committed_sp": "count", "done_sp": "count", "pv_cop_m": "COP_m", "ev_cop_m": "COP_m",
+             "ac_cop_m": "COP_m", "spi": "ratio", "cpi": "ratio"}
+    assert management["sprints"]
+    for sprint in management["sprints"]:
+        n = sprint["sprint"]
+        for key, unit in units.items():
+            if sprint[key] is None:     # e.g. CPI of a sprint without logged hours: nothing to quote
+                assert f"management.sprint_{n}.{key}" not in figures
+                continue
+            figure = figures[f"management.sprint_{n}.{key}"]
+            assert figure["value"] == pytest.approx(sprint[key]) and figure["unit"] == unit
+            assert figure["path"] == f"sprints[sprint={n}].{key}"
+    assert manifest_gate3_checked(run_dir) == len(figures)
+
+
+def manifest_gate3_checked(run_dir):
+    return json.loads((run_dir / "consistency.json").read_text(encoding="utf-8"))["figures_checked"]
+
+
 def test_gate3_without_citations_passes_with_a_warning(ordinary):
     report = json.loads((ordinary["run_dir"] / "consistency.json").read_text(encoding="utf-8"))
     assert report["status"] == "PASS" and report["warnings"] and report["require_citations"] is False
