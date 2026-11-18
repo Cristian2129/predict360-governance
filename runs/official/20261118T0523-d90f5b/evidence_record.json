@@ -1,0 +1,123 @@
+{
+  "run_id": "20261118T0523-d90f5b",
+  "generated_at": "2026-11-18T05:23:28Z",
+  "commit": "c9d60545ea7aa6490c95f07d250cb24b4cfbddec",
+  "code_version": "0.3.0",
+  "config": "synthetic.yaml",
+  "synthetic": true,
+  "scores_simulated": true,
+  "official": true,
+  "gates": {
+    "gate1": {
+      "status": "PASS_WITH_WAIVERS",
+      "tables": {
+        "delinquency": "PASS",
+        "churn": "PASS_WITH_WAIVERS",
+        "scores": "PASS",
+        "hours_log": "PASS"
+      }
+    },
+    "gate2": {
+      "status": "PASS",
+      "counts": {
+        "ADMITTED": 6,
+        "REJECTED": 1,
+        "SKIPPED": 0
+      },
+      "failures": []
+    },
+    "gate3": {
+      "status": "PASS",
+      "figures_checked": 79,
+      "citations_checked": 48,
+      "require_citations": true,
+      "mismatches": 0
+    }
+  },
+  "decision_criterion": {
+    "rule": "higher_net_value_at_K",
+    "margin_cop_m": 0,
+    "confidence_level": 0.95,
+    "bootstrap_samples": 500,
+    "bootstrap_seed": 42,
+    "capacity_share": 0.1,
+    "delinquency_horizons_days": [
+      30,
+      60
+    ],
+    "assumptions_sha256": "4724cc701e26c02e8909c1ca8130dc73f8392b985e4e22c77d0d7530ec2fccac",
+    "note": "Fixed in config/assumptions.yaml (A11, A16) before the evaluation ran; the hash records which values were used."
+  },
+  "decisions": [
+    {
+      "target": "churn",
+      "verdict": "not_authorized",
+      "reason_code": "insufficient_evidence",
+      "model_id": null,
+      "reason": "No model beat baseline_rule by more than 0 COP M at K on every horizon (churn_3m) at 95% confidence: model_a on churn_3m (insufficient_evidence); model_b on churn_3m (insufficient_evidence).",
+      "comparisons": [
+        {
+          "model_id": "model_a",
+          "label": "churn_3m",
+          "difference_cop_m": 51.20187999999999,
+          "ci_low_cop_m": -207.28604699999985,
+          "ci_high_cop_m": 260.6507609999998,
+          "outcome": "insufficient_evidence"
+        },
+        {
+          "model_id": "model_b",
+          "label": "churn_3m",
+          "difference_cop_m": 34.40567999999999,
+          "ci_low_cop_m": -75.66216000000001,
+          "ci_high_cop_m": 397.32924,
+          "outcome": "insufficient_evidence"
+        }
+      ]
+    },
+    {
+      "target": "delinquency",
+      "verdict": "not_authorized",
+      "reason_code": "insufficient_evidence",
+      "model_id": null,
+      "reason": "No model beat baseline_rule by more than 0 COP M at K on every horizon (delinquency_30, delinquency_60) at 95% confidence: model_a on delinquency_30 (insufficient_evidence), delinquency_60 (insufficient_evidence); model_b on delinquency_30 (insufficient_evidence).",
+      "comparisons": [
+        {
+          "model_id": "model_a",
+          "label": "delinquency_30",
+          "difference_cop_m": 152.57512000000006,
+          "ci_low_cop_m": -29.163400999999965,
+          "ci_high_cop_m": 329.482498,
+          "outcome": "insufficient_evidence"
+        },
+        {
+          "model_id": "model_a",
+          "label": "delinquency_60",
+          "difference_cop_m": 141.60832000000005,
+          "ci_low_cop_m": -99.46128599999989,
+          "ci_high_cop_m": 425.3395839999999,
+          "outcome": "insufficient_evidence"
+        },
+        {
+          "model_id": "model_b",
+          "label": "delinquency_30",
+          "difference_cop_m": 364.03788,
+          "ci_low_cop_m": -125.90162299999999,
+          "ci_high_cop_m": 1258.379397999998,
+          "outcome": "insufficient_evidence"
+        },
+        {
+          "model_id": "model_b",
+          "label": "delinquency_60",
+          "difference_cop_m": 817.101,
+          "ci_low_cop_m": 19.594947000000076,
+          "ci_high_cop_m": 1748.290431999999,
+          "outcome": "beats"
+        }
+      ]
+    }
+  ],
+  "waivers": [
+    "W-01"
+  ],
+  "strongest_possible_verdict": "authorized_for_shadow_deployment: shadow, pilot and approval are criteria and a plan for FinBank, decided and signed by its committee"
+}

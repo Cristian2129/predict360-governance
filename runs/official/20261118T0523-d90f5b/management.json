@@ -1,0 +1,98 @@
+{
+  "baseline": {
+    "ceiling_cop_m": 180,
+    "contingency_cop_m": 20,
+    "change_requests": [
+      {
+        "id": "CR-01",
+        "sprint": 3,
+        "approved_cop_m": 8.333333
+      }
+    ],
+    "bac_cop_m": 168.333333,
+    "reserve_remaining_cop_m": 11.666667,
+    "k_scale": 7.5,
+    "rate_cop": 111111.11111111111,
+    "logged_hour_cop_m": 0.8333333333333334,
+    "pv_by_sprint_cop_m": {
+      "1": 26.666666666666668,
+      "2": 26.666666666666668,
+      "3": 34.99999966666667,
+      "4": 26.666666666666668,
+      "5": 26.666666666666668,
+      "6": 26.666666666666668
+    }
+  },
+  "sprints": [
+    {
+      "sprint": 1,
+      "committed_sp": 15,
+      "done_sp": 15,
+      "pv_cop_m": 26.666666666666668,
+      "ev_cop_m": 26.666666666666668,
+      "ac_cop_m": 19.583333333333336,
+      "spi": 1.0,
+      "cpi": 1.3617021276595744,
+      "logged_hours": 23.5,
+      "estimated_hours": 23.5,
+      "hours_estimated": true,
+      "mgmt_hours": 7.5,
+      "mgmt_ac_cop_m": 6.25,
+      "change_requests_cop_m": 0
+    },
+    {
+      "sprint": 2,
+      "committed_sp": 13,
+      "done_sp": 13,
+      "pv_cop_m": 26.666666666666668,
+      "ev_cop_m": 26.666666666666668,
+      "ac_cop_m": 8.958333333333334,
+      "spi": 1.0,
+      "cpi": 2.9767441860465116,
+      "logged_hours": 10.75,
+      "estimated_hours": 10.75,
+      "hours_estimated": true,
+      "mgmt_hours": 4.0,
+      "mgmt_ac_cop_m": 3.3333333333333335,
+      "change_requests_cop_m": 0
+    },
+    {
+      "sprint": 3,
+      "committed_sp": 16,
+      "done_sp": 16,
+      "pv_cop_m": 34.99999966666667,
+      "ev_cop_m": 34.99999966666667,
+      "ac_cop_m": 65.0,
+      "spi": 1.0,
+      "cpi": 0.5384615333333334,
+      "logged_hours": 78.0,
+      "estimated_hours": 9.0,
+      "hours_estimated": true,
+      "mgmt_hours": 10.0,
+      "mgmt_ac_cop_m": 8.333333333333334,
+      "change_requests_cop_m": 8.333333
+    }
+  ],
+  "cumulative": {
+    "sprints": [
+      1,
+      2,
+      3
+    ],
+    "pv_cop_m": 88.33333300000001,
+    "ev_cop_m": 88.33333300000001,
+    "ac_cop_m": 93.54166666666667,
+    "spi": 1.0,
+    "cpi": 0.9443207091314032,
+    "bac_cop_m": 168.333333,
+    "eac_cop_m": 178.25864811842885,
+    "ceiling_cop_m": 180,
+    "eac_minus_ceiling_cop_m": -1.7413518815711484,
+    "eac_over_ceiling": false,
+    "estimated_hours": 43.25,
+    "mgmt_hours": 21.5
+  },
+  "hours_outside_reported_sprints": {
+    "4": 6.0
+  }
+}

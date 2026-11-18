@@ -1,0 +1,82 @@
+{
+  "gate": "gate2",
+  "status": "PASS",
+  "scores_sha256": "ef94feb14fa244085beb136483937120f66f5910d9a347771158066ab693154a",
+  "counts": {
+    "ADMITTED": 6,
+    "REJECTED": 1,
+    "SKIPPED": 0
+  },
+  "cards": [
+    {
+      "file": "churn_baseline_rule.json",
+      "model_id": "baseline_rule",
+      "target": "churn",
+      "status": "candidate",
+      "decision": "ADMITTED",
+      "reasons": [],
+      "demo": false
+    },
+    {
+      "file": "churn_model_a.json",
+      "model_id": "model_a",
+      "target": "churn",
+      "status": "candidate",
+      "decision": "ADMITTED",
+      "reasons": [],
+      "demo": false
+    },
+    {
+      "file": "churn_model_b.json",
+      "model_id": "model_b",
+      "target": "churn",
+      "status": "candidate",
+      "decision": "ADMITTED",
+      "reasons": [],
+      "demo": false
+    },
+    {
+      "file": "delinquency_baseline_rule.json",
+      "model_id": "baseline_rule",
+      "target": "delinquency",
+      "status": "candidate",
+      "decision": "ADMITTED",
+      "reasons": [],
+      "demo": false
+    },
+    {
+      "file": "delinquency_model_a.json",
+      "model_id": "model_a",
+      "target": "delinquency",
+      "status": "candidate",
+      "decision": "ADMITTED",
+      "reasons": [],
+      "demo": false
+    },
+    {
+      "file": "delinquency_model_b.json",
+      "model_id": "model_b",
+      "target": "delinquency",
+      "status": "candidate",
+      "decision": "ADMITTED",
+      "reasons": [],
+      "demo": false
+    },
+    {
+      "file": "delinquency_model_c.json",
+      "model_id": "model_c",
+      "target": "delinquency",
+      "status": "candidate",
+      "decision": "REJECTED",
+      "reasons": [
+        {
+          "rule": "temporal_split",
+          "severity": "reject",
+          "message": "non-temporal split: train_end_date is not before eval_start_date"
+        }
+      ],
+      "demo": true
+    }
+  ],
+  "failures": []
+}

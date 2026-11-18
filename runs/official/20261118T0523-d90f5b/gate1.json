@@ -1,0 +1,1238 @@
+{
+  "gate": "gate1",
+  "status": "PASS_WITH_WAIVERS",
+  "synthetic": true,
+  "snapshot_date": "2026-03-31",
+  "as_of": "2026-11-18",
+  "contract_versions": {
+    "delinquency": "v1",
+    "churn": "v1",
+    "scores": "v1",
+    "hours_log": "v1"
+  },
+  "waivers_applied": [
+    "W-01"
+  ],
+  "tables": {
+    "delinquency": {
+      "file": "delinquency_sample.csv",
+      "table": "delinquency",
+      "contract": "delinquency_v1",
+      "version": "v1",
+      "rows": 500,
+      "status": "PASS",
+      "results": [
+        {
+          "rule": "expect_table_row_count_to_be_between",
+          "column": null,
+          "critical": true,
+          "success": true,
+          "observed_value": 500,
+          "kwargs": {
+            "min_value": 1
+          }
+        },
+        {
+          "rule": "expect_table_columns_to_match_set",
+          "column": null,
+          "critical": true,
+          "success": true,
+          "missing_columns": [],
+          "extra_columns": []
+        },
+        {
+          "rule": "expect_column_values_to_not_be_null",
+          "column": "client_id",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "mostly": 1.0
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "client_id",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "string"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_unique",
+          "column": "client_id",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0
+        },
+        {
+          "rule": "expect_column_values_to_not_be_null",
+          "column": "snapshot_date",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "mostly": 1.0
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "snapshot_date",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "date"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_not_be_null",
+          "column": "exposure_cop_m",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "mostly": 1.0
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "exposure_cop_m",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "decimal"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_between",
+          "column": "exposure_cop_m",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "min_value": 0,
+            "max_value": null,
+            "strict_min": true
+          }
+        },
+        {
+          "rule": "expect_column_values_to_not_be_null",
+          "column": "weight",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "mostly": 1.0
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "weight",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "decimal"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_between",
+          "column": "weight",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "min_value": 0,
+            "max_value": null,
+            "strict_min": true
+          }
+        },
+        {
+          "rule": "expect_column_values_to_not_be_null",
+          "column": "origination_date",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "mostly": 1.0
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "origination_date",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "date"
+          }
+        },
+        {
+          "rule": "expect_column_pair_values_a_to_be_greater_than_b",
+          "column": "origination_date",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "column_A": "snapshot_date",
+            "column_B": "origination_date"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "utilization",
+          "critical": false,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "decimal"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_between",
+          "column": "utilization",
+          "critical": false,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "min_value": 0,
+            "max_value": 1.5,
+            "strict_min": false
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "prior_late_12m",
+          "critical": false,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "integer"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_between",
+          "column": "prior_late_12m",
+          "critical": false,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "min_value": 0,
+            "max_value": null,
+            "strict_min": false
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "max_dpd_12m",
+          "critical": false,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "integer"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_between",
+          "column": "max_dpd_12m",
+          "critical": false,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "min_value": 0,
+            "max_value": null,
+            "strict_min": false
+          }
+        },
+        {
+          "rule": "expect_column_values_to_not_be_null",
+          "column": "tenure_months",
+          "critical": false,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "mostly": 0.95
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "tenure_months",
+          "critical": false,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "integer"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_between",
+          "column": "tenure_months",
+          "critical": false,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "min_value": 0,
+            "max_value": null,
+            "strict_min": false
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "first_delinquency_date",
+          "critical": false,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "date"
+          }
+        },
+        {
+          "rule": "expect_column_pair_values_a_to_be_greater_than_b",
+          "column": "first_delinquency_date",
+          "critical": false,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "column_A": "first_delinquency_date",
+            "column_B": "snapshot_date"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_not_be_null",
+          "column": "observation_end_date",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "mostly": 1.0
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "observation_end_date",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "date"
+          }
+        },
+        {
+          "rule": "expect_column_pair_values_a_to_be_greater_than_b",
+          "column": "observation_end_date",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "column_A": "observation_end_date",
+            "column_B": "snapshot_date"
+          }
+        }
+      ],
+      "missing": {
+        "client_id": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "snapshot_date": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "exposure_cop_m": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "weight": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "origination_date": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "utilization": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": null
+        },
+        "prior_late_12m": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": null
+        },
+        "max_dpd_12m": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": null
+        },
+        "tenure_months": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 5.0
+        },
+        "first_delinquency_date": {
+          "count": 438,
+          "pct": 87.6,
+          "limit_pct": null
+        },
+        "observation_end_date": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        }
+      },
+      "waivers_applied": [],
+      "waivers_ignored": []
+    },
+    "churn": {
+      "file": "churn_sample.csv",
+      "table": "churn",
+      "contract": "churn_v1",
+      "version": "v1",
+      "rows": 200,
+      "status": "PASS_WITH_WAIVERS",
+      "results": [
+        {
+          "rule": "expect_table_row_count_to_be_between",
+          "column": null,
+          "critical": true,
+          "success": true,
+          "observed_value": 200,
+          "kwargs": {
+            "min_value": 1
+          }
+        },
+        {
+          "rule": "expect_table_columns_to_match_set",
+          "column": null,
+          "critical": true,
+          "success": true,
+          "missing_columns": [],
+          "extra_columns": []
+        },
+        {
+          "rule": "expect_column_values_to_not_be_null",
+          "column": "client_id",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "mostly": 1.0
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "client_id",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "string"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_unique",
+          "column": "client_id",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0
+        },
+        {
+          "rule": "expect_column_values_to_not_be_null",
+          "column": "snapshot_date",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "mostly": 1.0
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "snapshot_date",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "date"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_not_be_null",
+          "column": "exposure_cop_m",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "mostly": 1.0
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "exposure_cop_m",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "decimal"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_between",
+          "column": "exposure_cop_m",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "min_value": 0,
+            "max_value": null,
+            "strict_min": true
+          }
+        },
+        {
+          "rule": "expect_column_values_to_not_be_null",
+          "column": "weight",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "mostly": 1.0
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "weight",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "decimal"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_between",
+          "column": "weight",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "min_value": 0,
+            "max_value": null,
+            "strict_min": true
+          }
+        },
+        {
+          "rule": "expect_column_values_to_not_be_null",
+          "column": "tenure_months",
+          "critical": false,
+          "success": false,
+          "unexpected_count": 24,
+          "unexpected_pct": 12.0,
+          "kwargs": {
+            "mostly": 0.95
+          },
+          "waived_by": "W-01"
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "tenure_months",
+          "critical": false,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "integer"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_between",
+          "column": "tenure_months",
+          "critical": false,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "min_value": 0,
+            "max_value": null,
+            "strict_min": false
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "products_active",
+          "critical": false,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "integer"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_between",
+          "column": "products_active",
+          "critical": false,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "min_value": 1,
+            "max_value": null,
+            "strict_min": false
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "cancellation_date",
+          "critical": false,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "date"
+          }
+        },
+        {
+          "rule": "expect_column_pair_values_a_to_be_greater_than_b",
+          "column": "cancellation_date",
+          "critical": false,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "column_A": "cancellation_date",
+            "column_B": "snapshot_date"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_not_be_null",
+          "column": "observation_end_date",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "mostly": 1.0
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "observation_end_date",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "date"
+          }
+        },
+        {
+          "rule": "expect_column_pair_values_a_to_be_greater_than_b",
+          "column": "observation_end_date",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "column_A": "observation_end_date",
+            "column_B": "snapshot_date"
+          }
+        }
+      ],
+      "missing": {
+        "client_id": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "snapshot_date": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "exposure_cop_m": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "weight": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "tenure_months": {
+          "count": 24,
+          "pct": 12.0,
+          "limit_pct": 5.0
+        },
+        "products_active": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": null
+        },
+        "cancellation_date": {
+          "count": 178,
+          "pct": 89.0,
+          "limit_pct": null
+        },
+        "observation_end_date": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        }
+      },
+      "waivers_applied": [
+        "W-01"
+      ],
+      "waivers_ignored": []
+    },
+    "scores": {
+      "file": "scores_sample.csv",
+      "table": "scores",
+      "contract": "scores_v1",
+      "version": "v1",
+      "rows": 3600,
+      "status": "PASS",
+      "results": [
+        {
+          "rule": "expect_table_row_count_to_be_between",
+          "column": null,
+          "critical": true,
+          "success": true,
+          "observed_value": 3600,
+          "kwargs": {
+            "min_value": 1
+          }
+        },
+        {
+          "rule": "expect_table_columns_to_match_set",
+          "column": null,
+          "critical": true,
+          "success": true,
+          "missing_columns": [],
+          "extra_columns": []
+        },
+        {
+          "rule": "expect_column_values_to_not_be_null",
+          "column": "client_id",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "mostly": 1.0
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "client_id",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "string"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_not_be_null",
+          "column": "model_id",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "mostly": 1.0
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "model_id",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "string"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_not_be_null",
+          "column": "snapshot_date",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "mostly": 1.0
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "snapshot_date",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "date"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_equal_run_snapshot",
+          "column": "snapshot_date",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "value": "2026-03-31"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_not_be_null",
+          "column": "horizon_days",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "mostly": 1.0
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "horizon_days",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "integer"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_in_set",
+          "column": "horizon_days",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "value_set": [
+              30,
+              60,
+              90
+            ]
+          }
+        },
+        {
+          "rule": "expect_column_values_to_not_be_null",
+          "column": "score",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "mostly": 1.0
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "score",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "decimal"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_between",
+          "column": "score",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "min_value": 0,
+            "max_value": 1,
+            "strict_min": false
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "intervened",
+          "critical": false,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "binary"
+          }
+        }
+      ],
+      "missing": {
+        "client_id": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "model_id": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "snapshot_date": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "horizon_days": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "score": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "intervened": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": null
+        }
+      },
+      "waivers_applied": [],
+      "waivers_ignored": []
+    },
+    "hours_log": {
+      "file": "docs/hours_log.csv",
+      "table": "hours_log",
+      "contract": "hours_log_v1",
+      "version": "v1",
+      "rows": 63,
+      "status": "PASS",
+      "results": [
+        {
+          "rule": "expect_table_row_count_to_be_between",
+          "column": null,
+          "critical": true,
+          "success": true,
+          "observed_value": 63,
+          "kwargs": {
+            "min_value": 1
+          }
+        },
+        {
+          "rule": "expect_table_columns_to_match_set",
+          "column": null,
+          "critical": true,
+          "success": true,
+          "missing_columns": [],
+          "extra_columns": []
+        },
+        {
+          "rule": "expect_column_values_to_not_be_null",
+          "column": "date",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "mostly": 1.0
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "date",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "date"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_not_be_null",
+          "column": "person",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "mostly": 1.0
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "person",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "string"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_in_set",
+          "column": "person",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "value_set": [
+              "Cristian Vega",
+              "Paula Gacha",
+              "Marco Jimenez"
+            ]
+          }
+        },
+        {
+          "rule": "expect_column_values_to_not_be_null",
+          "column": "sprint",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "mostly": 1.0
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "sprint",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "integer"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_between",
+          "column": "sprint",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "min_value": 1,
+            "max_value": 6,
+            "strict_min": false
+          }
+        },
+        {
+          "rule": "expect_column_values_to_not_be_null",
+          "column": "story_id",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "mostly": 1.0
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "story_id",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "string"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_not_be_null",
+          "column": "hours",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "mostly": 1.0
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "hours",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "decimal"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_between",
+          "column": "hours",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "min_value": 0,
+            "max_value": 24,
+            "strict_min": true
+          }
+        },
+        {
+          "rule": "expect_column_values_to_not_be_null",
+          "column": "estimated",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "mostly": 1.0
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "estimated",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "binary"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_zero_from_date",
+          "column": "estimated",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "date_column": "date",
+            "date": "2026-11-11"
+          }
+        },
+        {
+          "rule": "expect_column_values_to_be_of_type",
+          "column": "note",
+          "critical": false,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "type_": "string"
+          }
+        },
+        {
+          "rule": "expect_column_sum_per_group_to_be_at_most",
+          "column": "hours",
+          "critical": true,
+          "success": true,
+          "unexpected_count": 0,
+          "unexpected_pct": 0.0,
+          "kwargs": {
+            "group_by": [
+              "person",
+              "date"
+            ],
+            "max_value": 12
+          }
+        }
+      ],
+      "missing": {
+        "date": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "person": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "sprint": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "story_id": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "hours": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "estimated": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": 0.0
+        },
+        "note": {
+          "count": 0,
+          "pct": 0.0,
+          "limit_pct": null
+        }
+      },
+      "waivers_applied": [],
+      "waivers_ignored": []
+    }
+  }
+}

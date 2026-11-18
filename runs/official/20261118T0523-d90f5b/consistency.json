@@ -1,0 +1,10 @@
+{
+  "gate": "gate3",
+  "status": "PASS",
+  "checked": 127,
+  "figures_checked": 79,
+  "citations_checked": 48,
+  "require_citations": true,
+  "warnings": [],
+  "mismatches": []
+}
